@@ -21,7 +21,7 @@ export const PHASE_NAMES: Record<Phase, string> = {
 
 export type Position = 'atk' | 'def';
 
-export type SummonType = 'normal' | 'tribute' | 'flip' | 'special' | 'fusion' | 'ritual' | 'synchro' | 'xyz';
+export type SummonType = 'normal' | 'tribute' | 'flip' | 'special' | 'fusion' | 'ritual' | 'synchro' | 'xyz' | 'link' | 'pendulum';
 
 export type Reason =
   | 'battle'
@@ -120,11 +120,15 @@ export type Query =
   | 'noBattleDamage' // 玩家不受戰鬥傷害（全域，player 為受保護方）
   | 'forceDefense' // 強制變成守備表示
   | 'cannotSpecialSummon' // 玩家不能特殊召喚（全域）
-  | 'noSTDuringAttack'; // 這張卡攻擊時對方不能發動魔法・陷阱
+  | 'noSTDuringAttack' // 這張卡攻擊時對方不能發動魔法・陷阱
+  | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
+  | 'doubleBattleDamage'; // 給予對方的戰鬥傷害變成 2 倍
 
 export interface StatMod {
   atk?: number;
   def?: number;
+  /** 等級增減 */
+  level?: number;
   /** 直接設定攻擊力（例如：變成原本攻擊力的 2 倍） */
   setAtk?: number;
   setDef?: number;
@@ -179,6 +183,22 @@ export interface CardScript {
   };
   /** 表側表示從場上離開時除外 */
   banishOnLeave?: boolean;
+  /** 連結素材 */
+  link?: {
+    /** 素材數量下限（預設 2） */
+    min?: number;
+    /** 素材數量上限 */
+    max?: number;
+    filter?: (c: Card, duel: Duel) => boolean;
+    /** 整組素材的條件（例如：包含衍生物、卡名不同） */
+    validate?: (set: Card[], duel: Duel) => boolean;
+  };
+  /** 靈擺刻度的變化（星讀・時讀之魔術師） */
+  scaleOverride?: (duel: Duel, self: Card) => number | undefined;
+  /** 能不能發動為靈擺刻度 */
+  scaleCondition?: (duel: Duel, self: Card) => boolean;
+  /** 對方靈擺區域的卡效果無效（龍魔王 魔道矢·靈擺） */
+  negateOppScales?: boolean;
   /** 和某隻怪獸戰鬥時不會被戰鬥破壞 */
   battleIndesAgainst?: (duel: Duel, self: Card, foe: Card) => boolean;
   /** 超量素材 */
@@ -188,6 +208,8 @@ export interface CardScript {
     label?: string;
     condition: (duel: Duel, card: Card) => boolean;
     cost?: (duel: Duel, card: Card) => Promise<void>;
+    /** 只能放在這些格子 */
+    zones?: (duel: Duel, card: Card) => number[];
   };
   /** 只能用指定方式特殊召喚（例如：只能融合召喚） */
   spSummonOnly?: SummonType[];
@@ -239,6 +261,9 @@ export type MainAction =
   | { type: 'spSummon'; card: Card }
   | { type: 'synchro'; card: Card }
   | { type: 'xyz'; card: Card }
+  | { type: 'link'; card: Card }
+  | { type: 'pendulumScale'; card: Card; zone: 0 | 4 }
+  | { type: 'pendulumSummon' }
   | { type: 'toBattle' }
   | { type: 'toMain2' }
   | { type: 'endTurn' };

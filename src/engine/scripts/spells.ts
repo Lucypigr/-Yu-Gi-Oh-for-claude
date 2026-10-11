@@ -768,7 +768,7 @@ export function ritualSpell(monsterId: number) {
   const ritualMons = (ctx: EffectContext) => ctx.duel.p(ctx.player).hand.filter((c) => c.id === monsterId);
   const tributePool = (ctx: EffectContext, ritual?: Card) =>
     [...ctx.duel.p(ctx.player).hand, ...ctx.duel.monsters(ctx.player)].filter(
-      (c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0,
+      (c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0 && !(c.data.type & 0x4000000),
     );
   const canRitual = (ctx: EffectContext) =>
     ritualMons(ctx).some((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= level) &&

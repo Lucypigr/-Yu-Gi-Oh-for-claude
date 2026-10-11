@@ -10,6 +10,8 @@ import {
   isToken,
   isTuner,
   isXyz,
+  isLink,
+  isPendulum,
   cannotNormalSummon,
   spellKind,
   trapKind,
@@ -168,7 +170,8 @@ export class Duel {
         grave: [],
         banished: [],
         extra: [],
-        mzone: [null, null, null, null, null],
+        // 0～4：主要怪獸區；5、6：額外怪獸區（左、右，雙方共用）
+        mzone: [null, null, null, null, null, null, null],
         szone: [null, null, null, null, null],
         fzone: null,
         normalSummons: 1,
@@ -287,8 +290,135 @@ export class Duel {
     return [...this.monsters(p), ...this.spellTraps(p)];
   }
 
+  /** 主要怪獸區的空格數 */
   freeMZones(p: PlayerId): number {
-    return this.p(p).mzone.filter((c) => !c).length;
+    return this.freeMainZones(p).length;
+  }
+
+  freeMainZones(p: PlayerId, exclude: Card[] = []): number[] {
+    const z = this.p(p).mzone;
+    return [0, 1, 2, 3, 4].filter((i) => !z[i] || exclude.includes(z[i]!));
+  }
+
+  // ---- 額外怪獸區與連結箭頭 ----
+
+  /** 怪獸區在共用棋盤上的位置 [列, 行]：列 0＝玩家 1 的主要怪獸區、1＝額外怪獸區、2＝玩家 0 */
+  zonePos(p: PlayerId, idx: number): [number, number] {
+    if (idx === 5) return [1, 1];
+    if (idx === 6) return [1, 3];
+    return p === 0 ? [2, idx] : [0, 4 - idx];
+  }
+
+  /** 連結怪獸箭頭指向的格子 */
+  pointedZones(link: Card): { player: PlayerId; idx: number }[] {
+    if (link.location !== 'mzone' || !link.faceUp || !isLink(link.data)) return [];
+    const m = link.data.linkMarkers ?? 0;
+    const [r, c] = this.zonePos(link.controller, link.zone);
+    const dirs: [number, number, number][] = [
+      [0x1, 1, -1],
+      [0x2, 1, 0],
+      [0x4, 1, 1],
+      [0x8, 0, -1],
+      [0x20, 0, 1],
+      [0x40, -1, -1],
+      [0x80, -1, 0],
+      [0x100, -1, 1],
+    ];
+    const flip = link.controller === 1 ? -1 : 1;
+    const out: { player: PlayerId; idx: number }[] = [];
+    for (const [bit, dr, dc] of dirs) {
+      if (!(m & bit)) continue;
+      const rr = r + dr * flip;
+      const cc = c + dc * flip;
+      if (cc < 0 || cc > 4) continue;
+      if (rr === 2) out.push({ player: 0, idx: cc });
+      else if (rr === 0) out.push({ player: 1, idx: 4 - cc });
+      else if (rr === 1 && (cc === 1 || cc === 3)) {
+        const idx = cc === 1 ? 5 : 6;
+        const occ = this.p(0).mzone[idx] ?? this.p(1).mzone[idx];
+        out.push({ player: occ ? occ.controller : link.controller, idx });
+      }
+    }
+    return out;
+  }
+
+  /** 連結怪獸所連接區的怪獸 */
+  pointedMonsters(link: Card): Card[] {
+    return this.pointedZones(link)
+      .map((z) => this.p(z.player).mzone[z.idx])
+      .filter((c): c is Card => !!c);
+  }
+
+  /** 是否為「連接狀態」 */
+  isLinked(c: Card): boolean {
+    if (c.location !== 'mzone') return false;
+    if (isLink(c.data) && this.pointedMonsters(c).length > 0) return true;
+    return this.monsters().some((l) => isLink(l.data) && this.pointedMonsters(l).includes(c));
+  }
+
+  /** p 的主要怪獸區中被連結箭頭指向的格子 */
+  linkedZones(p: PlayerId, exclude: Card[] = []): Set<number> {
+    const out = new Set<number>();
+    for (const l of this.monsters()) {
+      if (!isLink(l.data) || exclude.includes(l)) continue;
+      for (const z of this.pointedZones(l)) if (z.player === p && z.idx < 5) out.add(z.idx);
+    }
+    return out;
+  }
+
+  /** 從額外牌組出場的怪獸可以放的格子 */
+  extraZones(p: PlayerId, card: Card, exclude: Card[] = []): number[] {
+    const free = (i: number) => {
+      const a = this.p(0).mzone[i];
+      const b = this.p(1).mzone[i];
+      return (!a || exclude.includes(a)) && (!b || exclude.includes(b));
+    };
+    const ownEmz = [5, 6].some((i) => {
+      const c = this.p(p).mzone[i];
+      return c && !exclude.includes(c);
+    });
+    const emz = ownEmz ? [] : [5, 6].filter(free);
+    const main = this.freeMainZones(p, exclude);
+    const restricted = isLink(card.data) || (isPendulum(card.data) && card.location === 'extra');
+    if (!restricted) return [...main, ...emz];
+    const linked = this.linkedZones(p, exclude);
+    return [...emz, ...main.filter((i) => linked.has(i))];
+  }
+
+  // ---- 靈擺 ----
+  pendulumScales(p: PlayerId): [Card | null, Card | null] {
+    const z = this.p(p).szone;
+    const ok = (c: Card | null) => (c && c.faceUp && isPendulum(c.data) ? c : null);
+    return [ok(z[0]), ok(z[4])];
+  }
+
+  getScale(c: Card): number {
+    const over = getScript(c.id).scaleOverride?.(this, c);
+    let s = over ?? c.data.scale ?? 0;
+    if (typeof c.flags.scaleDelta === 'number' && c.flags.scaleTurn === this.turn) s += c.flags.scaleDelta;
+    return Math.max(0, Math.min(13, s));
+  }
+
+  /** 可以靈擺召喚的怪獸 */
+  pendulumCandidates(p: PlayerId): Card[] {
+    const [l, r] = this.pendulumScales(p);
+    if (!l || !r) return [];
+    const lo = Math.min(this.getScale(l), this.getScale(r));
+    const hi = Math.max(this.getScale(l), this.getScale(r));
+    const ok = (c: Card) => isMonster(c.data) && c.data.level > lo && c.data.level < hi;
+    const fromHand = this.p(p).hand.filter((c) => ok(c) && !cannotNormalSummon(c.data));
+    const fromExtra = this.p(p).extra.filter((c) => c.faceUp && isPendulum(c.data) && ok(c));
+    return [
+      ...(this.freeMZones(p) > 0 ? fromHand : []),
+      ...fromExtra.filter((c) => this.extraZones(p, c).length > 0),
+    ];
+  }
+
+  freeSZoneIndex(p: PlayerId): number {
+    const z = this.p(p).szone;
+    // 一般魔法陷阱優先放中間，保留兩端的靈擺區域
+    for (const i of [1, 2, 3, 0, 4]) if (!z[i]) return i;
+    return -1;
   }
 
   freeSZones(p: PlayerId): number {
@@ -341,7 +471,13 @@ export class Duel {
 
   /** 效果無效（永久或「直到回合結束」） */
   isNegated(card: Card): boolean {
-    return card.negated || this.hasFlag(card, 'negated');
+    if (card.negated || this.hasFlag(card, 'negated')) return true;
+    // 龍魔王 魔道矢·靈擺：對方靈擺區域的卡效果無效
+    if (card.location === 'szone' && isPendulum(card.data)) {
+      const opp = this.p(other(card.controller)).szone;
+      if ([opp[0], opp[4]].some((c) => c && c.faceUp && !c.negated && getScript(c.id).negateOppScales)) return true;
+    }
+    return false;
   }
 
   hasFlag(card: Card, name: string): boolean {
@@ -376,8 +512,12 @@ export class Duel {
     return false;
   }
 
+  /** 等級（連結怪獸沒有等級，視為 0） */
   getLevel(c: Card): number {
-    return c.data.level;
+    if (isLink(c.data)) return 0;
+    let lv = c.data.level;
+    if (c.location === 'mzone' && c.faceUp) for (const m of c.mods) lv += m.level ?? 0;
+    return Math.max(1, lv);
   }
 
   getAtk(c: Card): number {
@@ -389,6 +529,7 @@ export class Duel {
   }
 
   private stat(c: Card, which: 'atk' | 'def'): number {
+    if (which === 'def' && isLink(c.data)) return 0;
     let base = which === 'atk' ? c.data.atk : c.data.def;
     if (base < 0) base = 0;
     if (c.location !== 'mzone' || !c.faceUp) return base;
@@ -447,7 +588,7 @@ export class Duel {
   moveTo(
     card: Card,
     to: Loc,
-    opts: { reason: Reason; by?: Card; player?: PlayerId; faceUp?: boolean; position?: Position; top?: boolean } = {
+    opts: { reason: Reason; by?: Card; player?: PlayerId; faceUp?: boolean; position?: Position; top?: boolean; zone?: number } = {
       reason: 'rule',
     },
   ): boolean {
@@ -461,6 +602,12 @@ export class Duel {
     // 「從場上離開的場合除外」
     if (wasOnField && wasFaceUp && to !== 'banished' && to !== 'mzone' && to !== 'overlay' && getScript(card.id).banishOnLeave)
       to = 'banished';
+    // 場上的靈擺怪獸送去墓地時，改為表側加入額外牌組
+    let pendulumToExtra = false;
+    if (wasOnField && to === 'grave' && isPendulum(card.data)) {
+      to = 'extra';
+      pendulumToExtra = true;
+    }
 
     // 決定新位置的格子
     let zoneIndex = -1;
@@ -469,7 +616,12 @@ export class Duel {
       const zones = to === 'mzone' ? this.p(controller).mzone : this.p(controller).szone;
       // 同區域內換控制權時，先離開原本的格子
       if (from === to && card.controller === controller) return true;
-      zoneIndex = zones.indexOf(null);
+      if (opts.zone !== undefined) {
+        zoneIndex = opts.zone;
+        if (zones[zoneIndex] || (zoneIndex >= 5 && this.p(other(controller)).mzone[zoneIndex])) return false;
+      } else {
+        zoneIndex = to === 'mzone' ? (this.freeMainZones(controller)[0] ?? -1) : this.freeSZoneIndex(controller);
+      }
       if (zoneIndex < 0) return false;
     }
 
@@ -523,8 +675,9 @@ export class Duel {
         break;
       case 'extra':
         card.controller = card.owner;
-        card.faceUp = false;
+        card.faceUp = pendulumToExtra;
         this.p(card.owner).extra.push(card);
+        if (pendulumToExtra) this.log(`「${card.name}」表側加入額外牌組`);
         break;
       case 'hand':
         card.controller = card.owner;
@@ -604,7 +757,7 @@ export class Duel {
     for (const c of cards) {
       if (!c.onField) continue;
       if (reason === 'effect' && by && this.isImmune(c, by)) continue;
-      if (reason === 'effect' && c.location === 'mzone' && this.has(c, 'effectIndestructible')) continue;
+      if (reason === 'effect' && this.has(c, 'effectIndestructible')) continue;
       const from = c.location;
       const prevController = c.controller;
       const wasFaceUp = c.faceUp;
@@ -725,11 +878,22 @@ export class Duel {
   specialSummon(
     card: Card,
     p: PlayerId,
-    opts: { position?: Position; faceDown?: boolean; summonType?: SummonType; by?: Card; negateEffects?: boolean } = {},
+    opts: {
+      position?: Position;
+      faceDown?: boolean;
+      summonType?: SummonType;
+      by?: Card;
+      negateEffects?: boolean;
+      /** 只能放在這些格子（例如：連結怪獸所連接區） */
+      zones?: number[];
+    } = {},
   ): boolean {
-    if (this.freeMZones(p) <= 0) return false;
     if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return false;
+    let zones = card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
+    if (opts.zones) zones = zones.filter((z) => opts.zones!.includes(z));
+    if (!zones.length) return false;
     const ok = this.moveTo(card, 'mzone', {
+      zone: zones[0],
       reason: 'summon',
       player: p,
       faceUp: !opts.faceDown,
@@ -757,6 +921,7 @@ export class Duel {
   /** 改變表示形式（效果） */
   changePosition(card: Card, pos: Position, faceUp = true, by?: Card) {
     if (card.location !== 'mzone') return;
+    if (isLink(card.data)) return; // 連結怪獸永遠是表側攻擊表示
     if (by && this.isImmune(card, by)) return;
     const wasFaceUp = card.faceUp;
     card.position = pos;
@@ -773,7 +938,7 @@ export class Duel {
     const old = this.p(card.controller).mzone;
     old[old.indexOf(card)] = null;
     const zones = this.p(p).mzone;
-    const zi = zones.indexOf(null);
+    const zi = this.freeMainZones(p)[0];
     zones[zi] = card;
     card.zone = zi;
     card.controller = p;
@@ -795,7 +960,7 @@ export class Duel {
     const old = this.p(card.controller).mzone;
     old[old.indexOf(card)] = null;
     const zones = this.p(card.owner).mzone;
-    const zi = zones.indexOf(null);
+    const zi = this.freeMainZones(card.owner)[0];
     zones[zi] = card;
     card.zone = zi;
     card.controller = card.owner;
@@ -1131,6 +1296,7 @@ export class Duel {
   /** 卡片所在位置、種類等是否允許發動這個效果 */
   private canActivateHere(p: PlayerId, card: Card, effect: EffectDef): boolean {
     const d = card.data;
+    if (isSpell(d) && effect.kind === 'activate' && this.playerHas(p, 'cannotActivateSpells')) return false;
     // 古代的機械巨人攻擊時，對方不能發動魔法・陷阱
     const b = this.battle;
     if ((isSpell(d) || isTrap(d)) && b && b.attacker.controller !== p && this.has(b.attacker, 'noSTDuringAttack')) return false;
@@ -1295,7 +1461,7 @@ export class Duel {
       if (card.turnPlaced === this.turn || card.posChangedTurn === this.turn) continue;
       if (!card.faceUp) {
         if (!ps.turnFlags.noSummon) actions.push({ type: 'flipSummon', card });
-      } else if (card.attacks === 0 && !this.has(card, 'cannotChangePosition')) {
+      } else if (card.attacks === 0 && !isLink(card.data) && !this.has(card, 'cannotChangePosition')) {
         actions.push({ type: 'changePos', card });
       }
     }
@@ -1304,8 +1470,18 @@ export class Duel {
       for (const card of ps.extra) {
         if (card.data.type & 0x2000 && this.synchroMaterialSets(p, card).length) actions.push({ type: 'synchro', card });
         if (isXyz(card.data) && this.xyzMaterialSets(p, card).length) actions.push({ type: 'xyz', card });
+        if (isLink(card.data) && this.linkMaterialSets(p, card).length) actions.push({ type: 'link', card });
       }
     }
+    // 靈擺
+    for (const card of ps.hand) {
+      if (!isPendulum(card.data)) continue;
+      const cond = getScript(card.id).scaleCondition;
+      if (cond && !cond(this, card)) continue;
+      for (const zone of [0, 4] as const) if (!ps.szone[zone]) actions.push({ type: 'pendulumScale', card, zone });
+    }
+    if (!ps.turnFlags.pendulumSummoned && !ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon') && this.pendulumCandidates(p).length)
+      actions.push({ type: 'pendulumSummon' });
     if (this.phase === 'main1' && this.turn > 1) actions.push({ type: 'toBattle' });
     actions.push({ type: 'endTurn' });
     return actions;
@@ -1344,6 +1520,12 @@ export class Duel {
         return this.doSynchroSummon(p, a.card);
       case 'xyz':
         return this.doXyzSummon(p, a.card);
+      case 'link':
+        return this.doLinkSummon(p, a.card);
+      case 'pendulumScale':
+        return this.doPendulumScale(p, a.card, a.zone);
+      case 'pendulumSummon':
+        return this.doPendulumSummon(p);
     }
   }
 
@@ -1438,7 +1620,9 @@ export class Duel {
     const sp = getScript(card.id).spSummon!;
     if (sp.cost) await sp.cost(this, card);
     const pos = await this.choosePosition(p, card);
-    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos });
+    const zones = sp.zones ? sp.zones(this, card) : this.freeMainZones(p);
+    if (!zones.length) return;
+    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: zones[0] });
     card.summonType = 'special';
     this.p(p).turnFlags.summoned = true;
     this.log(`${this.p(p).name} 特殊召喚「${card.name}」`, p);
@@ -1460,7 +1644,7 @@ export class Duel {
   /** 列出所有合法的同步素材組合 */
   synchroMaterialSets(p: PlayerId, synchro: Card): Card[][] {
     const script = getScript(synchro.id);
-    const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data));
+    const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data));
     const level = synchro.data.level;
     const out: Card[][] = [];
     const n = mons.length;
@@ -1477,6 +1661,7 @@ export class Duel {
       if (script.synchro?.nonTuner && !nonTuners.every((c) => script.synchro!.nonTuner!(c, this))) continue;
       if (!set.every((m) => getScript(m.id).synchroMaterialRestriction?.(synchro.data, set.filter((x) => x !== m), this) ?? true))
         continue;
+      if (!this.extraZones(p, synchro, set).length) continue;
       out.push(set);
     }
     return out;
@@ -1487,15 +1672,133 @@ export class Duel {
     const count = script.xyz?.count ?? 2;
     const filter = script.xyz?.filter ?? (() => true);
     const mons = this.faceUpMonsters(p).filter(
-      (c) => !isToken(c.data) && !isXyz(c.data) && this.getLevel(c) === xyz.data.level && filter(c),
+      (c) => !isToken(c.data) && !isXyz(c.data) && !isLink(c.data) && this.getLevel(c) === xyz.data.level && filter(c),
     );
     const out: Card[][] = [];
     const n = mons.length;
     for (let mask = 1; mask < 1 << n; mask++) {
       const set = mons.filter((_, i) => mask & (1 << i));
-      if (set.length === count) out.push(set);
+      if (set.length === count && this.extraZones(p, xyz, set).length) out.push(set);
     }
     return out;
+  }
+
+  /** 素材的連結數合計能否剛好等於 rating（連結怪獸可以當作 1 或它的連結數） */
+  private linkRatingOk(set: Card[], rating: number): boolean {
+    let sums = new Set([0]);
+    for (const c of set) {
+      const next = new Set<number>();
+      for (const v of sums) {
+        next.add(v + 1);
+        if (isLink(c.data)) next.add(v + c.data.level);
+      }
+      sums = next;
+    }
+    return sums.has(rating);
+  }
+
+  linkMaterialSets(p: PlayerId, link: Card): Card[][] {
+    const spec = getScript(link.id).link ?? {};
+    const rating = link.data.level;
+    const min = spec.min ?? 2;
+    const max = Math.min(spec.max ?? rating, rating);
+    const mons = this.faceUpMonsters(p).filter((c) => !spec.filter || spec.filter(c, this));
+    const out: Card[][] = [];
+    const n = mons.length;
+    for (let mask = 1; mask < 1 << n; mask++) {
+      const set = mons.filter((_, i) => mask & (1 << i));
+      if (set.length < min || set.length > max) continue;
+      if (!this.linkRatingOk(set, rating)) continue;
+      if (spec.validate && !spec.validate(set, this)) continue;
+      if (!this.extraZones(p, link, set).length) continue;
+      out.push(set);
+    }
+    return out;
+  }
+
+  /** 最近一次連結召喚使用的素材（堆棧修復員用） */
+  lastLinkMaterials: Card[] = [];
+
+  private async doLinkSummon(p: PlayerId, card: Card) {
+    const sets = this.linkMaterialSets(p, card);
+    if (!sets.length) return;
+    const pool = [...new Set(sets.flat())];
+    const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
+    const mats = await this.select({
+      player: p,
+      title: `選擇「${card.name}」的連結素材（LINK-${card.data.level}）`,
+      cards: pool,
+      min: 1,
+      max: pool.length,
+      hint: 'cost',
+      validate: (sel) => sets.some((s) => same(s, sel)),
+    });
+    if (!sets.some((s) => same(s, mats))) return;
+    const zone = this.extraZones(p, card, mats)[0];
+    this.lastLinkMaterials = mats;
+    for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
+    this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 連結召喚`, p);
+    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk', zone });
+    card.summonType = 'link';
+    this.p(p).turnFlags.summoned = true;
+    this.log(`連結召喚「${card.name}」！`, p);
+    await this.pause(500);
+    await this.finishProcedureSummon(p, card, 'link');
+  }
+
+  private async doPendulumScale(p: PlayerId, card: Card, zone: 0 | 4) {
+    this.moveTo(card, 'szone', { reason: 'rule', player: p, faceUp: true, zone });
+    this.log(`${this.p(p).name} 把「${card.name}」放到${zone === 0 ? '左' : '右'}側靈擺區域（刻度 ${this.getScale(card)}）`, p);
+    await this.pause(350);
+    await this.settle();
+  }
+
+  private async doPendulumSummon(p: PlayerId) {
+    const cands = this.pendulumCandidates(p);
+    if (!cands.length) return;
+    // 手牌的放主要怪獸區；額外牌組的放額外怪獸區或連接區
+    const valid = (sel: Card[]) => {
+      const hand = sel.filter((c) => c.location === 'hand').length;
+      const extraCards = sel.filter((c) => c.location === 'extra');
+      const M = this.freeMainZones(p);
+      const E = extraCards.length ? this.extraZones(p, extraCards[0]) : [];
+      const union = new Set([...M, ...E]);
+      return hand <= M.length && extraCards.length <= E.length && hand + extraCards.length <= union.size;
+    };
+    const sel = await this.select({
+      player: p,
+      title: '選擇要靈擺召喚的怪獸',
+      cards: cands,
+      min: 1,
+      max: cands.length,
+      hint: 'benefit',
+      validate: valid,
+    });
+    if (!sel.length) return;
+    this.p(p).turnFlags.pendulumSummoned = true;
+    const placed: Card[] = [];
+    // 先放額外牌組的（需要特定格子），再放手牌的
+    for (const c of [...sel.filter((x) => x.location === 'extra'), ...sel.filter((x) => x.location === 'hand')]) {
+      const zones = c.location === 'extra' ? this.extraZones(p, c) : this.freeMainZones(p);
+      if (!zones.length) continue;
+      const pos = await this.choosePosition(p, c);
+      if (this.moveTo(c, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: zones[0] })) {
+        c.summonType = 'pendulum';
+        c.properlySummoned = true;
+        placed.push(c);
+      }
+    }
+    if (!placed.length) return;
+    this.p(p).turnFlags.summoned = true;
+    this.log(`${this.p(p).name} 靈擺召喚 ${placed.map((c) => `「${c.name}」`).join('、')}！`, p);
+    await this.pause(500);
+    if (await this.summonAttemptWindow(placed, p, 'pendulum')) {
+      await this.settle();
+      return;
+    }
+    const ev: GameEvent = { type: 'summoned', card: placed[0], cards: placed, player: p, summonType: 'pendulum' };
+    this.raise(ev);
+    await this.settle({ kind: 'summon', event: ev });
   }
 
   private async doSynchroSummon(p: PlayerId, card: Card) {
@@ -1515,7 +1818,7 @@ export class Duel {
     for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     const pos = await this.choosePosition(p, card);
-    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos });
+    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: this.extraZones(p, card)[0] });
     card.summonType = 'synchro';
     this.p(p).turnFlags.summoned = true;
     this.log(`同步召喚「${card.name}」！`, p);
@@ -1539,11 +1842,10 @@ export class Duel {
     });
     if (mats.length !== count) return;
     const pos = await this.choosePosition(p, card);
-    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos });
-    for (const m of mats) {
-      this.moveTo(m, 'overlay', { reason: 'material' });
-      card.overlays.push(m);
-    }
+    const zone = this.extraZones(p, card, mats)[0];
+    for (const m of mats) this.moveTo(m, 'overlay', { reason: 'material' });
+    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone });
+    card.overlays.push(...mats);
     card.summonType = 'xyz';
     this.p(p).turnFlags.summoned = true;
     this.log(`${this.p(p).name} 超量召喚「${card.name}」！`, p);
@@ -1781,6 +2083,11 @@ export class Duel {
     );
     await this.pause(300);
 
+    // 異色眼靈擺龍：給予對方的戰鬥傷害 2 倍
+    if (dmgTo !== null && dmg > 0 && target) {
+      const dealer = dmgTo === opp ? attacker : target;
+      if (this.has(dealer, 'doubleBattleDamage')) dmg *= 2;
+    }
     if (dmgTo !== null && dmg > 0) {
       const ps = this.p(dmgTo);
       if (b.noDamage[dmgTo] || ps.turnFlags.noBattleDamage || this.playerHas(dmgTo, 'noBattleDamage')) {

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AIController } from '../../engine/ai';
 import type { Card } from '../../engine/card';
-import { isMonster } from '../../engine/cardDb';
+import { isMonster, isPendulum } from '../../engine/cardDb';
 import { Duel, type DuelResult } from '../../engine/duel';
 import { type MainAction, type PlayerId, PHASE_NAMES, type Phase } from '../../engine/types';
 import type { DeckData } from '../../game/deckRules';
@@ -42,6 +42,12 @@ function actionLabel(a: MainAction, duel: Duel): string {
       return '同步召喚';
     case 'xyz':
       return '超量召喚';
+    case 'link':
+      return '連結召喚';
+    case 'pendulumScale':
+      return `發動為靈擺刻度（${a.zone === 0 ? '左' : '右'}）`;
+    case 'pendulumSummon':
+      return '靈擺召喚';
     default:
       return '';
   }
@@ -228,6 +234,9 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
           <CardBack size="xs" />
         )}
         {c.overlays.length > 0 && <span className="badge overlay-badge">素材 {c.overlays.length}</span>}
+        {c.location === 'szone' && (c.zone === 0 || c.zone === 4) && c.faceUp && isPendulum(c.data) && (
+          <span className="badge scale-badge">刻度 {duel.getScale(c)}</span>
+        )}
         {c.counters > 0 && c.location === 'mzone' && <span className="badge counter-badge">● {c.counters}</span>}
         {c.equipTarget && <span className="badge equip-badge">裝備</span>}
         {menuCard === c && actionable && (
@@ -247,27 +256,31 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
   const renderSide = (p: PlayerId) => {
     const ps = duel.p(p);
     const isOpp = p === OPP;
-    const mRow = (
-      <div className="zone-row monsters">
-        {ps.mzone.map((c, i) => renderFieldCard(c, `m${i}`, 'mzone'))}
-      </div>
-    );
+    // 對方的場地從我方看是左右顛倒的
+    const order = isOpp ? [4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
+    const mRow = <div className="zone-row monsters">{order.map((i) => renderFieldCard(ps.mzone[i], `m${i}`, 'mzone'))}</div>;
     const sRow = (
       <div className="zone-row spells">
-        {ps.szone.map((c, i) => renderFieldCard(c, `s${i}`, 'szone'))}
+        {order.map((i) => renderFieldCard(ps.szone[i], `s${i}`, `szone ${i === 0 || i === 4 ? 'pzone' : ''}`))}
       </div>
     );
-    const extraActions = p === ME && req?.kind === 'main' ? req.actions.filter((a) => a.type === 'synchro' || a.type === 'xyz') : [];
+    const extraActions = p === ME && req?.kind === 'main' ? req.actions.filter((a) => a.type === 'synchro' || a.type === 'xyz' || a.type === 'link') : [];
+    const faceUpExtra = ps.extra.filter((c) => c.faceUp).length;
     const left = (
       <div className="side-col">
         {renderFieldCard(ps.fzone, 'f', 'fzone')}
         <div
           className={`pile ${extraActions.length ? 'actionable' : ''}`}
-          onClick={() => (p === ME ? setShowExtra(true) : undefined)}
+          onClick={() =>
+            p === ME ? setShowExtra(true) : setPile({ title: `${ps.name} 額外牌組的表側靈擺怪獸`, cards: ps.extra.filter((c) => c.faceUp) })
+          }
           title="額外牌組"
         >
           {ps.extra.length ? <CardBack size="xs" /> : <div className="zone" />}
-          <span className="pile-label">額外 {ps.extra.length}</span>
+          <span className="pile-label">
+            額外 {ps.extra.length}
+            {faceUpExtra ? `（表 ${faceUpExtra}）` : ''}
+          </span>
         </div>
       </div>
     );
@@ -356,6 +369,21 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
 
         {renderSide(OPP)}
 
+        {/* 額外怪獸區（雙方共用） */}
+        <div className="emz-row">
+          <div className="emz-spacer" />
+          <div className="zone-row">
+            {[null, 5, null, 6, null].map((idx, i) =>
+              idx === null ? (
+                <div key={i} className="emz-gap" />
+              ) : (
+                renderFieldCard(duel.p(0).mzone[idx] ?? duel.p(1).mzone[idx], `emz${idx}`, `mzone emz ${duel.p(1).mzone[idx] ? 'opp-emz' : ''}`)
+              ),
+            )}
+          </div>
+          <div className="emz-spacer" />
+        </div>
+
         <div className="mid-bar">
           <div className="phase-list">
             <span className={`turn-tag ${myTurn ? 'mine' : 'theirs'}`}>
@@ -370,6 +398,11 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
           <div className="mid-actions">
             {req?.kind === 'main' && (
               <>
+                {req.actions.some((a) => a.type === 'pendulumSummon') && (
+                  <button className="btn pend-btn" onClick={() => doMain({ type: 'pendulumSummon' })}>
+                    靈擺召喚
+                  </button>
+                )}
                 {req.actions.some((a) => a.type === 'toBattle') && (
                   <button className="btn primary" onClick={() => doMain({ type: 'toBattle' })}>
                     進入戰鬥階段
@@ -521,10 +554,12 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         <Modal title="額外牌組" onClose={() => setShowExtra(false)}>
           <div className="pile-grid">
             {me.extra.map((c) => {
-              const acts = req?.kind === 'main' ? req.actions.filter((a) => (a.type === 'synchro' || a.type === 'xyz') && a.card === c) : [];
+              const acts =
+                req?.kind === 'main' ? req.actions.filter((a) => (a.type === 'synchro' || a.type === 'xyz' || a.type === 'link') && a.card === c) : [];
               return (
                 <div key={c.uid} className="pile-item" onMouseEnter={() => setDetail(c)}>
-                  <CardView data={c.data} size="sm" dim={!acts.length} />
+                  <CardView data={c.data} size="sm" dim={!acts.length && !c.faceUp} />
+                  {c.faceUp && <span className="loc-label">表側（可靈擺召喚）</span>}
                   {acts.map((a, i) => (
                     <button
                       key={i}
@@ -542,7 +577,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
             })}
             {!me.extra.length && <div className="empty">額外牌組沒有卡片</div>}
           </div>
-          <p className="modal-note">融合怪獸需要使用「融合」魔法卡召喚。</p>
+          <p className="modal-note">融合怪獸需要使用「融合」魔法卡召喚。表側的靈擺怪獸可以用靈擺召喚回到場上。</p>
         </Modal>
       )}
 

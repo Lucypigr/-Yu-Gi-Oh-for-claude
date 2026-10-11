@@ -6,6 +6,7 @@ import './spells';
 import './spells2';
 import './traps';
 import './traps2';
+import './pendlink';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

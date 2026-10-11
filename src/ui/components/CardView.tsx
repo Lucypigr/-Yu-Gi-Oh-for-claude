@@ -5,7 +5,9 @@ import {
   attrName,
   frameKind,
   isExtraDeckCard,
+  isLink,
   isMonster,
+  isPendulum,
   isSpell,
   isTrap,
   isXyz,
@@ -78,6 +80,28 @@ function Stars({ data }: { data: CardData }) {
   );
 }
 
+/** 連結箭頭（8 個方向，有箭頭的會亮起） */
+const ARROW_BITS: [number, string][] = [
+  [0x40, 'tl'],
+  [0x80, 't'],
+  [0x100, 'tr'],
+  [0x8, 'l'],
+  [0x20, 'r'],
+  [0x1, 'bl'],
+  [0x2, 'b'],
+  [0x4, 'br'],
+];
+
+function LinkArrows({ markers }: { markers: number }) {
+  return (
+    <>
+      {ARROW_BITS.map(([bit, pos]) => (
+        <span key={pos} className={`link-arrow la-${pos} ${markers & bit ? 'on' : ''}`} />
+      ))}
+    </>
+  );
+}
+
 /** 正面卡片 */
 export const CardView = memo(function CardView({
   data,
@@ -100,12 +124,15 @@ export const CardView = memo(function CardView({
   const atkCls = atk !== undefined && atk !== data.atk ? (atk > data.atk ? 'up' : 'down') : '';
   const defCls = def !== undefined && def !== data.def ? (def > data.def ? 'up' : 'down') : '';
   const foil = rarity === 'SR' || rarity === 'UR' ? `foil-${rarity}` : '';
+  const pend = isPendulum(data);
+  const link = isLink(data);
+  const extraCls = `${pend ? 'pendulum' : ''} ${link ? 'is-link' : ''}`;
 
   // 場上用的小卡：以卡圖為主
   if (size === 'xs') {
     return (
       <div
-        className={`card card-xs frame-${frame} ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}
+        className={`card card-xs frame-${frame} ${extraCls} ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         title={data.name}
@@ -116,15 +143,19 @@ export const CardView = memo(function CardView({
         <div className="xs-name">{data.name}</div>
         {monster ? (
           <>
-            <span className={`xs-level ${isXyz(data) ? 'rank' : ''}`}>
-              {isXyz(data) ? '☆' : '★'}
-              {data.level}
+            <span className={`xs-level ${isXyz(data) ? 'rank' : ''} ${link ? 'link' : ''}`}>
+              {link ? `L${data.level}` : `${isXyz(data) ? '☆' : '★'}${data.level}`}
             </span>
             <span className={`xs-attr attr-${attrCls}`}>{attr}</span>
+            {pend && <span className="xs-scale">◀{data.scale}▶</span>}
             <div className="xs-stats">
               <span className={atkCls}>{atkShown}</span>
-              <span className="sep">/</span>
-              <span className={defCls}>{defShown}</span>
+              {!link && (
+                <>
+                  <span className="sep">/</span>
+                  <span className={defCls}>{defShown}</span>
+                </>
+              )}
             </div>
           </>
         ) : (
@@ -139,7 +170,7 @@ export const CardView = memo(function CardView({
 
   return (
     <div
-      className={`card card-${size} frame-${frame} ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}
+      className={`card card-${size} frame-${frame} ${extraCls} ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       title={size === 'sm' ? data.name : undefined}
@@ -149,7 +180,9 @@ export const CardView = memo(function CardView({
           <span className="card-name">{data.name}</span>
           <span className={`card-attr attr-${attrCls}`}>{attr}</span>
         </div>
-        {monster ? (
+        {link ? (
+          <div className="card-stars" />
+        ) : monster ? (
           <Stars data={data} />
         ) : (
           <div className="card-stars spelltype">
@@ -159,14 +192,22 @@ export const CardView = memo(function CardView({
         )}
         <div className="card-art">
           <CardArt data={data} />
+          {link && <LinkArrows markers={data.linkMarkers ?? 0} />}
         </div>
+        {pend && (
+          <div className="pend-box">
+            <span className="pend-scale">◀{data.scale}</span>
+            {(size === 'md' || size === 'lg') && <div className="pend-desc">{data.pdesc}</div>}
+            <span className="pend-scale">{data.scale}▶</span>
+          </div>
+        )}
         <div className="card-body">
           <div className="card-type">【{typeLine(data)}】</div>
           {(size === 'md' || size === 'lg') && <div className="card-desc">{data.desc}</div>}
           {monster && (
             <div className="card-stats">
               <span className={atkCls}>ATK/{atkShown < 0 ? '?' : atkShown}</span>
-              <span className={defCls}>DEF/{defShown < 0 ? '?' : defShown}</span>
+              {link ? <span>LINK-{data.level}</span> : <span className={defCls}>DEF/{defShown < 0 ? '?' : defShown}</span>}
             </div>
           )}
         </div>
@@ -222,7 +263,10 @@ export function CardDetail({
         <div className="detail-tags">
           <span className={`tag attr-${cls}`}>{attr}</span>
           {monster && <span className="tag">{raceName(data.race)}族</span>}
-          {monster && <span className="tag star-tag">{isXyz(data) ? `階級 ${data.level}` : `等級 ${data.level}`}</span>}
+          {monster && (
+            <span className="tag star-tag">{isLink(data) ? `LINK-${data.level}` : isXyz(data) ? `階級 ${data.level}` : `等級 ${data.level}`}</span>
+          )}
+          {isPendulum(data) && <span className="tag pend-tag">刻度 {data.scale}</span>}
           {!monster && kind && <span className="tag">{typeLine(data)}</span>}
           <span className={`tag r-${rarity}`}>{RARITY_NAMES[rarity]}</span>
         </div>
@@ -232,10 +276,25 @@ export function CardDetail({
             <span>
               攻擊力 <b className={atk !== undefined && atk !== data.atk ? (atk > data.atk ? 'up' : 'down') : ''}>{atk ?? data.atk}</b>
             </span>
-            <span>
-              守備力 <b className={def !== undefined && def !== data.def ? (def > data.def ? 'up' : 'down') : ''}>{def ?? data.def}</b>
-            </span>
+            {isLink(data) ? (
+              <span className="mini-arrows" title="連結箭頭">
+                {[0x40, 0x80, 0x100, 0x8, 0, 0x20, 0x1, 0x2, 0x4].map((bit, i) => (
+                  <i key={i} className={bit === 0 ? 'center' : (data.linkMarkers ?? 0) & bit ? 'on' : ''} />
+                ))}
+              </span>
+            ) : (
+              <span>
+                守備力 <b className={def !== undefined && def !== data.def ? (def > data.def ? 'up' : 'down') : ''}>{def ?? data.def}</b>
+              </span>
+            )}
           </div>
+        )}
+        {data.pdesc && (
+          <>
+            <div className="detail-label pend">靈擺效果（刻度 {data.scale}）</div>
+            <div className="detail-desc pend">{data.pdesc}</div>
+            <div className="detail-label">怪獸效果</div>
+          </>
         )}
         <div className="detail-desc">{data.desc}</div>
         {children}

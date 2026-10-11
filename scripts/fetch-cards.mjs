@@ -108,6 +108,16 @@ async function main() {
       race: d.race,
       attribute: d.attribute,
     };
+    // 靈擺：刻度與靈擺效果
+    if (d.type & 0x1000000) {
+      card.scale = (d.level >> 24) & 0xff;
+      if (raw.text.pdesc) card.pdesc = tc(raw.text.pdesc).replace(/\r\n/g, '\n');
+    }
+    // 連結：守備力欄位是連結箭頭
+    if (d.type & 0x4000000) {
+      card.linkMarkers = d.def;
+      card.def = 0;
+    }
     const firstLine = desc.split('\n')[0];
     // 融合素材：「A」＋「B」
     if (d.type & 0x40) {

@@ -20,6 +20,12 @@ export interface CardData {
   xyzCount?: number;
   /** 儀式魔法對應的儀式怪獸 */
   ritualFor?: number;
+  /** 靈擺刻度 */
+  scale?: number;
+  /** 靈擺效果文字 */
+  pdesc?: string;
+  /** 連結箭頭（位元：↙1 ↓2 ↘4 ←8 →32 ↖64 ↑128 ↗256） */
+  linkMarkers?: number;
 }
 
 // ---- 種類位元（與 YGOPro 相同）----
@@ -137,6 +143,20 @@ export const isFusion = (d: CardData) => (d.type & TYPE.FUSION) !== 0;
 export const isRitual = (d: CardData) => (d.type & TYPE.RITUAL) !== 0 && isMonster(d);
 export const isSynchro = (d: CardData) => (d.type & TYPE.SYNCHRO) !== 0;
 export const isXyz = (d: CardData) => (d.type & TYPE.XYZ) !== 0;
+export const isPendulum = (d: CardData) => (d.type & TYPE.PENDULUM) !== 0;
+export const isLink = (d: CardData) => (d.type & TYPE.LINK) !== 0;
+
+/** 連結箭頭 */
+export const LINK_ARROWS = {
+  BOTTOM_LEFT: 0x1,
+  BOTTOM: 0x2,
+  BOTTOM_RIGHT: 0x4,
+  LEFT: 0x8,
+  RIGHT: 0x20,
+  TOP_LEFT: 0x40,
+  TOP: 0x80,
+  TOP_RIGHT: 0x100,
+} as const;
 export const isExtraDeckCard = (d: CardData) =>
   isMonster(d) && (d.type & (TYPE.FUSION | TYPE.SYNCHRO | TYPE.XYZ | TYPE.LINK)) !== 0;
 /** 沒有效果的通常怪獸（含無效果的融合/同步/超量） */
@@ -176,17 +196,19 @@ export function typeLine(d: CardData): string {
   if (d.type & TYPE.RITUAL) parts.push('儀式');
   if (d.type & TYPE.SYNCHRO) parts.push('同步');
   if (d.type & TYPE.XYZ) parts.push('超量');
+  if (d.type & TYPE.LINK) parts.push('連結');
+  if (d.type & TYPE.PENDULUM) parts.push('靈擺');
   if (d.type & TYPE.TOKEN) parts.push('衍生物');
   if (d.type & TYPE.FLIP) parts.push('反轉');
   if (d.type & TYPE.TUNER) parts.push('調整');
   if (d.type & TYPE.SPSUMMON) parts.push('特殊召喚');
   if (d.type & TYPE.EFFECT) parts.push('效果');
-  else if (!(d.type & (TYPE.FUSION | TYPE.RITUAL | TYPE.SYNCHRO | TYPE.XYZ | TYPE.TOKEN))) parts.push('通常');
+  else if (!(d.type & (TYPE.FUSION | TYPE.RITUAL | TYPE.SYNCHRO | TYPE.XYZ | TYPE.TOKEN | TYPE.LINK))) parts.push('通常');
   return parts.join('／');
 }
 
 /** 卡框顏色分類（UI 用） */
-export type FrameKind = 'normal' | 'effect' | 'fusion' | 'ritual' | 'synchro' | 'xyz' | 'token' | 'spell' | 'trap';
+export type FrameKind = 'normal' | 'effect' | 'fusion' | 'ritual' | 'synchro' | 'xyz' | 'link' | 'token' | 'spell' | 'trap';
 export function frameKind(d: CardData): FrameKind {
   if (isSpell(d)) return 'spell';
   if (isTrap(d)) return 'trap';
@@ -195,6 +217,7 @@ export function frameKind(d: CardData): FrameKind {
   if (isRitual(d)) return 'ritual';
   if (isSynchro(d)) return 'synchro';
   if (isXyz(d)) return 'xyz';
+  if (isLink(d)) return 'link';
   if (d.type & TYPE.EFFECT) return 'effect';
   return 'normal';
 }

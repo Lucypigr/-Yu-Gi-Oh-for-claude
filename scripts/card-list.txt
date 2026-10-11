@@ -615,3 +615,75 @@
 95511642  # Crowned by the World Chalice
 20129614  # Melffy Rabby
 86498013  # D.D. Trainer
+
+# ---- 靈擺（第三彈）----
+24131534  # Igknight Squire
+61639289  # Igknight Crusader
+97024987  # Igknight Templar
+24019092  # Igknight Paladin
+50407691  # Igknight Margrave
+96802306  # Igknight Gallant
+67273917  # Igknight Cavalier
+93662626  # Igknight Veteran
+17390179  # Flash Knight
+83980492  # Dragong
+19474136  # Mandragon
+28363749  # Fire Opal Head
+32872239  # Gallugallud the Endless Enigma
+69512157  # Vector Pendulum, the Dracoverlord
+75195825  # Master Pendulum, the Dracoslayer
+21970285  # Dragon Horn Hunter
+68182934  # Sky Dragoons of Draconia
+43785278  # Foucault's Cannon
+48940337  # Lancephorhynchus
+73779005  # Dragoons of Draconia
+45103815  # Risebell the Summoner
+47558785  # Mild Turkey
+84046493  # Ghost Beef
+82114013  # Sea Dragoons of Draconia
+51531505  # Dragonpit Magician
+15146890  # Dragonpulse Magician
+16178681  # Odd-Eyes Pendulum Dragon
+94415058  # Stargazer Magician
+20409757  # Timegazer Magician
+26270847  # Performapal Silver Claw
+78835747  # Performapal Kaleidoscorp
+53208660  # Pendulum Call
+74926274  # Pendulum Rising
+
+# ---- 連結（第三彈）----
+41248270  # Traffic Ghost
+77637979  # LANphorhynchus
+67598234  # Gaia Saber, the Lightning Shadow
+98978921  # Link Spider
+41999284  # Linkuriboh
+53413628  # Code Talker
+1861629  # Decode Talker
+15844566  # Powercode Talker
+34472920  # Honeybot
+5329790  # Protocol Gardna
+72336818  # Pentestag
+49847524  # Flame Administrator
+77058170  # Underclock Taker
+59859086  # Splash Mage
+66015185  # Twin Triangle Dragon
+49202162  # Black Luster Soldier - Soldier of Chaos
+31897444  # Defender of the Labyrinth
+3987233  # Missus Radiant
+65170459  # Mistar Boy
+37880706  # Duelittle Chimera
+90512490  # Greatfly
+71384012  # Wee Witch's Apprentice
+7778726  # Hip Hoshiningen
+
+# ---- 電子界族（第三彈）----
+36211150  # Bitron
+47226949  # Leotron
+63528891  # Backup Secretary
+44956694  # ROM Cloudia
+62706865  # Draconnet
+10705656  # Widget Kid
+18789533  # Dotscaper
+76353872  # Defcon Bird
+65100616  # Link Infra-Flier
+9523599  # Stack Reviver

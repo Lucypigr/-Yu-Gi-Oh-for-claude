@@ -695,6 +695,177 @@ h4 {
   padding: 6%;
 }
 
+/* ---- 連結・靈擺卡面 ---- */
+.frame-link {
+  --frame: linear-gradient(160deg, #3a6fd0 0%, #1e4aa0 45%, #0f2b66 100%);
+  color: #fff;
+}
+.frame-link .card-name {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.frame-link .card-head {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.05) 55%, rgba(0, 0, 0, 0.15));
+}
+/* 靈擺：上半部為怪獸卡顏色，下半部為魔法卡綠色 */
+.card.pendulum:not(.card-xs) {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 2px, rgba(0, 0, 0, 0.04) 2px 4px),
+    linear-gradient(180deg, transparent 0 52%, #1d9a7b 52% 100%),
+    var(--frame);
+}
+.card.pendulum .card-art {
+  aspect-ratio: 1.25 / 1;
+  margin: 1% 3% 0;
+}
+.pend-box {
+  display: flex;
+  align-items: stretch;
+  gap: 2%;
+  margin: 0 3% 1.5%;
+  min-height: 8%;
+  background: linear-gradient(180deg, #e9f6ef, #cfe9dc);
+  color: #102a1f;
+  border: 1px solid rgba(0, 40, 20, 0.5);
+  border-radius: 1px;
+}
+.pend-scale {
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 5cqw;
+  padding: 0 1.5%;
+  color: #0f5d8a;
+}
+.pend-scale:last-child {
+  color: #a8261a;
+}
+.pend-desc {
+  flex: 1;
+  font-size: 3.7cqw;
+  line-height: 1.3;
+  max-height: 15cqw;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  padding: 1% 0;
+}
+.card.pendulum .card-body {
+  flex: 1;
+}
+/* 連結箭頭：三角形，有箭頭的亮橘色 */
+.card-art .link-arrow {
+  position: absolute;
+  width: 11cqw;
+  height: 11cqw;
+  background: #ff5e3a;
+  box-shadow: 0 0 2px #000;
+  opacity: 0;
+}
+.card-art .link-arrow.on {
+  opacity: 1;
+}
+.la-t {
+  top: 0;
+  left: calc(50% - 5.5cqw);
+  height: 5.5cqw;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.la-b {
+  bottom: 0;
+  left: calc(50% - 5.5cqw);
+  height: 5.5cqw;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.la-l {
+  left: 0;
+  top: calc(50% - 5.5cqw);
+  width: 5.5cqw;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+.la-r {
+  right: 0;
+  top: calc(50% - 5.5cqw);
+  width: 5.5cqw;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.la-tl {
+  top: 0;
+  left: 0;
+  width: 8cqw;
+  height: 8cqw;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.la-tr {
+  top: 0;
+  right: 0;
+  width: 8cqw;
+  height: 8cqw;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+.la-bl {
+  bottom: 0;
+  left: 0;
+  width: 8cqw;
+  height: 8cqw;
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+.la-br {
+  bottom: 0;
+  right: 0;
+  width: 8cqw;
+  height: 8cqw;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.xs-level.link {
+  color: #8fd2ff;
+}
+.xs-scale {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 23%;
+  font-size: 10cqw;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(10, 100, 70, 0.85);
+  border-radius: 6px;
+  padding: 0 4%;
+  white-space: nowrap;
+}
+.pend-tag {
+  background: #146b52;
+}
+.mini-arrows {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 10px);
+  gap: 2px;
+  vertical-align: middle;
+}
+.mini-arrows i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: #333b55;
+}
+.mini-arrows i.on {
+  background: #ff5e3a;
+}
+.mini-arrows i.center {
+  background: #1e4aa0;
+}
+.detail-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--muted);
+  margin-bottom: -4px;
+}
+.detail-label.pend {
+  color: #5fe0b0;
+}
+.detail-desc.pend {
+  border-left-color: #1d9a7b;
+}
+
 /* ---- 卡片詳細 ---- */
 .card-detail {
   display: flex;
@@ -1871,6 +2042,56 @@ h4 {
 }
 .result-box.lose h1 {
   color: #ff6b5e;
+}
+
+.emz-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+.emz-spacer {
+  width: var(--zh);
+}
+.emz-gap {
+  width: var(--zh);
+  height: calc(var(--zh) * 0.6);
+}
+.zone.emz {
+  border-color: rgba(120, 200, 255, 0.45);
+  background: rgba(60, 120, 200, 0.15);
+}
+.zone.emz::before {
+  content: '額外';
+  position: absolute;
+  font-size: 10px;
+  color: rgba(160, 210, 255, 0.5);
+}
+.zone.emz.opp-emz > .card {
+  box-shadow: 0 0 0 2px #e2524a;
+}
+.zone.pzone {
+  background: rgba(40, 150, 110, 0.15);
+  border-color: rgba(80, 200, 150, 0.35);
+}
+.zone.pzone::before {
+  content: 'P';
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  color: rgba(120, 230, 180, 0.5);
+}
+.scale-badge {
+  background: #146b52;
+  top: auto;
+  bottom: 2px;
+  right: 50%;
+  transform: translateX(50%);
+}
+.btn.pend-btn {
+  background: linear-gradient(#34c79b, #137a5c);
+  border-color: #6fe3bd;
+  font-weight: bold;
 }
 
 /* ============ 窄螢幕 ============ */

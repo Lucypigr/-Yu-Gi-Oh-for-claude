@@ -1,6 +1,6 @@
 // 電腦對手（啟發式 AI）
 import type { Card } from './card';
-import { isFlip, isSpell, isTrap, spellKind } from './cardDb';
+import { cannotNormalSummon, isFlip, isMonster, isPendulum, isSpell, isTrap, spellKind } from './cardDb';
 import type { Duel } from './duel';
 import { getScript } from './scripts';
 import { cardValue } from './scripts/lib';
@@ -58,9 +58,21 @@ export class AIController implements Controller {
         case 'spSummon':
           s = 65 + a.card.data.atk / 100;
           break;
+        case 'pendulumScale':
+          s = this.scorePendulumScale(duel, p, a.card, a.zone);
+          break;
+        case 'pendulumSummon':
+          s = 70 + 8 * Math.min(5, duel.pendulumCandidates(p).length);
+          break;
         case 'synchro':
-        case 'xyz': {
-          const sets = a.type === 'synchro' ? duel.synchroMaterialSets(p, a.card) : duel.xyzMaterialSets(p, a.card);
+        case 'xyz':
+        case 'link': {
+          const sets =
+            a.type === 'synchro'
+              ? duel.synchroMaterialSets(p, a.card)
+              : a.type === 'xyz'
+                ? duel.xyzMaterialSets(p, a.card)
+                : duel.linkMaterialSets(p, a.card);
           const cheapest = Math.min(...sets.map((s) => s.reduce((t, c) => t + cardValue(duel, c, p), 0)));
           const gain = cardValue(duel, a.card, p) + 600 - cheapest;
           s = gain > 0 ? 50 + gain / 100 : 0;
@@ -101,6 +113,33 @@ export class AIController implements Controller {
     const toBattle = actions.find((a) => a.type === 'toBattle');
     if (toBattle && duel.getAttackOptions(p).length) return toBattle;
     return actions.find((a) => a.type === 'endTurn') ?? actions[actions.length - 1];
+  }
+
+  /** 放靈擺刻度：放下後能靈擺召喚手牌的怪獸才放 */
+  private scorePendulumScale(duel: Duel, p: PlayerId, card: Card, zone: 0 | 4): number {
+    const ps = duel.p(p);
+    if (ps.turnFlags.pendulumSummoned) return 0;
+    const otherZone = zone === 0 ? 4 : 0;
+    const other = ps.szone[otherZone];
+    const myScale = card.data.scale ?? 0;
+    const inRange = (lo: number, hi: number, exclude: Card[]) =>
+      [...ps.hand.filter((c) => !exclude.includes(c) && isMonster(c.data) && !cannotNormalSummon(c.data)), ...ps.extra.filter((c) => c.faceUp)].filter(
+        (c) => c.data.level > lo && c.data.level < hi,
+      ).length;
+    if (other) {
+      if (!(other.faceUp && isPendulum(other.data))) return 0;
+      const os = duel.getScale(other);
+      const n = inRange(Math.min(os, myScale), Math.max(os, myScale), [card]);
+      return n > 0 ? 55 + 5 * n : 0;
+    }
+    // 另一邊是空的：手牌有能配對的靈擺卡才放
+    let best = 0;
+    for (const mate of ps.hand) {
+      if (mate === card || !isPendulum(mate.data)) continue;
+      const ms = mate.data.scale ?? 0;
+      best = Math.max(best, inRange(Math.min(ms, myScale), Math.max(ms, myScale), [card, mate]));
+    }
+    return best > 0 ? 50 + 5 * best : 0;
   }
 
   private scoreSummon(duel: Duel, p: PlayerId, card: Card, oppMax: number, set: boolean): number {

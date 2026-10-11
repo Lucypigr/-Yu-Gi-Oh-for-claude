@@ -455,3 +455,98 @@ describe('第二彈卡片', () => {
     expect(wolves.every((w) => w.negated && duel.hasFlag(w, 'destroyAtEnd'))).toBe(true);
   });
 });
+
+describe('靈擺與連結', () => {
+  it('連結召喚放到額外怪獸區，連結箭頭指向正確的格子', async () => {
+    const { duel } = setup();
+    put(duel, 0, 91152256, 'mzone'); // 地屬性
+    put(duel, 0, 11321183, 'mzone'); // 暗屬性
+    put(duel, 0, 5053103, 'mzone'); // 地屬性
+    const mr = put(duel, 0, 3987233, 'extra'); // 金毛婦（地屬性 2 隻）
+    expect(duel.linkMaterialSets(0, mr).length).toBe(1);
+    await duel.performMainAction(0, { type: 'link', card: mr });
+    expect(mr.location).toBe('mzone');
+    expect(mr.zone).toBeGreaterThanOrEqual(5);
+    const [, c] = duel.zonePos(0, mr.zone);
+    expect([...duel.linkedZones(0)].sort()).toEqual([c - 1, c + 1].sort());
+    expect(duel.getDef(mr)).toBe(0);
+  });
+
+  it('連結怪獸可以當作連結數個素材', () => {
+    const { duel } = setup();
+    const lr = put(duel, 0, 77637979, 'mzone'); // LAN喙嘴龍 LINK-2
+    lr.zone; // 已在主要怪獸區
+    put(duel, 0, 91152256, 'mzone');
+    const ghost = put(duel, 0, 41248270, 'extra'); // 流量幽靈：怪獸 3 隻
+    // 只有 2 隻怪獸，但規定 3 隻（不能用連結數抵）→ 不行
+    expect(duel.linkMaterialSets(0, ghost).length).toBe(0);
+    const gaia = put(duel, 0, 67598234, 'extra'); // 蓋亞劍士：怪獸 2 隻以上，LINK-3
+    expect(duel.linkMaterialSets(0, gaia).length).toBe(1);
+  });
+
+  it('第二隻連結怪獸只能放到連接區', async () => {
+    const { duel } = setup();
+    for (const id of [91152256, 11321183, 5053103, 76184692]) put(duel, 0, id, 'mzone');
+    const lan = put(duel, 0, 77637979, 'extra'); // LINK-2 →↓? 依資料
+    await duel.performMainAction(0, { type: 'link', card: lan });
+    expect(lan.zone).toBeGreaterThanOrEqual(5);
+    const lan2 = put(duel, 0, 77637979, 'extra');
+    const zones = duel.extraZones(0, lan2);
+    expect(zones.every((z) => z < 5 && duel.linkedZones(0).has(z))).toBe(true);
+  });
+
+  it('靈擺刻度、靈擺召喚、離場時加入額外牌組', async () => {
+    const { duel } = setup();
+    const lo = put(duel, 0, 61639289, 'hand'); // 點火騎士·沙鷹 刻度 2
+    const hi = put(duel, 0, 97024987, 'hand'); // 點火騎士·德拉古諾夫 刻度 7
+    const m1 = put(duel, 0, 50407691, 'hand'); // 5 星
+    const m2 = put(duel, 0, 96802306, 'hand'); // 6 星
+    const big = put(duel, 0, 89631139, 'hand'); // 8 星，不在範圍
+    await duel.performMainAction(0, { type: 'pendulumScale', card: lo, zone: 0 });
+    await duel.performMainAction(0, { type: 'pendulumScale', card: hi, zone: 4 });
+    expect(duel.pendulumScales(0).every((c) => c)).toBe(true);
+    const cands = duel.pendulumCandidates(0);
+    expect(cands).toContain(m1);
+    expect(cands).toContain(m2);
+    expect(cands).not.toContain(big);
+    await duel.performMainAction(0, { type: 'pendulumSummon' });
+    expect(m1.location).toBe('mzone');
+    expect(m2.location).toBe('mzone');
+    expect(duel.getMainActions(0).some((a) => a.type === 'pendulumSummon')).toBe(false);
+    duel.destroy([m1], 'effect');
+    expect(m1.location).toBe('extra');
+    expect(m1.faceUp).toBe(true);
+  });
+
+  it('點火騎士的靈擺效果：破壞兩邊刻度並檢索', async () => {
+    const { duel } = setup();
+    const lo = put(duel, 0, 61639289, 'hand');
+    const hi = put(duel, 0, 97024987, 'hand');
+    await duel.performMainAction(0, { type: 'pendulumScale', card: lo, zone: 0 });
+    await duel.performMainAction(0, { type: 'pendulumScale', card: hi, zone: 4 });
+    put(duel, 0, 24019092, 'deck'); // 點火騎士·鳥銃（戰士族・炎）
+    const act = duel.getActivatable(0).find((x) => x.card === lo);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: lo, effect: act!.effect, effectIndex: act!.effectIndex });
+    expect(duel.p(0).extra.filter((c) => c.faceUp).length).toBe(2);
+    expect(duel.p(0).hand.some((c) => c.id === 24019092)).toBe(true);
+  });
+
+  it('異色眼靈擺龍給予的戰鬥傷害 2 倍', async () => {
+    const { duel } = setup();
+    const oe = put(duel, 0, 16178681, 'mzone'); // 2500
+    const t = put(duel, 1, 91152256, 'mzone'); // 1400
+    await duel.performAttack(oe, t);
+    expect(duel.p(1).lp).toBe(8000 - 2200);
+  });
+
+  it('碼語者：攻擊力隨所連接區的怪獸上升', async () => {
+    const { duel } = setup();
+    for (const id of [70095154, 74131780, 10375182]) put(duel, 0, id, 'mzone'); // 3 隻效果怪獸
+    const ct = put(duel, 0, 53413628, 'extra');
+    await duel.performMainAction(0, { type: 'link', card: ct });
+    expect(ct.location).toBe('mzone');
+    const pointed = duel.pointedMonsters(ct).length;
+    expect(duel.getAtk(ct)).toBe(1300 + 500 * pointed);
+  });
+});
