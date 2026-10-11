@@ -1,0 +1,198 @@
+# 卡池清單：每行一張卡的卡號（密碼），# 之後為註解（英文卡名）。
+# 修改後執行 npm run fetch-cards 重新產生 src/data/cards.json
+
+89631139  # Blue-Eyes White Dragon
+46986414  # Dark Magician
+74677422  # Red-Eyes Black Dragon
+70781052  # Summoned Skull
+91152256  # Celtic Guardian
+6368038  # Gaia The Fierce Knight
+28279543  # Curse of Dragon
+88819587  # Baby Dragon
+71625222  # Time Wizard
+41392891  # Feral Imp
+90357090  # Silver Fang
+15025844  # Mystical Elf
+13039848  # Giant Soldier of Stone
+32452818  # Beaver Warrior
+38033121  # Dark Magician Girl
+43096270  # Alexandrite Dragon
+11091375  # Luster Dragon
+69247929  # Gene-Warped Warwolf
+14898066  # Vorse Raider
+97590747  # La Jinn the Mystical Genie of the Lamp
+7359741  # Mechanicalchaser
+5053103  # Battle Ox
+69140098  # Gemini Elf
+76812113  # Harpie Lady
+40640057  # Kuriboh
+68516705  # Mystic Horseman
+50930991  # Neo the Magic Swordsman
+49881766  # Archfiend Soldier
+67724379  # Koumori Dragon
+76184692  # Hitotsu-Me Giant
+34460851  # Flame Manipulator
+44287299  # Masaki the Legendary Swordsman
+64271667  # Meteor Dragon
+21844576  # Elemental HERO Avian
+58932615  # Elemental HERO Burstinatrix
+84327329  # Elemental HERO Clayman
+20721928  # Elemental HERO Sparkman
+31786629  # Thunder Dragon
+78193831  # Buster Blader
+11321183  # Dark Blade
+38445524  # Gil Garth
+50005633  # Swordstalker
+73698349  # Giant Orc
+94905343  # Rabid Horseman
+12493482  # Dunames Dark Witch
+93013676  # Maha Vailo
+79182538  # Mad Dog of Darkness
+24611934  # Ryu-Kishin Powered
+14531242  # Opticlops
+23995346  # Blue-Eyes Ultimate Dragon
+11901678  # Black Skull Dragon
+45231177  # Flame Swordsman
+66889139  # Gaia the Dragon Champion
+41462083  # Thousand Dragon
+54752875  # Twin-Headed Thunder Dragon
+90660762  # Meteor Black Dragon
+35809262  # Elemental HERO Flame Wingman
+61204971  # Elemental HERO Thunder Giant
+5405694  # Black Luster Soldier
+30208479  # Magician of Black Chaos
+63977008  # Junk Synchron
+68505803  # Genex Controller
+21615956  # Flamvell Guard
+9365703  # Speed Warrior
+14943837  # Debris Dragon
+97021916  # Dark Resonator
+97204936  # Gaia Knight, the Force of Earth
+60800381  # Junk Warrior
+73580471  # Black Rose Dragon
+44508094  # Stardust Dragon
+70902743  # Red Dragon Archfiend
+26593852  # Ally of Justice Catastor
+84013237  # Number 39: Utopia
+69610924  # Number 17: Leviathan Dragon
+71594310  # Gem-Knight Pearl
+60645181  # Heroic Champion - Excalibur
+80117527  # Number 11: Big Eye
+26202165  # Sangan
+78010363  # Witch of the Black Forest
+54652250  # Man-Eater Bug
+7089711  # Hane-Hane
+93920745  # Penguin Soldier
+31560081  # Magician of Faith
+71413901  # Breaker the Magical Warrior
+77585513  # Jinzo
+83011277  # Mystic Tomato
+97017120  # Giant Rat
+95956346  # Shining Angel
+74131780  # Exiled Force
+7572887  # D.D. Warrior Lady
+39507162  # Blade Knight
+2460565  # Marauding Captain
+10375182  # Command Knight
+70095154  # Cyber Dragon
+79814787  # The White Stone of Legend
+33508719  # Morphing Jar
+31553716  # Spear Dragon
+18036057  # Airknight Parshath
+88472456  # Zombyra the Dark
+4929256  # Mobius the Frost Monarch
+51945556  # Zaborg the Thunder Monarch
+26205777  # Thestalos the Firestorm Monarch
+73125233  # Raiza the Storm Monarch
+76922029  # Don Zaloog
+10189126  # Masked Sorcerer
+79575620  # Injection Fairy Lily
+59793705  # Elemental HERO Bladedge
+86188410  # Elemental HERO Wildheart
+40044918  # Elemental HERO Stratos
+78658564  # Goblin Attack Force
+85087012  # Card Trooper
+45141844  # Old Vindictive Magician
+22567609  # Nimble Momonga
+60806437  # UFO Turtle
+77044671  # Pyramid Turtle
+84834865  # Flying Kamakiri #1
+57839750  # Mother Grizzly
+31305911  # Marshmallon
+72989439  # Black Luster Soldier - Envoy of the Beginning
+9596126  # Chaos Sorcerer
+22587018  # Hydrogeddon
+16956455  # Chiron the Mage
+4041838  # Ninja Grandmaster Sasuke
+4335645  # Newdoria
+55144522  # Pot of Greed
+79571449  # Graceful Charity
+83764718  # Monster Reborn
+12580477  # Raigeki
+53129443  # Dark Hole
+18144506  # Harpie's Feather Duster
+5318639  # Mystical Space Typhoon
+19613556  # Heavy Storm
+4031928  # Change of Heart
+72302403  # Swords of Revealing Light
+66788016  # Fissure
+46130346  # Hinotama
+84257639  # Dian Keto the Cure Master
+24094653  # Polymerization
+70828912  # Premature Burial
+72892473  # Card Destruction
+70368879  # Upstart Goblin
+87910978  # Brain Control
+14087893  # Book of Moon
+45986603  # Snatch Steal
+40619825  # Axe of Despair
+65169794  # Black Pendant
+70046172  # Rush Recklessly
+98045062  # Enemy Controller
+56747793  # United We Stand
+69162969  # Lightning Vortex
+97169186  # Smashing Ground
+71044499  # Nobleman of Crossout
+42703248  # Giant Trunade
+73915051  # Scapegoat
+50913601  # Mountain
+59197169  # Yami
+86318356  # Sogen
+22702055  # Umi
+87430998  # Forest
+23424603  # Wasteland
+55761792  # Black Luster Ritual
+76792184  # Black Magic Ritual
+32807846  # Reinforcement of the Army
+81439173  # Foolish Burial
+43422537  # Double Summon
+19523799  # Ookazi
+79759861  # Tribute to the Doomed
+213326  # E - Emergency Call
+63391643  # Thousand Knives
+55713623  # Shrink
+27243130  # Forbidden Lance
+4206964  # Trap Hole
+29401950  # Bottomless Trap Hole
+44095762  # Mirror Force
+62279055  # Magic Cylinder
+56120475  # Sakuretsu Armor
+14315573  # Negate Attack
+70342110  # Dimensional Prison
+53582587  # Torrential Tribute
+97077563  # Call of the Haunted
+41420027  # Solemn Judgment
+77414722  # Magic Jammer
+3819470  # Seven Tools of the Bandit
+12607053  # Waboku
+60082869  # Dust Tornado
+4178474  # Raigeki Break
+83555666  # Ring of Destruction
+17814387  # Reinforcements
+94192409  # Compulsory Evacuation Device
+36361633  # Threatening Roar
+98427577  # Scrap-Iron Scarecrow
+43250041  # Draining Shield
+85742772  # Gravity Bind
+83968380  # Jar of Greed
+77754944  # Widespread Ruin

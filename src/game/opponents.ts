@@ -1,0 +1,147 @@
+// 電腦對手
+import type { DeckList } from '../engine/duel';
+import { OPPONENT_DECKS } from './decks';
+
+export interface Opponent {
+  id: string;
+  name: string;
+  title: string;
+  /** 頭像（emoji） */
+  avatar: string;
+  desc: string;
+  /** 1~5 */
+  level: number;
+  /** 勝利獎勵金幣 */
+  reward: number;
+  /** AI 隨機程度（越高越容易失誤） */
+  randomness: number;
+  /** 需要先打贏的對手 */
+  requires?: string;
+  deck: DeckList;
+}
+
+export const OPPONENTS: Opponent[] = [
+  {
+    id: 'rookie',
+    name: '見習決鬥者',
+    title: '剛入門的新手',
+    avatar: '🧢',
+    desc: '使用通常怪獸的基本牌組，適合熟悉規則。',
+    level: 1,
+    reward: 120,
+    randomness: 1,
+    deck: OPPONENT_DECKS.rookie,
+  },
+  {
+    id: 'forest',
+    name: '森林獵人',
+    title: '野獸的同伴',
+    avatar: '🏹',
+    desc: '利用「森」強化獸族與植物族。',
+    level: 2,
+    reward: 150,
+    randomness: 0.6,
+    requires: 'rookie',
+    deck: OPPONENT_DECKS.forest,
+  },
+  {
+    id: 'ocean',
+    name: '深海主宰',
+    title: '大海的支配者',
+    avatar: '🌊',
+    desc: '「海」與水屬性、雷族怪獸的組合。',
+    level: 2,
+    reward: 160,
+    randomness: 0.5,
+    requires: 'rookie',
+    deck: OPPONENT_DECKS.ocean,
+  },
+  {
+    id: 'darkmagic',
+    name: '黑暗魔導師',
+    title: '魔術的探究者',
+    avatar: '🧙',
+    desc: '黑魔術師與魔法師族，擅長陷阱。',
+    level: 3,
+    reward: 220,
+    randomness: 0.3,
+    requires: 'forest',
+    deck: OPPONENT_DECKS.darkmagic,
+  },
+  {
+    id: 'machine',
+    name: '鋼鐵機械師',
+    title: '機械軍團的指揮官',
+    avatar: '🤖',
+    desc: '電子龍、人造人與同步召喚。',
+    level: 3,
+    reward: 230,
+    randomness: 0.3,
+    requires: 'ocean',
+    deck: OPPONENT_DECKS.machine,
+  },
+  {
+    id: 'hero',
+    name: '英雄使者',
+    title: '元素英雄的繼承人',
+    avatar: '🦸',
+    desc: '元素英雄的融合戰術。',
+    level: 3,
+    reward: 250,
+    randomness: 0.2,
+    requires: 'darkmagic',
+    deck: OPPONENT_DECKS.hero,
+  },
+  {
+    id: 'monarch',
+    name: '帝王',
+    title: '四帝的統治者',
+    avatar: '👑',
+    desc: '上級召喚帝王，以效果壓制場面。',
+    level: 4,
+    reward: 320,
+    randomness: 0.1,
+    requires: 'machine',
+    deck: OPPONENT_DECKS.monarch,
+  },
+  {
+    id: 'synchro',
+    name: '同步召喚師',
+    title: '星塵的使者',
+    avatar: '🌟',
+    desc: '連續同步召喚，星塵龍與紅蓮魔龍。',
+    level: 4,
+    reward: 340,
+    randomness: 0.1,
+    requires: 'hero',
+    deck: OPPONENT_DECKS.synchro,
+  },
+  {
+    id: 'dragonlord',
+    name: '龍之主',
+    title: '青眼的守護者',
+    avatar: '🐉',
+    desc: '三張青眼白龍與究極龍的強大牌組。',
+    level: 5,
+    reward: 450,
+    randomness: 0,
+    requires: 'monarch',
+    deck: OPPONENT_DECKS.dragonlord,
+  },
+  {
+    id: 'chaos',
+    name: '混沌之王',
+    title: '最終決鬥者',
+    avatar: '😈',
+    desc: '集結禁卡級強卡的最終對手。',
+    level: 5,
+    reward: 600,
+    randomness: 0,
+    requires: 'synchro',
+    deck: OPPONENT_DECKS.chaos,
+  },
+];
+
+export function getOpponent(id: string) {
+  return OPPONENTS.find((o) => o.id === id);
+}
