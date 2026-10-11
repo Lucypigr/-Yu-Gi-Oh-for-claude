@@ -627,6 +627,8 @@ export class Duel {
 
     this.detach(card);
     card.stint++;
+    card.movedTurn = this.turn;
+    card.movedFrom = from;
 
     if (wasOnField && !(to === 'mzone' && from === 'mzone')) {
       this.handleLeaveField(card, from, prevController, wasFaceUp, opts);
@@ -752,7 +754,34 @@ export class Duel {
   }
 
   /** 破壞卡片，回傳實際被破壞的卡 */
+  /**
+   * 「被破壞的場合，可以作為代替把…破壞」：找得到代替的卡就破壞它，回傳是否代替成功。
+   * 為了不打斷處理，自動選擇價值最低的卡；代替的卡比這張卡更強時不代替。
+   */
+  private substituteDestroy(c: Card, batch: Card[], reason: Reason): boolean {
+    const sub = getScript(c.id).destroySubstitute;
+    if (!sub || !c.faceUp || c.location !== 'mzone' || this.isNegated(c)) return false;
+    const cands = sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x));
+    if (!cands.length) return false;
+    const worth = (x: Card) => (x.location === 'mzone' ? this.getAtk(x) : 0) + (x.location === 'mzone' ? x.data.level * 40 : 500);
+    const pick = cands.reduce((a, b) => (worth(b) < worth(a) ? b : a));
+    if (worth(pick) > worth(c)) return false;
+    this.log(`「${c.name}」的代替：破壞「${pick.name}」`);
+    this.destroyNoSubstitute([pick], 'effect', c);
+    return true;
+  }
+
   destroy(cards: Card[], reason: Reason, by?: Card): Card[] {
+    const kept = cards.filter((c) => c.onField && !(reason === 'effect' && by && this.isImmune(c, by)) && !(reason === 'effect' && this.has(c, 'effectIndestructible')));
+    const subbed = kept.filter((c) => this.substituteDestroy(c, cards, reason));
+    return this.destroyNoSubstitute(
+      cards.filter((c) => !subbed.includes(c)),
+      reason,
+      by,
+    );
+  }
+
+  private destroyNoSubstitute(cards: Card[], reason: Reason, by?: Card): Card[] {
     const done: Card[] = [];
     for (const c of cards) {
       if (!c.onField) continue;
@@ -833,6 +862,12 @@ export class Duel {
   damage(p: PlayerId, amount: number, reason: 'battle' | 'effect' = 'effect', by?: Card) {
     amount = Math.max(0, Math.floor(amount));
     if (amount <= 0) return;
+    // 受到效果傷害時的代替（黑翼龍）
+    if (reason === 'effect')
+      for (const m of this.faceUpMonsters(p)) {
+        const hook = getScript(m.id).replaceEffectDamage;
+        if (hook && !this.isNegated(m) && hook(this, m, amount)) return;
+      }
     const ps = this.p(p);
     ps.lp = Math.max(0, ps.lp - amount);
     this.log(`${ps.name} 受到 ${amount} 點${reason === 'battle' ? '戰鬥' : '效果'}傷害`, p);
@@ -902,6 +937,7 @@ export class Duel {
     });
     if (!ok) return false;
     card.summonType = opts.summonType ?? 'special';
+    card.summonedBy = opts.by ?? null;
     if (card.summonType !== 'special') card.properlySummoned = true;
     card.turnPlaced = this.turn;
     if (opts.negateEffects) card.negated = true;
@@ -911,7 +947,7 @@ export class Duel {
       p,
     );
     if (!opts.faceDown) {
-      const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType };
+      const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType, by: opts.by };
       this.raise(ev);
       if (this.resolvingChain) this.summonEventsDuringResolution.push(ev);
     }
@@ -1299,6 +1335,9 @@ export class Duel {
   private canActivateHere(p: PlayerId, card: Card, effect: EffectDef): boolean {
     const d = card.data;
     if (isSpell(d) && effect.kind === 'activate' && this.playerHas(p, 'cannotActivateSpells')) return false;
+    // 大將軍 紫炎：1 回合只能發動 1 次魔法・陷阱卡
+    if ((isSpell(d) || isTrap(d)) && effect.kind === 'activate' && this.p(p).turnFlags.stActivated && this.playerHas(p, 'oneSpellTrapPerTurn'))
+      return false;
     // 古代的機械巨人攻擊時，對方不能發動魔法・陷阱
     const b = this.battle;
     if ((isSpell(d) || isTrap(d)) && b && b.attacker.controller !== p && this.has(b.attacker, 'noSTDuringAttack')) return false;
@@ -1340,6 +1379,7 @@ export class Duel {
     const ctx = this.makeCtx(card, effect, p, event);
     const isCardActivation = effect.kind === 'activate' && (isSpell(card.data) || isTrap(card.data));
     const ps = this.p(p);
+    if (isCardActivation) ps.turnFlags.stActivated = true;
     if (isCardActivation) {
       if (card.location === 'hand') {
         if (spellKind(card.data) === 'field' && isSpell(card.data)) this.moveTo(card, 'fzone', { reason: 'rule', player: p });
@@ -1464,6 +1504,12 @@ export class Duel {
         if (this.freeSZones(p) > 0) actions.push({ type: 'setST', card });
       }
     }
+    // 額外牌組用規則特殊召喚的怪獸（劍鬥獸的接觸融合）
+    if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon'))
+      for (const card of ps.extra) {
+        const sp = getScript(card.id).spSummon;
+        if (sp && !card.faceUp && sp.condition(this, card)) actions.push({ type: 'spSummon', card });
+      }
     for (const card of ps.mzone) {
       if (!card) continue;
       if (card.turnPlaced === this.turn || card.posChangedTurn === this.turn) continue;
@@ -1642,7 +1688,7 @@ export class Duel {
     const sp = getScript(card.id).spSummon!;
     if (sp.cost) await sp.cost(this, card);
     const pos = await this.choosePosition(p, card);
-    const zones = sp.zones ? sp.zones(this, card) : this.freeMainZones(p);
+    const zones = sp.zones ? sp.zones(this, card) : card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
     if (!zones.length) return;
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: zones[0] });
     card.summonType = 'special';
@@ -2190,7 +2236,8 @@ export class Duel {
     this.raise({ type: 'afterDamageCalc', card: attacker, attacker, target, player: p, cards: destroyList });
     await this.settle();
 
-    const still = destroyList.filter((c) => c.location === 'mzone' && c.stint === stints.get(c));
+    const survivors = destroyList.filter((c) => c.location === 'mzone' && c.stint === stints.get(c));
+    const still = survivors.filter((c) => !this.substituteDestroy(c, survivors, 'battle'));
     for (const c of still) {
       const by = c === attacker ? target ?? undefined : attacker;
       const from = c.location;
@@ -2298,7 +2345,9 @@ export class Duel {
     if (doomed.length) this.destroy(doomed, 'effect');
     const exiled = this.monsters().filter((c) => this.hasFlag(c, 'banishAtEnd'));
     if (exiled.length) this.banish(exiled, 'effect');
-    if (doomed.length || exiled.length) await this.settle();
+    const shuffled = this.monsters().filter((c) => this.hasFlag(c, 'deckAtEnd'));
+    if (shuffled.length) this.returnToDeck(shuffled, false, 'effect');
+    if (doomed.length || exiled.length || shuffled.length) await this.settle();
     // 效果期限到期
     for (const c of this.monsters()) {
       c.mods = c.mods.filter((m) => {

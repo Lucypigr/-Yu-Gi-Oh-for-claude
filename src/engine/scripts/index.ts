@@ -8,6 +8,7 @@ import './traps';
 import './traps2';
 import './pendlink';
 import './zexal';
+import './fived';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

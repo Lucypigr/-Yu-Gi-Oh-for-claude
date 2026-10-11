@@ -123,7 +123,8 @@ export type Query =
   | 'noSTDuringAttack' // 這張卡攻擊時對方不能發動魔法・陷阱
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
   | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
-  | 'halfBattleDamage'; // 給予對方的戰鬥傷害變成一半
+  | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
+  | 'oneSpellTrapPerTurn'; // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
 
 export interface StatMod {
   atk?: number;
@@ -209,6 +210,10 @@ export interface CardScript {
     /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
     over?: (c: Card) => boolean;
   };
+  /** 被破壞時可以改為破壞的卡（六武眾等）；回傳候補 */
+  destroySubstitute?: (duel: Duel, self: Card, reason: Reason) => Card[];
+  /** 控制者受到效果傷害時的代替處理，回傳 true 表示不受到傷害（黑翼龍） */
+  replaceEffectDamage?: (duel: Duel, self: Card, amount: number) => boolean;
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
   asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
   /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */

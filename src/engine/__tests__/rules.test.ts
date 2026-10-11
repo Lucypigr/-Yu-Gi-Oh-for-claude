@@ -650,3 +650,84 @@ describe('超量（第四彈）', () => {
     expect(duel.p(1).lp).toBe(6000);
   });
 });
+
+describe('5D\'s 經典（第五彈）', () => {
+  it('六武眾被破壞時可以改為破壞其他「六武眾」', () => {
+    const { duel } = setup();
+    const zanji = put(duel, 0, 95519486, 'mzone'); // 斬次 1800
+    const yariza = put(duel, 0, 69025477, 'mzone'); // 槍左 1000
+    duel.destroy([zanji], 'effect');
+    expect(zanji.location).toBe('mzone');
+    expect(yariza.location).toBe('grave');
+  });
+
+  it('六武眾：戰鬥破壞時也能代替', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const zanji = put(duel, 1, 95519486, 'mzone'); // 斬次 1800
+    const yariza = put(duel, 1, 69025477, 'mzone');
+    const bewd = put(duel, 0, 89631139, 'mzone');
+    await duel.performAttack(bewd, zanji);
+    expect(zanji.location).toBe('mzone');
+    expect(yariza.location).toBe('grave');
+  });
+
+  it('劍鬥獸：戰鬥後回到牌組，特殊召喚的劍鬥獸發動登場效果', async () => {
+    const { duel, a, b } = setup();
+    b.declineAll = true;
+    a.declineAll = false;
+    const bes = put(duel, 0, 41470137, 'mzone'); // 槍斗
+    const mur = put(duel, 0, 5975022, 'deck'); // 魚斗：登場時破壞表側怪獸
+    const target = put(duel, 1, FILLER, 'mzone', { pos: 'def' });
+    const victim = put(duel, 1, 46986414, 'mzone'); // 黑魔術師
+    await duel.performAttack(bes, target);
+    duel.raise({ type: 'battlePhaseEnd', player: 0 });
+    await duel.settle();
+    expect(bes.location).toBe('deck');
+    expect(mur.location).toBe('mzone');
+    expect(mur.summonedBy).toBe(bes);
+    expect(victim.location).toBe('grave');
+  });
+
+  it('劍鬥獸 凱撒：接觸融合（素材回到牌組）', async () => {
+    const { duel } = setup();
+    const bes = put(duel, 0, 41470137, 'mzone');
+    const lq = put(duel, 0, 78868776, 'mzone');
+    const gy = put(duel, 0, 48156348, 'extra');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === gy);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(gy.location).toBe('mzone');
+    expect(bes.location).toBe('deck');
+    expect(lq.location).toBe('deck');
+  });
+
+  it('黑翼龍：效果傷害改為放置指示物，攻擊力下降', () => {
+    const { duel } = setup();
+    const bwd = put(duel, 0, 9012916, 'mzone');
+    duel.damage(0, 1000, 'effect');
+    expect(duel.p(0).lp).toBe(8000);
+    expect(bwd.counters).toBe(1);
+    expect(duel.getAtk(bwd)).toBe(2100);
+  });
+
+  it('大將軍 紫炎：對方 1 回合只能發動 1 次魔法・陷阱', async () => {
+    const { duel } = setup();
+    duel.turnPlayer = 1;
+    put(duel, 0, 63176202, 'mzone');
+    const s1 = put(duel, 1, 55144522, 'hand'); // 強欲之壺
+    put(duel, 1, 55144522, 'hand');
+    const act = duel.getActivatable(1).find((x) => x.card === s1)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(1, { type: 'activate', card: s1, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.getActivatable(1).some((x) => x.card.id === 55144522)).toBe(false);
+  });
+
+  it('六武之門：六武眾召喚時放置 2 個指示物', async () => {
+    const { duel } = setup();
+    const gate = put(duel, 0, 27970830, 'szone', { faceUp: true });
+    const y = put(duel, 0, 64398890, 'hand');
+    await duel.performMainAction(0, { type: 'summon', card: y });
+    expect(gate.counters).toBe(2);
+  });
+});

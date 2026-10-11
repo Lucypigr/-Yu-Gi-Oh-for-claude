@@ -264,7 +264,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         {order.map((i) => renderFieldCard(ps.szone[i], `s${i}`, `szone ${i === 0 || i === 4 ? 'pzone' : ''}`))}
       </div>
     );
-    const extraActions = p === ME && req?.kind === 'main' ? req.actions.filter((a) => a.type === 'synchro' || a.type === 'xyz' || a.type === 'link') : [];
+    const extraActions = p === ME && req?.kind === 'main' ? req.actions.filter((a) => a.type === 'synchro' || a.type === 'xyz' || a.type === 'link' || (a.type === 'spSummon' && a.card.location === 'extra')) : [];
     const faceUpExtra = ps.extra.filter((c) => c.faceUp).length;
     const left = (
       <div className="side-col">
@@ -555,7 +555,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
           <div className="pile-grid">
             {me.extra.map((c) => {
               const acts =
-                req?.kind === 'main' ? req.actions.filter((a) => (a.type === 'synchro' || a.type === 'xyz' || a.type === 'link') && a.card === c) : [];
+                req?.kind === 'main' ? req.actions.filter((a) => (a.type === 'synchro' || a.type === 'xyz' || a.type === 'link' || a.type === 'spSummon') && a.card === c) : [];
               return (
                 <div key={c.uid} className="pile-item" onMouseEnter={() => setDetail(c)}>
                   <CardView data={c.data} size="sm" dim={!acts.length && !c.faceUp} />

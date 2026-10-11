@@ -744,3 +744,89 @@
 91499077  # Gagaga Samurai
 31563350  # Zubaba General
 66506689  # Tin Archduke
+
+# ---- 5D's 黑羽（第五彈）----
+2009101  # Blackwing - Gale the Whirlwind
+49003716  # Blackwing - Bora the Spear
+75498415  # Blackwing - Sirocco the Dawn
+58820853  # Blackwing - Shura the Blue Flame
+85215458  # Blackwing - Kalut the Moon Shadow
+22835145  # Blackwing - Blizzard the Far North
+11613567  # Blackwing - Elphin the Raven
+9109991  # Blackwing - Fane the Steel Chain
+46710683  # Blackwing - Mistral the Silver Shield
+26775203  # Blackwing - Ghibli the Searing Wind
+14785765  # Blackwing - Zephyros the Elite
+41902352  # Blackwing - Kochi the Daybreak
+55610595  # Blackwing - Pinaki the Waxing Moon
+73652465  # Blackwing - Oroshi the Squall
+81105204  # Blackwing - Kris the Crack of Dawn
+52869807  # Blackwing - Gust the Backblast
+9012916  # Black-Winged Dragon
+69031175  # Blackwing Armor Master
+76913983  # Blackwing Armed Wing
+33236860  # Blackwing - Silverwind the Ascendant
+17377751  # Blackwing - Gram the Shining Star
+95040215  # Blackwing - Nothung the Starlight
+81983656  # Blackwing Tamer - Obsidian Hawk Joe
+91351370  # Black Whirlwind
+53567095  # Icarus Attack
+59839761  # Delta Crow - Anti Reverse
+72930878  # Black Sonic
+89040386  # Blackwing - Backlash
+
+# ---- 5D's 劍鬥獸（第五彈）----
+41470137  # Gladiator Beast Bestiari
+78868776  # Gladiator Beast Laquari
+25924653  # Gladiator Beast Darius
+57731460  # Gladiator Beast Equeste
+4253484  # Gladiator Beast Hoplomus
+5975022  # Gladiator Beast Murmillo
+77642288  # Gladiator Beast Secutor
+612115  # Gladiator Beast Retiari
+2619149  # Gladiator Beast Samnite
+31247589  # Gladiator Beast Dimacari
+79580323  # Gladiator Beast Spartacus
+42592719  # Gladiator Beast Alexander
+7573135  # Gladiator Beast Augustus
+65984457  # Gladiator Beast Torax
+90582719  # Gladiator Beast Andal
+92373006  # Test Tiger
+48156348  # Gladiator Beast Gyzarus
+27346636  # Gladiator Beast Heraklinos
+90957527  # Gladiator Beast Gaiodiaz
+73285669  # Gladiator Beast Essedarii
+98891840  # Gladiator Beast's Respite
+35224440  # Gladiator Proving Ground
+96216229  # Gladiator Beast War Chariot
+25407406  # Gladiator Beast's Battle Gladius
+52496105  # Gladiator Beast's Battle Manica
+
+# ---- 5D's 六武眾（第五彈）----
+64398890  # The Six Samurai - Yaichi
+69025477  # The Six Samurai - Yariza
+90397998  # The Six Samurai - Kamon
+31904181  # The Six Samurai - Nisashi
+27782503  # The Six Samurai - Irou
+95519486  # The Six Samurai - Zanji
+83039729  # Grandmaster of the Six Samurai
+63176202  # Great Shogun Shien
+1498130  # Kagemusha of the Six Samurai
+49721904  # Legendary Six Samurai - Kizan
+2511717  # Legendary Six Samurai - Kageki
+75116619  # Legendary Six Samurai - Enishi
+74094021  # Legendary Six Samurai - Mizuho
+48505422  # Legendary Six Samurai - Shinai
+78792195  # Hand of the Six Samurai
+61737116  # Elder of the Six Samurai
+29981921  # Legendary Six Samurai - Shi En
+27970830  # Gateway of the Six
+54031490  # Shien's Smoke Signal
+47436247  # Shien's Dojo
+72345736  # Six Samurai United
+27178262  # Cunning of the Six Samurai
+27821104  # Asceticism of the Six Samurai
+46874015  # Return of the Six Samurai
+81426505  # Six Strike - Triple Impact
+41458579  # Musakani Magatama
+21007444  # Double-Edged Sword Technique

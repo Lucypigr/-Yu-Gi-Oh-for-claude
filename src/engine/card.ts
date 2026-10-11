@@ -25,6 +25,11 @@ export class Card {
   /** 來到場上（或被蓋放）的回合 */
   turnPlaced = 0;
   summonType: SummonType | null = null;
+  /** 用效果特殊召喚這張卡的卡（劍鬥獸「用劍鬥獸的效果特殊召喚時」用） */
+  summonedBy: Card | null = null;
+  /** 最後一次移動的回合與移動前的位置 */
+  movedTurn = 0;
+  movedFrom: Loc | null = null;
   attacks = 0;
   /** 可以額外攻擊的次數 */
   extraAttacks = 0;
@@ -71,6 +76,7 @@ export class Card {
   resetFieldState() {
     this.turnPlaced = 0;
     this.summonType = null;
+    this.summonedBy = null;
     this.attacks = 0;
     this.extraAttacks = 0;
     this.posChangedTurn = 0;
