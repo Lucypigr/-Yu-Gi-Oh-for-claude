@@ -1,3 +1,5 @@
+// 用英文卡名查詢資料庫中的卡號與效果（新增卡片時用）
+// 用法：node scripts/find-card.mjs "Number 39: Utopia" "Pot of Greed"
 import fs from 'node:fs';
 import { unzipSync, strFromU8 } from 'fflate';
 const json = JSON.parse(strFromU8(unzipSync(new Uint8Array(fs.readFileSync('.cache/cards.zip')))['cards.json']));
