@@ -4,7 +4,7 @@ import { getCard } from '../../engine/cardDb';
 import { PACKS, type PackDef } from '../../game/packs';
 import { type Profile, buyPack } from '../../game/profile';
 import { RARITY_NAMES, type Rarity, rarityOf } from '../../game/rarity';
-import { CardBack, CardView } from '../components/CardView';
+import { CardBack, CardDetail, CardView } from '../components/CardView';
 import { Modal } from '../duel/DuelScreen';
 
 interface Opened {
@@ -148,9 +148,7 @@ export function ShopScreen({ profile }: { profile: Profile }) {
 
       {detail !== null && (
         <Modal title={getCard(detail).name} onClose={() => setDetail(null)}>
-          <div className="modal-card">
-            <CardView data={getCard(detail)} size="lg" showRarity />
-          </div>
+          <CardDetail data={getCard(detail)} layout="row" />
         </Modal>
       )}
     </div>

@@ -10,6 +10,11 @@ export function def(id: number, script: CardScript) {
   registry.set(id, script);
 }
 
+/** 補上缺少的欄位（自動產生的融合・超量資料用） */
+export function extend(id: number, extra: CardScript) {
+  registry.set(id, { ...extra, ...(registry.get(id) ?? {}) });
+}
+
 export function getScript(id: number): CardScript {
   return registry.get(id) ?? EMPTY;
 }

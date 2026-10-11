@@ -322,6 +322,7 @@ def(24094653, {
         if (!d.matchMaterials(conds, mats)) mats = d.findMaterialSet(conds, pool) ?? [];
         if (!mats.length) return;
         d.sendToGrave(mats, 'material');
+        for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
         const pos = await d.choosePosition(ctx.player, f);
         d.specialSummon(f, ctx.player, { position: pos, summonType: 'fusion', by: ctx.card });
@@ -762,7 +763,7 @@ def(87430998, { effects: fieldSpell([RACE.INSECT, RACE.BEAST, RACE.PLANT, RACE.B
 def(23424603, { effects: fieldSpell([RACE.DINOSAUR, RACE.ZOMBIE, RACE.ROCK]) }); // 荒野
 
 // 儀式魔法
-function ritualSpell(monsterId: number) {
+export function ritualSpell(monsterId: number) {
   const level = getCard(monsterId).level;
   const ritualMons = (ctx: EffectContext) => ctx.duel.p(ctx.player).hand.filter((c) => c.id === monsterId);
   const tributePool = (ctx: EffectContext, ritual?: Card) =>

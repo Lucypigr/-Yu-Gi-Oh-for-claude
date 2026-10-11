@@ -1,4 +1,5 @@
 // 商店販售的卡包
+import { type CardData, ATTR, RACE, allCards, isExtraDeckCard, isRitual, isToken, isVanilla } from '../engine/cardDb';
 import { type Rarity, rarityOf } from './rarity';
 
 export interface PackDef {
@@ -13,6 +14,8 @@ export interface PackDef {
   /** 主題色 */
   color: string;
   cards: number[];
+  /** 自動收錄符合條件的卡 */
+  filler?: (d: CardData) => boolean;
 }
 
 export const PACKS: PackDef[] = [
@@ -97,7 +100,136 @@ export const PACKS: PackDef[] = [
       83764718, 43422537, 81439173, 70828912, 14087893, 5318639, 97077563, 98427577, 29401950, 41420027,
     ],
   },
+  {
+    id: 'magic',
+    name: '魔法師的宮殿',
+    desc: '混沌之黑魔術師、黑魔導劍士，以及傳說中的艾克佐迪亞！',
+    price: 120,
+    size: 8,
+    cover: 40737112,
+    color: '#5b4bc4',
+    cards: [
+      40737112, 98502113, 33396948, 8124921, 44519536, 70903634, 7902349, 80741828, 67629977, 37742478, 97268402, 46986414,
+      38033121, 78193831, 13604200, 99789342, 2314238, 91595718, 83746708, 42664989, 98494543, 74848038, 81777047,
+      12580477, 72892473, 1557499, 39897277, 44209392, 53239672, 77538567, 49010598, 41356845,
+    ],
+    filler: (d) => isVanillaMain(d) && !!(d.race & (RACE.SPELLCASTER | RACE.FAIRY)),
+  },
+  {
+    id: 'dark',
+    name: '黑暗的侵略者',
+    desc: '惡魔族、不死族與暗屬性，搭配陰險的永續陷阱。',
+    price: 110,
+    size: 8,
+    cover: 57281778,
+    color: '#5a1f3a',
+    cards: [
+      95178994, 23205979, 16226786, 28933734, 57281778, 88240808, 69579761, 19665973, 85306040, 40133511, 1475311, 18161786,
+      37120512, 4614116, 29267084, 18807108, 50078509, 37580756, 27174286, 126218, 88279736, 24068492, 27053506, 52684508,
+      74519184, 5758500,
+    ],
+    filler: (d) => isVanillaMain(d) && (!!(d.race & (RACE.FIEND | RACE.ZOMBIE)) || !!(d.attribute & ATTR.DARK)),
+  },
+  {
+    id: 'fusion',
+    name: '古代的融合',
+    desc: '經典融合怪獸與儀式怪獸，還有大量融合素材。',
+    price: 100,
+    size: 8,
+    cover: 66889139,
+    color: '#8a5a1c',
+    cards: [24094653, 10667321, 87025064, 52097679, 8842266, 98299011, 46918794, 76103675, 73134081, 38199696, 11868825, 47852924],
+    filler: (d) => !!d.materials || !!d.ritualFor || isRitual(d) || fusionMaterialIds().has(d.id),
+  },
+  {
+    id: 'machine',
+    name: '機械的反叛',
+    desc: '電子終結龍、古代的機械巨人等機械族重量級怪獸。',
+    price: 130,
+    size: 8,
+    cover: 1546123,
+    color: '#4a6378',
+    cards: [
+      70095154, 74157028, 1546123, 83104731, 87621407, 11384280, 18964575, 85087012, 60806437, 77585513, 7359741, 38445524,
+      38120068, 67169062, 26412047, 63102017, 3136426, 44656491, 58775978, 37820550, 77007920, 19252988, 84749824, 98069388,
+      74458486, 83887306,
+    ],
+    filler: (d) => isVanillaMain(d) && !!(d.race & (RACE.MACHINE | RACE.ROCK | RACE.PYRO | RACE.THUNDER)),
+  },
+  {
+    id: 'ice',
+    name: '冰結界之龍',
+    desc: '三叉龍、光槍龍等強力同步怪獸，以及各種超量怪獸。',
+    price: 160,
+    size: 8,
+    cover: 52687916,
+    color: '#2a7fb8',
+    cards: [
+      52687916, 50321796, 27315304, 7391448, 23693634, 88643579, 70780151, 45815891, 20932152, 14878871, 12538374, 8131171,
+      97268402, 9053187, 25341652, 31386180, 581014, 29669359, 95169481, 81330115, 47805931, 10002346, 95992081, 63977008,
+      21615956, 68505803, 14943837, 97021916, 9365703, 82999629, 2370081, 77027445,
+    ],
+  },
+  {
+    id: 'element',
+    name: '元素之力',
+    desc: '屬性強化怪獸、屬性場地與各種裝備魔法，還有大量通常怪獸。',
+    price: 90,
+    size: 8,
+    cover: 68658728,
+    color: '#3f8f4a',
+    cards: [
+      28470714, 7489323, 68658728, 8201910, 52824910, 39191307, 65287621, 47606319, 18318842, 24435369, 64342551, 52077741,
+      9817927, 22609617, 21015833, 21502796, 57116033, 61854111, 46009906, 39774685, 1435851, 36607978, 32268901, 64047146,
+      99597615, 19384334, 45778932, 56594520, 74137509, 57882509, 36468556, 37390589, 93382620,
+    ],
+    filler: () => false,
+  },
 ];
+
+// 元素英雄追加卡
+PACKS.find((p) => p.id === 'hero')!.cards.push(
+  25366484, 89943723, 79979666, 52031567, 63703130, 37318031, 74825788, 63035430, 22020907, 18511384,
+);
+
+/** 每個卡包至少要有幾種普通（N）卡 */
+const MIN_COMMONS = 20;
+
+/** 通常怪獸（非額外牌組、非儀式） */
+function isVanillaMain(d: CardData) {
+  return isVanilla(d) && !isExtraDeckCard(d) && !isRitual(d) && !isToken(d);
+}
+
+let materialIds: Set<number> | null = null;
+function fusionMaterialIds() {
+  if (!materialIds) materialIds = new Set(allCards().flatMap((c) => c.materials ?? []));
+  return materialIds;
+}
+
+// 依 filler 補上主題卡，剩下沒有收錄的卡全部放進「元素之力」，確保每張卡都買得到
+{
+  const included = new Set<number>();
+  for (const p of PACKS) {
+    if (p.filler) for (const c of allCards()) if (!isToken(c) && p.filler(c) && !p.cards.includes(c.id)) p.cards.push(c.id);
+    for (const id of p.cards) included.add(id);
+  }
+  const element = PACKS.find((p) => p.id === 'element')!;
+  for (const c of allCards()) if (!isToken(c) && !included.has(c.id)) element.cards.push(c.id);
+  // 普通卡太少的卡包會一直開到同樣的卡：補上 4 星以下的通常怪獸
+  const vanillas = allCards().filter((c) => isVanillaMain(c) && c.level <= 4 && rarityOf(c.id) === 'N');
+  for (const p of PACKS) {
+    let commons = new Set(p.cards.filter((id) => rarityOf(id) === 'N')).size;
+    let seed = [...p.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
+    for (let guard = 0; commons < MIN_COMMONS && guard < 500; guard++) {
+      seed = (seed * 1103515245 + 12345) >>> 0;
+      const c = vanillas[seed % vanillas.length];
+      if (!p.cards.includes(c.id)) {
+        p.cards.push(c.id);
+        commons++;
+      }
+    }
+  }
+}
 
 /** 一般欄位的稀有度機率 */
 const NORMAL_SLOT: [Rarity, number][] = [

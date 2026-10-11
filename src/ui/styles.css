@@ -159,60 +159,71 @@ h4 {
   container-type: inline-size;
   position: relative;
   aspect-ratio: 59 / 86;
-  border-radius: 4.5%;
-  padding: 3.6%;
+  border-radius: 3.5%;
+  padding: 4.2% 4.2% 3.6%;
   flex: none;
   user-select: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  background: var(--frame, #c9a25a);
-  color: #111;
+  color: #141414;
   overflow: hidden;
+  /* 外框：深色邊＋彩色卡框＋細微紋理 */
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 2px, rgba(0, 0, 0, 0.04) 2px 4px),
+    radial-gradient(120% 80% at 30% 0%, rgba(255, 255, 255, 0.35), transparent 60%),
+    var(--frame, linear-gradient(160deg, #e8c77a, #b98a35));
+  box-shadow:
+    0 0 0 1px #0b0b0b,
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    inset 0 0 6px rgba(0, 0, 0, 0.35),
+    0 4px 10px rgba(0, 0, 0, 0.55);
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.2s;
 }
 .card-xs {
   width: var(--cw);
+  padding: 0;
+  border-radius: 6%;
 }
 .card-sm {
-  width: 100px;
+  width: 110px;
 }
 .card-md {
-  width: 170px;
+  width: 180px;
 }
 .card-lg {
   width: 100%;
-  max-width: 300px;
+  max-width: 320px;
 }
 .card.dim {
-  filter: grayscale(0.85) brightness(0.55);
+  filter: grayscale(0.9) brightness(0.5);
 }
 
 .frame-normal {
-  --frame: linear-gradient(160deg, #e9cd84, #c99f47);
+  --frame: linear-gradient(160deg, #f1d68f 0%, #d8b25c 45%, #b98a35 100%);
 }
 .frame-effect {
-  --frame: linear-gradient(160deg, #e0864f, #b55a2b);
+  --frame: linear-gradient(160deg, #ee9a63 0%, #d06a35 45%, #9e4519 100%);
 }
 .frame-fusion {
-  --frame: linear-gradient(160deg, #a774c4, #6e3a8c);
+  --frame: linear-gradient(160deg, #b98bd6 0%, #8a52aa 45%, #5d2e7c 100%);
 }
 .frame-ritual {
-  --frame: linear-gradient(160deg, #7fa9e6, #3e6bb3);
+  --frame: linear-gradient(160deg, #97bdf0 0%, #5e8fd8 45%, #2f5aa3 100%);
 }
 .frame-synchro {
-  --frame: linear-gradient(160deg, #ffffff, #c9c9c9);
+  --frame: linear-gradient(160deg, #ffffff 0%, #e6e6e6 45%, #b9b9b9 100%);
 }
 .frame-xyz {
-  --frame: linear-gradient(160deg, #3d3d3d, #121212);
+  --frame: linear-gradient(160deg, #4a4a4a 0%, #262626 45%, #0e0e0e 100%);
   color: #fff;
 }
 .frame-token {
-  --frame: linear-gradient(160deg, #c2c2c2, #8a8a8a);
+  --frame: linear-gradient(160deg, #d6d6d6 0%, #a9a9a9 45%, #7d7d7d 100%);
 }
 .frame-spell {
-  --frame: linear-gradient(160deg, #2fb592, #157a61);
+  --frame: linear-gradient(160deg, #43c6a2 0%, #1d9a7b 45%, #0e6650 100%);
   color: #fff;
 }
 .frame-trap {
-  --frame: linear-gradient(160deg, #d0559a, #8f2361);
+  --frame: linear-gradient(160deg, #e06aac 0%, #b33a7c 45%, #7a1850 100%);
   color: #fff;
 }
 
@@ -221,94 +232,200 @@ h4 {
   display: flex;
   flex-direction: column;
 }
+/* 卡名欄：凹陷的金屬板 */
 .card-head {
   display: flex;
   align-items: center;
   gap: 2%;
-  height: 10%;
-  padding: 0 2%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  height: 10.5%;
+  padding: 0 2.5%;
   border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12) 55%, rgba(0, 0, 0, 0.08));
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+.frame-xyz .card-head,
+.frame-spell .card-head,
+.frame-trap .card-head {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.05) 55%, rgba(0, 0, 0, 0.15));
 }
 .card-name {
   flex: 1;
+  font-family: 'Noto Serif TC', 'Noto Sans TC', serif;
   font-weight: 900;
-  font-size: 7.4cqw;
+  font-size: 7.6cqw;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
+.frame-xyz .card-name,
+.frame-spell .card-name,
+.frame-trap .card-name {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.foil-SR .card-name,
+.foil-UR .card-name {
+  background: linear-gradient(90deg, #8a6a12, #f6e27a 40%, #b9921c 60%, #fff3b0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+}
+.frame-xyz.foil-SR .card-name,
+.frame-spell.foil-SR .card-name,
+.frame-trap.foil-SR .card-name,
+.frame-xyz.foil-UR .card-name,
+.frame-spell.foil-UR .card-name,
+.frame-trap.foil-UR .card-name {
+  background: linear-gradient(90deg, #ffe680, #fff8d6 45%, #ffd23f);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+/* 屬性徽章 */
 .card-attr {
-  width: 10cqw;
-  height: 10cqw;
+  width: 11cqw;
+  height: 11cqw;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 6cqw;
+  font-size: 6.4cqw;
   font-weight: 900;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.8);
   flex: none;
-  text-shadow: 0 0 2px #000;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.85),
+    0 0 0 2.5px rgba(0, 0, 0, 0.5),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.35);
 }
 .attr-light {
-  background: radial-gradient(#fff6b8, #d2a91a);
+  background: radial-gradient(circle at 35% 30%, #fffbd6, #e8c22e 55%, #a07b06);
 }
 .attr-dark {
-  background: radial-gradient(#b17ae0, #4a1a75);
+  background: radial-gradient(circle at 35% 30%, #d3a8ff, #7b3cc0 55%, #3a0f66);
 }
 .attr-fire {
-  background: radial-gradient(#ff9b84, #c42a1b);
+  background: radial-gradient(circle at 35% 30%, #ffc2a8, #e2432c 55%, #8e1406);
 }
 .attr-water {
-  background: radial-gradient(#8fd0ff, #1d63b8);
+  background: radial-gradient(circle at 35% 30%, #c4e8ff, #2f86e0 55%, #0b3f86);
 }
 .attr-earth {
-  background: radial-gradient(#d0a77d, #6b4423);
+  background: radial-gradient(circle at 35% 30%, #ecd0b0, #8d6238 55%, #4c2c10);
 }
 .attr-wind {
-  background: radial-gradient(#9ef0a9, #258b35);
+  background: radial-gradient(circle at 35% 30%, #c8ffd0, #35ad4a 55%, #0d5c1c);
 }
 .attr-divine {
-  background: radial-gradient(#fff2b0, #b38e10);
+  background: radial-gradient(circle at 35% 30%, #fff8cc, #c9a227 55%, #7a5d00);
 }
 .attr-spell {
-  background: radial-gradient(#7af0c9, #0f6e55);
+  background: radial-gradient(circle at 35% 30%, #b8ffe6, #19a57f 55%, #04503b);
 }
 .attr-trap {
-  background: radial-gradient(#ff9fd2, #8a1b55);
+  background: radial-gradient(circle at 35% 30%, #ffc6e6, #c43f8a 55%, #6e0b44);
 }
+/* 等級星星：紅色圓形 */
 .card-stars {
-  height: 7%;
-  text-align: right;
-  color: #ff9f1a;
-  font-size: 6.2cqw;
-  line-height: 1.15;
-  letter-spacing: -0.08em;
-  text-shadow: 0 0 1px #000, 0 0 2px #000;
+  height: 7.5%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.6%;
   padding-right: 2%;
-  white-space: nowrap;
   overflow: hidden;
+}
+.card-stars .star {
+  width: 6.4cqw;
+  height: 6.4cqw;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 4.6cqw;
+  line-height: 1;
+  color: #ffe36b;
+  background: radial-gradient(circle at 35% 30%, #ff9a6b, #d4381a 60%, #7a1406);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  flex: none;
 }
 .card-stars.rank {
+  justify-content: flex-start;
+  padding-left: 2%;
+}
+.card-stars.rank .star {
   color: #ffd640;
+  background: radial-gradient(circle at 35% 30%, #555, #111 70%);
 }
 .card-stars.spelltype {
+  justify-content: flex-end;
   color: inherit;
-  font-weight: bold;
-  font-size: 5.4cqw;
-  letter-spacing: 0;
+  font-weight: 900;
+  font-size: 5.6cqw;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.kind-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 6.5cqw;
+  height: 6.5cqw;
+  margin-left: 1cqw;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #222;
+  font-size: 4.6cqw;
   text-shadow: none;
 }
+/* 卡圖框：金屬斜面 */
 .card-art {
-  margin: 1% 6% 2%;
+  position: relative;
+  margin: 1% 6.5% 2.5%;
   aspect-ratio: 1 / 1;
-  border: 2px solid rgba(0, 0, 0, 0.45);
-  background: #222;
+  background: #1a1a1a;
   overflow: hidden;
   flex: none;
+  border: 2px solid transparent;
+  border-image: linear-gradient(135deg, #f3e2a8, #7c5f20 40%, #e6cc7a 60%, #5a4212) 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.foil-SR .card-art::after,
+.foil-UR .card-art::after,
+.foil-SR.card-xs .xs-art::after,
+.foil-UR.card-xs .xs-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.45) 45%, transparent 60%);
+  background-size: 260% 100%;
+  animation: shine 3.6s linear infinite;
+  mix-blend-mode: screen;
+}
+.foil-UR .card-art::after,
+.foil-UR.card-xs .xs-art::after {
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 110, 230, 0.45) 35%,
+    rgba(110, 255, 240, 0.45) 47%,
+    rgba(255, 245, 110, 0.45) 59%,
+    transparent 72%
+  );
+  background-size: 260% 100%;
+}
+@keyframes shine {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
 }
 .art-img {
   width: 100%;
@@ -353,20 +470,24 @@ h4 {
 .attr-bg-trap {
   background: radial-gradient(circle at 30% 30%, #ff9fd2, #4f0830);
 }
+/* 文字欄：羊皮紙 */
 .card-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #f4ecd9;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.6), transparent 70%),
+    linear-gradient(180deg, #f7eedb, #eadcbc);
   color: #1a1a1a;
-  border: 1px solid rgba(0, 0, 0, 0.35);
-  padding: 2% 3%;
-  border-radius: 2px;
+  border: 1px solid rgba(80, 55, 20, 0.6);
+  box-shadow: inset 0 0 3px rgba(120, 90, 40, 0.35);
+  padding: 2% 3.5% 1.5%;
+  border-radius: 1px;
 }
 .card-type {
   font-weight: 900;
-  font-size: 4.6cqw;
+  font-size: 4.7cqw;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -375,14 +496,17 @@ h4 {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  font-size: 4.3cqw;
-  line-height: 1.35;
+  font-size: 4.2cqw;
+  line-height: 1.38;
   white-space: pre-wrap;
   scrollbar-width: thin;
 }
 .card-stats {
-  border-top: 1px solid #333;
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4%;
+  border-top: 1px solid #3a2d14;
+  font-family: 'Noto Serif TC', serif;
   font-weight: 900;
   font-size: 5cqw;
   margin-top: auto;
@@ -392,11 +516,22 @@ h4 {
 .card-sm .card-body {
   justify-content: space-between;
 }
+.card-sm .card-name {
+  font-size: 9cqw;
+}
 .card-sm .card-type {
-  font-size: 5.6cqw;
+  font-size: 6cqw;
 }
 .card-sm .card-stats {
-  font-size: 6.4cqw;
+  font-size: 6.6cqw;
+}
+.card-sm .card-stars .star {
+  width: 7cqw;
+  height: 7cqw;
+  font-size: 5cqw;
+}
+.card-sm .card-stars.spelltype {
+  font-size: 6.6cqw;
 }
 .up {
   color: #138a2c;
@@ -404,62 +539,116 @@ h4 {
 .down {
   color: #c62828;
 }
-.card-mini-stats {
+
+/* ---- 場上的小卡 ---- */
+.card-xs .xs-art {
+  position: absolute;
+  inset: 4% 4% 22% 4%;
+  overflow: hidden;
+  border-radius: 4%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.card-xs .xs-art .art-img,
+.card-xs .xs-art .art-fallback {
+  height: 100%;
+}
+.xs-name {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 4%;
+  padding: 1% 3%;
+  font-size: 10.5cqw;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px #000;
+}
+.xs-level {
+  position: absolute;
+  left: 6%;
+  bottom: 23%;
+  font-size: 11cqw;
+  font-weight: 900;
+  color: #ffd84a;
+  background: rgba(0, 0, 0, 0.72);
+  border-radius: 6px;
+  padding: 0 4%;
+  text-shadow: 0 0 2px #000;
+}
+.xs-attr {
+  position: absolute;
+  right: 6%;
+  bottom: 23%;
+  width: 18cqw;
+  height: 18cqw;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11cqw;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+.xs-stats {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.78);
+  height: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2%;
+  background: linear-gradient(#1b1b1b, #050505);
   color: #fff;
-  font-size: 13cqw;
+  font-size: 15cqw;
   font-weight: 900;
-  text-align: center;
-  padding: 2% 0;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
-.card-mini-stats .up {
+.xs-stats .sep {
+  opacity: 0.45;
+}
+.xs-stats .up {
   color: #7dff9a;
 }
-.card-mini-stats .down {
+.xs-stats .down {
   color: #ff8a80;
 }
-.card-xs .card-art {
-  margin: 2% 4%;
-}
-.card-xs .card-stars {
-  font-size: 9cqw;
-}
-.card-xs .card-name {
-  font-size: 10cqw;
-}
-.card-xs .card-attr {
-  display: none;
-}
-.card-xs .card-stars.spelltype {
-  font-size: 9cqw;
-  text-align: center;
+.xs-kind {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  display: grid;
+  place-items: center;
+  font-size: 15cqw;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .rarity-badge {
   position: absolute;
-  top: 1.5%;
-  left: 1.5%;
+  top: 1.2%;
+  left: 1.2%;
   font-size: 7cqw;
   font-weight: 900;
   padding: 0 3%;
   border-radius: 3px;
   color: #fff;
   background: #555;
-  opacity: 0.92;
-  display: none;
-}
-.card-sm .rarity-badge,
-.card-md .rarity-badge,
-.card-lg .rarity-badge {
-  display: block;
+  opacity: 0.95;
 }
 .r-R {
   background: #3a78c9;
+  color: #fff;
 }
 .r-SR {
   background: linear-gradient(90deg, #d4a017, #f7e27a);
@@ -469,28 +658,9 @@ h4 {
   background: linear-gradient(90deg, #c63ad8, #3ad8d0, #e3d83a);
   color: #1a001f;
 }
-.rarity-SR::after,
-.rarity-UR::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.35) 45%, transparent 60%);
-  background-size: 250% 100%;
-  animation: shine 3.5s linear infinite;
-  mix-blend-mode: screen;
-}
-.rarity-UR::after {
-  background: linear-gradient(115deg, transparent 25%, rgba(255, 120, 240, 0.35) 38%, rgba(120, 255, 240, 0.35) 48%, rgba(255, 245, 120, 0.35) 58%, transparent 70%);
-  background-size: 250% 100%;
-}
-@keyframes shine {
-  from {
-    background-position: 150% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
+.r-N {
+  background: #666;
+  color: #fff;
 }
 
 .card-back {
@@ -520,6 +690,108 @@ h4 {
   font-size: 16cqw;
   writing-mode: vertical-rl;
   text-shadow: 0 0 4px #000;
+}
+.card-back.card-xs {
+  padding: 6%;
+}
+
+/* ---- 卡片詳細 ---- */
+.card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.card-detail.row {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.detail-face {
+  flex: none;
+}
+.detail-info {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(10, 14, 30, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.card-detail.row .detail-info {
+  max-width: 420px;
+}
+.detail-name {
+  font-family: 'Noto Serif TC', serif;
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1.3;
+}
+.detail-en {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -6px;
+}
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.tag.attr-light,
+.tag.attr-dark,
+.tag.attr-fire,
+.tag.attr-water,
+.tag.attr-earth,
+.tag.attr-wind,
+.tag.attr-divine,
+.tag.attr-spell,
+.tag.attr-trap {
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 0 0 2px #000;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.detail-type {
+  font-weight: bold;
+  font-size: 14px;
+}
+.detail-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.detail-stats b {
+  font-size: 18px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.detail-stats b.up {
+  color: #7dff9a;
+}
+.detail-stats b.down {
+  color: #ff8a80;
+}
+.detail-desc {
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  color: #f1f3fb;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--gold2);
 }
 
 /* ============ App 外框 ============ */
@@ -1030,7 +1302,7 @@ h4 {
 }
 .browser-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 10px;
   overflow-y: auto;
   padding: 4px;
@@ -1052,6 +1324,38 @@ h4 {
 }
 .settings-panel {
   max-width: 720px;
+}
+
+.info-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(10, 14, 30, 0.85);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  z-index: 3;
+  opacity: 0.85;
+}
+.info-btn:hover {
+  background: var(--gold);
+  color: #2a1d00;
+  opacity: 1;
+}
+.deck-item {
+  position: relative;
+}
+.deck-item .info-btn {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
 }
 
 /* ============ 對話框 ============ */
@@ -1348,11 +1652,15 @@ h4 {
 }
 .pile-label {
   position: absolute;
-  bottom: -2px;
+  top: -7px;
+  right: -6px;
+  z-index: 4;
   font-size: 11px;
-  background: rgba(0, 0, 0, 0.75);
-  padding: 0 4px;
-  border-radius: 4px;
+  font-weight: bold;
+  background: rgba(10, 14, 30, 0.92);
+  border: 1px solid var(--line);
+  padding: 0 5px;
+  border-radius: 8px;
   white-space: nowrap;
 }
 .badge {
@@ -1602,6 +1910,10 @@ h4 {
   }
 }
 @media (max-width: 640px) {
+  .card-detail.row {
+    flex-direction: column;
+    align-items: center;
+  }
   .card-sm {
     width: 76px;
   }

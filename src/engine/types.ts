@@ -114,7 +114,13 @@ export type Query =
   | 'cannotDeclareAttack' // 不能攻擊宣言（全域，player 為被限制方）
   | 'cannotChangePosition'
   | 'negateTrapsOnField' // 場上的陷阱卡效果無效（全域）
-  | 'cannotTribute'; // 不能為上級召喚而解放
+  | 'cannotTribute' // 不能為上級召喚而解放
+  | 'doubleAttack' // 同 1 次戰鬥階段可以攻擊 2 次
+  | 'directAttack' // 可以直接攻擊
+  | 'noBattleDamage' // 玩家不受戰鬥傷害（全域，player 為受保護方）
+  | 'forceDefense' // 強制變成守備表示
+  | 'cannotSpecialSummon' // 玩家不能特殊召喚（全域）
+  | 'noSTDuringAttack'; // 這張卡攻擊時對方不能發動魔法・陷阱
 
 export interface StatMod {
   atk?: number;
@@ -168,7 +174,13 @@ export interface CardScript {
   synchro?: {
     tuner?: (c: Card, duel: Duel) => boolean;
     nonTuner?: (c: Card, duel: Duel) => boolean;
-    };
+    /** 調整以外的怪獸最少幾隻（預設 1） */
+    nonTunerMin?: number;
+  };
+  /** 表側表示從場上離開時除外 */
+  banishOnLeave?: boolean;
+  /** 和某隻怪獸戰鬥時不會被戰鬥破壞 */
+  battleIndesAgainst?: (duel: Duel, self: Card, foe: Card) => boolean;
   /** 超量素材 */
   xyz?: { count: number; filter?: (c: Card) => boolean };
   /** 從手牌特殊召喚的規則（電子龍、混沌戰士等） */
@@ -252,7 +264,8 @@ export type WindowKind =
   | 'attack' // 攻擊宣言時
   | 'damageCalc' // 傷害計算時
   | 'trigger' // 誘發效果後
-  | 'phase'; // 階段移動時
+  | 'phase' // 階段移動時
+  | 'destroyed'; // 怪獸被戰鬥破壞後
 
 export interface WindowInfo {
   kind: WindowKind;

@@ -2,20 +2,23 @@
 // 轉成繁體中文後寫入 src/data/cards.json。
 //
 // 用法：
-//   npm run fetch-cards              # 轉成繁體中文（預設）
-//   npm run fetch-cards -- --simplified   # 保留簡體中文
+//   npm run fetch-cards                    # 轉成繁體中文（預設）
+//   npm run fetch-cards -- --simplified    # 保留簡體中文
+//   npm run fetch-cards -- --refresh       # 重新下載資料庫（有新卡時）
 //
-// 下載結果會快取在 .cache/cards/，重新執行不會重複下載。
+// 完整資料庫（約 2.5 MB）會快取在 .cache/cards.zip。
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { unzipSync, strFromU8 } from 'fflate';
 import * as OpenCC from 'opencc-js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const listFile = path.join(root, 'scripts', 'card-list.txt');
-const cacheDir = path.join(root, '.cache', 'cards');
+const cacheFile = path.join(root, '.cache', 'cards.zip');
 const outFile = path.join(root, 'src', 'data', 'cards.json');
 const simplified = process.argv.includes('--simplified');
+const refresh = process.argv.includes('--refresh');
 const convert = simplified ? (s) => s : OpenCC.Converter({ from: 'cn', to: 'tw' });
 
 // 遊戲王用語在自動轉換後的修正（左：轉換結果，右：想要的寫法）
@@ -41,58 +44,97 @@ const MANUAL = [
   },
 ];
 
-async function fetchCard(id) {
-  const cacheFile = path.join(cacheDir, `${id}.json`);
-  try {
-    return JSON.parse(await fs.readFile(cacheFile, 'utf8'));
-  } catch {
-    /* 沒有快取 */
-  }
-  for (let attempt = 1; attempt <= 4; attempt++) {
+async function loadDb() {
+  let buf = null;
+  if (!refresh) {
     try {
-      const res = await fetch(`https://ygocdb.com/api/v0/card/${id}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      await fs.writeFile(cacheFile, JSON.stringify(json));
-      return json;
-    } catch (err) {
-      if (attempt === 4) throw new Error(`下載卡片 ${id} 失敗：${err.message}`);
-      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      buf = await fs.readFile(cacheFile);
+    } catch {
+      /* 沒有快取 */
     }
   }
+  if (!buf) {
+    console.log('下載卡片資料庫…');
+    const res = await fetch('https://ygocdb.com/api/v0/cards.zip');
+    if (!res.ok) throw new Error(`下載失敗：HTTP ${res.status}`);
+    buf = Buffer.from(await res.arrayBuffer());
+    await fs.mkdir(path.dirname(cacheFile), { recursive: true });
+    await fs.writeFile(cacheFile, buf);
+  }
+  const files = unzipSync(new Uint8Array(buf));
+  const json = JSON.parse(strFromU8(files['cards.json']));
+  const byId = new Map();
+  const byName = new Map();
+  for (const c of Object.values(json)) {
+    if (!c.data) continue;
+    byId.set(c.id, c);
+    if (!byName.has(c.cn_name)) byName.set(c.cn_name, c);
+  }
+  return { byId, byName };
 }
 
 async function main() {
-  await fs.mkdir(cacheDir, { recursive: true });
   const ids = (await fs.readFile(listFile, 'utf8'))
     .split('\n')
     .map((line) => line.replace(/#.*/, '').trim())
     .filter(Boolean)
     .map(Number);
+  const { byId, byName } = await loadDb();
+  const inPool = new Set(ids);
+  const nameToId = (n) => {
+    const c = byName.get(n);
+    return c ? c.id : null;
+  };
 
   const cards = [];
+  const missing = [];
   for (const id of ids) {
-    const raw = await fetchCard(id);
+    const raw = byId.get(id);
+    if (!raw) {
+      missing.push(id);
+      continue;
+    }
     const d = raw.data;
-    cards.push({
+    const desc = (raw.text.desc ?? '').replace(/\r\n/g, '\n');
+    const card = {
       id: raw.id,
-      name: tc(raw.text.name),
-      nameEn: raw.text.en_name ?? '',
-      desc: tc(raw.text.desc).replace(/\r\n/g, '\n'),
+      name: tc(raw.cn_name),
+      nameEn: raw.en_name ?? '',
+      desc: tc(desc),
       type: d.type,
       atk: d.atk,
       def: d.def,
       level: d.level & 0xff,
       race: d.race,
       attribute: d.attribute,
-    });
-    process.stdout.write('.');
+    };
+    const firstLine = desc.split('\n')[0];
+    // 融合素材：「A」＋「B」
+    if (d.type & 0x40) {
+      const names = [...firstLine.matchAll(/「(.+?)」/g)].map((m) => m[1]);
+      const rest = firstLine.replace(/「.+?」/g, '').replace(/[＋+]/g, '').trim();
+      const mats = names.map(nameToId);
+      if (names.length && !rest && mats.every((m) => m && inPool.has(m))) card.materials = mats;
+    }
+    // 超量素材數：N星怪獸×K
+    if (d.type & 0x800000) {
+      const m = firstLine.match(/×(\d+)/);
+      if (m) card.xyzCount = Number(m[1]);
+    }
+    // 儀式魔法對應的儀式怪獸
+    if (d.type & 0x2 && d.type & 0x80) {
+      const m = desc.match(/「(.+?)」/);
+      const target = m && nameToId(m[1]);
+      if (target && inPool.has(target)) card.ritualFor = target;
+    }
+    cards.push(card);
   }
   for (const m of MANUAL) if (!cards.some((c) => c.id === m.id)) cards.push(m);
+  if (missing.length) console.warn(`資料庫找不到：${missing.join(', ')}`);
 
   await fs.mkdir(path.dirname(outFile), { recursive: true });
-  await fs.writeFile(outFile, JSON.stringify(cards, null, 1) + '\n');
-  console.log(`\n已寫入 ${cards.length} 張卡片到 ${path.relative(root, outFile)}`);
+  await fs.writeFile(outFile, JSON.stringify(cards) + '\n');
+  console.log(`已寫入 ${cards.length} 張卡片到 ${path.relative(root, outFile)}`);
 }
 
 main().catch((err) => {

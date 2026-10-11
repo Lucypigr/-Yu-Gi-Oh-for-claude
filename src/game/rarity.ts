@@ -1,4 +1,5 @@
 // 卡片稀有度（卡包抽卡機率用）
+import { TYPE, getCard, hasCard, isMonster } from '../engine/cardDb';
 export type Rarity = 'N' | 'R' | 'SR' | 'UR';
 
 export const RARITY_NAMES: Record<Rarity, string> = { N: '普通', R: '稀有', SR: '超稀有', UR: '究極稀有' };
@@ -83,13 +84,60 @@ const R = [
   85742772, 77754944, 66788016, 97169186, 93013676,
 ];
 
+// 第二彈
+UR.push(
+  33396948, // 被封印的艾克佐迪亞
+  40737112, // 混沌之黑魔術師
+  1546123, // 電子終結龍
+  52687916, // 冰結界之龍 三叉龍
+  98502113, // 超魔導劍士-黑魔導劍士
+);
+SR.push(
+  8124921, 44519536, 70903634, 7902349, // 艾克佐迪亞的四肢
+  25366484, // 閃光火焰翼俠
+  74157028, // 電子雙生龍
+  83104731, // 古代的機械巨人
+  89943723, // 元素英雄 新宇俠
+  50321796, // 光槍龍
+  88643579, // 暗黑終結龍
+  27315304, // 噴霞蟲
+  7391448, // 御用守護者
+  70780151, // 精神界惡魔
+  29669359, // 火山恐龍
+  31386180, // 提拉斯
+  97268402, // 效果遮蒙者
+  19665973, // 消戰者
+  23205979, // 削魂的死靈
+  14878871, // 救援貓
+  84749824, // 神之警告
+  77538567, // 魔宮的賄賂
+  42664989, // 天降的寶札
+  1475311, // 暗之誘惑
+  67169062, // 貪欲之壺
+  27174286, // 來自異次元的歸還
+  17655904, // 毀滅之爆裂疾風彈
+  2314238, // 黑·魔·導
+  50078509, // 魔族之鏈
+  9053187, // 魔蜥義豪
+);
+
 const map = new Map<number, Rarity>();
 for (const id of R) map.set(id, 'R');
 for (const id of SR) map.set(id, 'SR');
 for (const id of UR) map.set(id, 'UR');
 
+/** 沒有特別指定稀有度的卡：效果卡、額外牌組、儀式、強力通常怪獸為 R，其餘為 N */
+function defaultRarity(id: number): Rarity {
+  if (!hasCard(id)) return 'N';
+  const d = getCard(id);
+  if (!isMonster(d)) return 'R';
+  if (d.type & (TYPE.EFFECT | TYPE.FUSION | TYPE.RITUAL | TYPE.SYNCHRO | TYPE.XYZ)) return 'R';
+  if (d.level >= 7 && d.atk >= 2500) return 'R';
+  return 'N';
+}
+
 export function rarityOf(id: number): Rarity {
-  return map.get(id) ?? 'N';
+  return map.get(id) ?? defaultRarity(id);
 }
 
 /** 分解重複卡片可以得到的金幣 */

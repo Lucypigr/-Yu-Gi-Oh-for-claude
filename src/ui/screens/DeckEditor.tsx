@@ -4,7 +4,8 @@ import { type CardData, allCards, getCard, isExtraDeckCard, isMonster, isSpell, 
 import { DECK_RULES, type DeckData, validateDeck } from '../../game/deckRules';
 import { type Profile, deleteDeck, saveDeck, setActiveDeck } from '../../game/profile';
 import { CardBrowser, sortCards } from '../components/CardBrowser';
-import { CardView } from '../components/CardView';
+import { CardDetail, CardView } from '../components/CardView';
+import { Modal } from '../duel/DuelScreen';
 
 function newId() {
   return `deck-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000)}`;
@@ -15,6 +16,7 @@ export function DeckEditor({ profile }: { profile: Profile }) {
   const deck = profile.decks.find((d) => d.id === deckId) ?? profile.decks[0];
   const [detail, setDetail] = useState<CardData | null>(null);
   const [msg, setMsg] = useState('');
+  const [popup, setPopup] = useState<CardData | null>(null);
 
   const ownedCards = useMemo(
     () => allCards().filter((d) => (profile.collection[d.id] ?? 0) > 0),
@@ -111,12 +113,11 @@ export function DeckEditor({ profile }: { profile: Profile }) {
       <div className="deck-layout">
         <aside className="deck-detail">
           {detail ? (
-            <>
-              <CardView data={detail} size="lg" showRarity />
+            <CardDetail data={detail} faceSize="sm">
               <div className="detail-extra">
                 持有 {profile.collection[detail.id] ?? 0} 張 · 牌組中 {inDeck(detail.id)} 張
               </div>
-            </>
+            </CardDetail>
           ) : (
             <div className="detail-hint">
               點右側收藏把卡片加入牌組，點牌組中的卡片移除。
@@ -138,6 +139,16 @@ export function DeckEditor({ profile }: { profile: Profile }) {
             {mainCards.map((d, i) => (
               <div key={i} className="deck-item" onClick={() => remove(d.id, false)} onMouseEnter={() => setDetail(d)}>
                 <CardView data={d} size="xs" />
+                <button
+                  className="info-btn"
+                  title="查看效果"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPopup(d);
+                  }}
+                >
+                  ⓘ
+                </button>
               </div>
             ))}
           </div>
@@ -146,6 +157,16 @@ export function DeckEditor({ profile }: { profile: Profile }) {
             {extraCards.map((d, i) => (
               <div key={i} className="deck-item" onClick={() => remove(d.id, true)} onMouseEnter={() => setDetail(d)}>
                 <CardView data={d} size="xs" />
+                <button
+                  className="info-btn"
+                  title="查看效果"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPopup(d);
+                  }}
+                >
+                  ⓘ
+                </button>
               </div>
             ))}
           </div>
@@ -157,6 +178,7 @@ export function DeckEditor({ profile }: { profile: Profile }) {
             cards={ownedCards}
             onClick={add}
             onHover={setDetail}
+            onInfo={setPopup}
             dim={(d) => inDeck(d.id) >= Math.min(DECK_RULES.maxCopies, profile.collection[d.id] ?? 0)}
             badge={(d) => (
               <span>
@@ -166,6 +188,15 @@ export function DeckEditor({ profile }: { profile: Profile }) {
           />
         </section>
       </div>
+      {popup && (
+        <Modal title={popup.name} onClose={() => setPopup(null)}>
+          <CardDetail data={popup} layout="row">
+            <div className="detail-extra">
+              持有 {profile.collection[popup.id] ?? 0} 張 · 牌組中 {inDeck(popup.id)} 張
+            </div>
+          </CardDetail>
+        </Modal>
+      )}
     </div>
   );
 }

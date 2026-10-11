@@ -4,7 +4,8 @@ import { type CardData, allCards } from '../../engine/cardDb';
 import { type Profile, sellCards, usedInDecks } from '../../game/profile';
 import { SELL_PRICE, rarityOf } from '../../game/rarity';
 import { CardBrowser } from '../components/CardBrowser';
-import { CardView } from '../components/CardView';
+import { CardDetail } from '../components/CardView';
+import { Modal } from '../duel/DuelScreen';
 
 /** 保留張數：至少 3 張或牌組使用的張數 */
 const keepCount = (p: Profile, id: number) => Math.max(3, usedInDecks(p, id));
@@ -12,6 +13,7 @@ const keepCount = (p: Profile, id: number) => Math.max(3, usedInDecks(p, id));
 export function CollectionScreen({ profile }: { profile: Profile }) {
   const [detail, setDetail] = useState<CardData | null>(null);
   const [msg, setMsg] = useState('');
+  const [popup, setPopup] = useState<CardData | null>(null);
   const cards = allCards();
   const ownedKinds = cards.filter((d) => profile.collection[d.id]).length;
   const surplus = cards.filter((d) => (profile.collection[d.id] ?? 0) > keepCount(profile, d.id));
@@ -43,8 +45,7 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
       <div className="deck-layout collection-layout">
         <aside className="deck-detail">
           {detail ? (
-            <>
-              <CardView data={detail} size="lg" showRarity dim={!profile.collection[detail.id]} />
+            <CardDetail data={detail} faceSize="sm" dim={!profile.collection[detail.id]}>
               <div className="detail-extra">
                 <div>持有 {profile.collection[detail.id] ?? 0} 張（牌組使用 {usedInDecks(profile, detail.id)} 張）</div>
                 <div>
@@ -61,7 +62,7 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
                   分解 1 張
                 </button>
               </div>
-            </>
+            </CardDetail>
           ) : (
             <div className="detail-hint">點選卡片查看詳細資料</div>
           )}
@@ -69,13 +70,23 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
         <section className="deck-collection wide">
           <CardBrowser
             cards={cards}
-            onClick={setDetail}
+            onClick={(d) => {
+              setDetail(d);
+              if (window.innerWidth <= 1100) setPopup(d);
+            }}
             onHover={setDetail}
             dim={(d) => !profile.collection[d.id]}
             badge={(d) => <span>×{profile.collection[d.id] ?? 0}</span>}
           />
         </section>
       </div>
+      {popup && (
+        <Modal title={popup.name} onClose={() => setPopup(null)}>
+          <CardDetail data={popup} layout="row" dim={!profile.collection[popup.id]}>
+            <div className="detail-extra">持有 {profile.collection[popup.id] ?? 0} 張</div>
+          </CardDetail>
+        </Modal>
+      )}
     </div>
   );
 }

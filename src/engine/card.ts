@@ -18,6 +18,8 @@ export class Card {
   stint = 0;
   /** 曾經以正規方法特殊召喚（融合・同步・超量・儀式等），之後可以被蘇生 */
   properlySummoned = false;
+  /** 曾被當作融合召喚的素材（融合回收用） */
+  fusionMaterial = false;
 
   // ---- 以下為在場上時的狀態，離場時重置 ----
   /** 來到場上（或被蓋放）的回合 */

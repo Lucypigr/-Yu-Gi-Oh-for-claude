@@ -106,6 +106,9 @@ export interface BattleState {
 
 class DuelEnd extends Error {}
 
+/** 被封印的艾克佐迪亞＋四肢 */
+const EXODIA = [33396948, 8124921, 44519536, 70903634, 7902349];
+
 export type DuelResult = { winner: PlayerId | null; reason: string; turns: number };
 
 function mulberry32(seed: number) {
@@ -299,7 +302,7 @@ export class Duel {
   /** 目前有效的永續效果 */
   private *activeContinuous(): Generator<{ card: Card; effect: EffectDef }> {
     for (const card of this.fieldCards()) {
-      if (!card.faceUp || card.negated) continue;
+      if (!card.faceUp || this.isNegated(card)) continue;
       if (isTrap(card.data) && this.trapsNegated()) continue;
       const effects = getScript(card.id).effects;
       if (!effects) continue;
@@ -315,7 +318,7 @@ export class Duel {
   /** 人造人-念力震懾者：場上的陷阱卡效果無效 */
   trapsNegated(): boolean {
     for (const c of this.monsters()) {
-      if (!c.faceUp || c.negated) continue;
+      if (!c.faceUp || this.isNegated(c)) continue;
       const effects = getScript(c.id).effects;
       if (effects?.some((e) => e.kind === 'continuous' && e.query?.(this, c, 'negateTrapsOnField', null, null))) return true;
     }
@@ -327,13 +330,18 @@ export class Duel {
     if (!source || source === target) return false;
     const selfQuery = (q: Query) => {
       if (this.hasFlag(target, q)) return true;
-      if (!target.onField || !target.faceUp || target.negated) return false;
+      if (!target.onField || !target.faceUp || this.isNegated(target)) return false;
       const effects = getScript(target.id).effects;
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
     if ((isTrap(source.data) || isSpell(source.data)) && selfQuery('immuneSpellsTraps')) return true;
     return false;
+  }
+
+  /** 效果無效（永久或「直到回合結束」） */
+  isNegated(card: Card): boolean {
+    return card.negated || this.hasFlag(card, 'negated');
   }
 
   hasFlag(card: Card, name: string): boolean {
@@ -450,6 +458,9 @@ export class Duel {
 
     // 額外牌組的怪獸回到手牌/牌組時改回額外牌組
     if ((to === 'hand' || to === 'deck') && isExtraDeckCard(card.data)) to = 'extra';
+    // 「從場上離開的場合除外」
+    if (wasOnField && wasFaceUp && to !== 'banished' && to !== 'mzone' && to !== 'overlay' && getScript(card.id).banishOnLeave)
+      to = 'banished';
 
     // 決定新位置的格子
     let zoneIndex = -1;
@@ -717,7 +728,7 @@ export class Duel {
     opts: { position?: Position; faceDown?: boolean; summonType?: SummonType; by?: Card; negateEffects?: boolean } = {},
   ): boolean {
     if (this.freeMZones(p) <= 0) return false;
-    if (this.p(p).turnFlags.noSpecialSummon) return false;
+    if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return false;
     const ok = this.moveTo(card, 'mzone', {
       reason: 'summon',
       player: p,
@@ -867,7 +878,7 @@ export class Duel {
         const evs = Array.isArray(effect.event) ? effect.event : [effect.event];
         if (!evs.includes(ev.type)) return;
         // 場上的卡效果無效時不能發動
-        if (card.onField && (card.negated || (isTrap(card.data) && this.trapsNegated()))) return;
+        if (card.onField && (this.isNegated(card) || (isTrap(card.data) && this.trapsNegated()))) return;
         if (card.location === 'mzone' && !card.faceUp && ev.type !== 'flipped') return;
         const player = card.onField ? card.controller : card.owner;
         if (!this.onceOk(card, effect, effectIndex, player)) return;
@@ -1022,7 +1033,7 @@ export class Duel {
       const kind = isSpell(card.data) ? spellKind(card.data) : trapKind(card.data);
       const persistent = kind === 'continuous' || kind === 'equip' || kind === 'field';
       if (persistent && !stillThere) return;
-    } else if (card.negated && card.onField) {
+    } else if (card.onField && this.isNegated(card)) {
       return;
     }
     // 魔陷卡被人造人無效
@@ -1098,7 +1109,7 @@ export class Duel {
             if (top.speed === 3 && speed < 3) return;
             if (speed < top.speed) return;
           }
-          if (inDamageStep && !effect.damageStep && speed < 3) return;
+          if (inDamageStep && !effect.damageStep && speed < 3 && win.kind !== 'destroyed') return;
           // 召喚之際只能發動反擊陷阱
           if (win.kind === 'summonAttempt' && speed < 3) return;
         }
@@ -1120,6 +1131,9 @@ export class Duel {
   /** 卡片所在位置、種類等是否允許發動這個效果 */
   private canActivateHere(p: PlayerId, card: Card, effect: EffectDef): boolean {
     const d = card.data;
+    // 古代的機械巨人攻擊時，對方不能發動魔法・陷阱
+    const b = this.battle;
+    if ((isSpell(d) || isTrap(d)) && b && b.attacker.controller !== p && this.has(b.attacker, 'noSTDuringAttack')) return false;
     if (effect.kind === 'activate') {
       if (isSpell(d)) {
         const kind = spellKind(d);
@@ -1145,7 +1159,7 @@ export class Duel {
     const range = effect.range ?? ['mzone'];
     if (!range.includes(card.location)) return false;
     if (card.onField) {
-      if (card.controller !== p || !card.faceUp || card.negated) return false;
+      if (card.controller !== p || !card.faceUp || this.isNegated(card)) return false;
       if (isTrap(d) && this.trapsNegated()) return false;
     } else if (card.owner !== p) {
       return false;
@@ -1208,6 +1222,23 @@ export class Duel {
 
   checkState() {
     if (this.ended) throw new DuelEnd(this.winReason);
+    // 艾克佐迪亞：5 張齊集手牌就勝利
+    for (const ps of this.players) {
+      if (EXODIA.every((id) => ps.hand.some((c) => c.id === id))) {
+        this.winner = ps.id;
+        this.winReason = `${ps.name} 集齊了被封印的艾克佐迪亞！`;
+        this.ended = true;
+        this.log(`決鬥結束：${this.winReason}`);
+        throw new DuelEnd(this.winReason);
+      }
+    }
+    // 等級限制B地區等：強制變成守備表示
+    for (const c of this.monsters()) {
+      if (c.faceUp && c.position === 'atk' && this.has(c, 'forceDefense')) {
+        c.position = 'def';
+        this.log(`「${c.name}」變成守備表示`);
+      }
+    }
     // 裝備卡失去裝備對象
     for (const c of this.spellTraps()) {
       if (!c.equipTarget) continue;
@@ -1253,7 +1284,7 @@ export class Duel {
           actions.push({ type: 'set', card });
         }
         const sp = getScript(card.id).spSummon;
-        if (sp && this.freeMZones(p) > 0 && !ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && sp.condition(this, card))
+        if (sp && this.freeMZones(p) > 0 && !ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon') && sp.condition(this, card))
           actions.push({ type: 'spSummon', card });
       } else if (spellKind(card.data) !== 'field' || isTrap(card.data)) {
         if (this.freeSZones(p) > 0) actions.push({ type: 'setST', card });
@@ -1269,7 +1300,7 @@ export class Duel {
       }
     }
     for (const a of this.getActivatable(p)) actions.push({ type: 'activate', card: a.card, effect: a.effect, effectIndex: a.effectIndex });
-    if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon) {
+    if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon')) {
       for (const card of ps.extra) {
         if (card.data.type & 0x2000 && this.synchroMaterialSets(p, card).length) actions.push({ type: 'synchro', card });
         if (isXyz(card.data) && this.xyzMaterialSets(p, card).length) actions.push({ type: 'xyz', card });
@@ -1436,10 +1467,11 @@ export class Duel {
     for (let mask = 1; mask < 1 << n; mask++) {
       const set = mons.filter((_, i) => mask & (1 << i));
       if (set.length < 2) continue;
-      const tuners = set.filter((c) => isTuner(c.data) && !c.negated);
+      const tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
       if (tuners.length !== 1) continue;
       const tuner = tuners[0];
       const nonTuners = set.filter((c) => c !== tuner);
+      if (nonTuners.length < (script.synchro?.nonTunerMin ?? 1)) continue;
       if (set.reduce((s, c) => s + this.getLevel(c), 0) !== level) continue;
       if (script.synchro?.tuner && !script.synchro.tuner(tuner, this)) continue;
       if (script.synchro?.nonTuner && !nonTuners.every((c) => script.synchro!.nonTuner!(c, this))) continue;
@@ -1584,7 +1616,7 @@ export class Duel {
 
   canAttack(c: Card): boolean {
     if (c.location !== 'mzone' || !c.faceUp || c.position !== 'atk') return false;
-    if (c.attacks >= 1 + c.extraAttacks) return false;
+    if (c.attacks >= 1 + c.extraAttacks + (this.has(c, 'doubleAttack') ? 1 : 0)) return false;
     if (this.has(c, 'cannotAttack')) return false;
     return true;
   }
@@ -1598,7 +1630,7 @@ export class Duel {
     const out: AttackOption[] = [];
     for (const c of this.monsters(p)) {
       if (!this.canAttack(c)) continue;
-      const canDirect = oppMons.length === 0 && !this.has(c, 'cannotDirectAttack');
+      const canDirect = (oppMons.length === 0 || this.has(c, 'directAttack')) && !this.has(c, 'cannotDirectAttack');
       if (!targets.length && !canDirect) continue;
       out.push({ attacker: c, targets, canDirect });
     }
@@ -1665,6 +1697,8 @@ export class Duel {
     // ---- 傷害步驟 ----
     const b = this.battle!;
     b.damageStep = true;
+    this.setFlag(attacker, 'battled');
+    if (target) this.setFlag(target, 'battled');
     this.raise({ type: 'damageStepStart', card: attacker, attacker, target, player: p });
     await this.settle();
     if (!this.battleValid()) {
@@ -1749,7 +1783,7 @@ export class Duel {
 
     if (dmgTo !== null && dmg > 0) {
       const ps = this.p(dmgTo);
-      if (b.noDamage[dmgTo] || ps.turnFlags.noBattleDamage) {
+      if (b.noDamage[dmgTo] || ps.turnFlags.noBattleDamage || this.playerHas(dmgTo, 'noBattleDamage')) {
         this.log(`${ps.name} 不受到戰鬥傷害`);
       } else {
         this.damage(dmgTo, dmg, 'battle', dmgTo === opp ? attacker : target ?? undefined);
@@ -1759,6 +1793,11 @@ export class Duel {
     // 不會被戰鬥破壞
     const destroyList = toDestroy.filter((c) => {
       if (this.has(c, 'battleIndestructible')) return false;
+      const foe = c === attacker ? target : attacker;
+      if (foe && getScript(c.id).battleIndesAgainst?.(this, c, foe)) {
+        this.log(`「${c.name}」不會被戰鬥破壞`);
+        return false;
+      }
       if (this.p(c.controller).turnFlags.battleIndestructible) return false;
       // 1 回合 1 次不會被戰鬥破壞（暗黑共鳴者）
       if (this.has(c, 'battleIndesOnce') && c.flags.battleIndesUsed !== this.turn) {
@@ -1770,11 +1809,11 @@ export class Duel {
     });
     for (const c of this.monsters()) c.mods = c.mods.filter((m) => m.until !== 'damageCalc');
 
+    const stints = new Map(destroyList.map((c) => [c, c.stint]));
     if (flipped && target) this.raise({ type: 'flipped', card: target, player: target.controller });
     this.raise({ type: 'afterDamageCalc', card: attacker, attacker, target, player: p, cards: destroyList });
     await this.settle();
 
-    const stints = new Map(destroyList.map((c) => [c, c.stint]));
     const still = destroyList.filter((c) => c.location === 'mzone' && c.stint === stints.get(c));
     for (const c of still) {
       const by = c === attacker ? target ?? undefined : attacker;
@@ -1787,8 +1826,14 @@ export class Duel {
     if (still.length) {
       this.log(`${still.map((c) => `「${c.name}」`).join('、')} 被戰鬥破壞`);
       await this.pause(400);
+      // 「怪獸被戰鬥破壞時」可以發動的陷阱（英雄標記、命之綱…）
+      await this.settle({
+        kind: 'destroyed',
+        event: { type: 'destroyed', cards: still, reason: 'battle', card: still[0], player: still[0].owner },
+      });
+    } else {
+      await this.settle();
     }
-    await this.settle();
   }
 
   // =====================================================================
@@ -1872,6 +1917,12 @@ export class Duel {
     await this.settle({ kind: 'phase' });
     // 暫時控制權返還
     for (const c of this.monsters()) if (c.controlUntilEnd) this.returnControl(c);
+    // 「結束階段破壞／除外」的怪獸
+    const doomed = this.monsters().filter((c) => this.hasFlag(c, 'destroyAtEnd'));
+    if (doomed.length) this.destroy(doomed, 'effect');
+    const exiled = this.monsters().filter((c) => this.hasFlag(c, 'banishAtEnd'));
+    if (exiled.length) this.banish(exiled, 'effect');
+    if (doomed.length || exiled.length) await this.settle();
     // 效果期限到期
     for (const c of this.monsters()) {
       c.mods = c.mods.filter((m) => {

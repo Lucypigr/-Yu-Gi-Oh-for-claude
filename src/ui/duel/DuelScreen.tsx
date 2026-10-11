@@ -4,12 +4,11 @@ import { AIController } from '../../engine/ai';
 import type { Card } from '../../engine/card';
 import { isMonster } from '../../engine/cardDb';
 import { Duel, type DuelResult } from '../../engine/duel';
-import { getScript } from '../../engine/scripts';
 import { type MainAction, type PlayerId, PHASE_NAMES, type Phase } from '../../engine/types';
 import type { DeckData } from '../../game/deckRules';
 import type { Opponent } from '../../game/opponents';
 import type { Settings } from '../../game/profile';
-import { CardBack, CardView } from '../components/CardView';
+import { CardBack, CardDetail, CardView } from '../components/CardView';
 import { HumanController, type HumanRequest } from './HumanController';
 
 const ME: PlayerId = 0;
@@ -322,24 +321,21 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
       {/* 左側：卡片詳細 */}
       <aside className="duel-detail">
         {detail ? (
-          <>
-            <CardView
-              data={detail.data}
-              size="lg"
-              atk={detail.location === 'mzone' && detail.faceUp ? duel.getAtk(detail) : undefined}
-              def={detail.location === 'mzone' && detail.faceUp ? duel.getDef(detail) : undefined}
-            />
+          <CardDetail
+            data={detail.data}
+            faceSize="sm"
+            atk={detail.location === 'mzone' && detail.faceUp ? duel.getAtk(detail) : undefined}
+            def={detail.location === 'mzone' && detail.faceUp ? duel.getDef(detail) : undefined}
+          >
             <div className="detail-extra">
               <div>位置：{locLabel(detail)}</div>
               {detail.overlays.length > 0 && <div>超量素材：{detail.overlays.map((o) => o.name).join('、')}</div>}
               {duel.equipsOf(detail).length > 0 && <div>裝備：{duel.equipsOf(detail).map((e) => e.name).join('、')}</div>}
               {detail.equipTarget && <div>裝備對象：{detail.equipTarget.name}</div>}
               {detail.negated && <div className="warn">效果無效中</div>}
-              {getScript(detail.id).effects === undefined && isMonster(detail.data) && detail.data.type & 0x20 ? (
-                <div className="warn">（此卡效果尚未實作）</div>
-              ) : null}
+              {duel.isNegated(detail) && !detail.negated && <div className="warn">效果直到回合結束時無效</div>}
             </div>
-          </>
+          </CardDetail>
         ) : (
           <div className="detail-hint">把滑鼠移到卡片上（或點擊）可以查看卡片內容</div>
         )}
@@ -599,14 +595,12 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
 
       {popupDetail && (
         <Modal title={popupDetail.name} onClose={() => setPopupDetail(null)}>
-          <div className="modal-card">
-            <CardView
-              data={popupDetail.data}
-              size="lg"
-              atk={popupDetail.location === 'mzone' && popupDetail.faceUp ? duel.getAtk(popupDetail) : undefined}
-              def={popupDetail.location === 'mzone' && popupDetail.faceUp ? duel.getDef(popupDetail) : undefined}
-            />
-          </div>
+          <CardDetail
+            data={popupDetail.data}
+            layout="row"
+            atk={popupDetail.location === 'mzone' && popupDetail.faceUp ? duel.getAtk(popupDetail) : undefined}
+            def={popupDetail.location === 'mzone' && popupDetail.faceUp ? duel.getDef(popupDetail) : undefined}
+          />
         </Modal>
       )}
 

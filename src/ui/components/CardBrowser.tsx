@@ -40,12 +40,15 @@ export function CardBrowser({
   dim,
   onClick,
   onHover,
+  onInfo,
 }: {
   cards: CardData[];
   badge?: (d: CardData) => React.ReactNode;
   dim?: (d: CardData) => boolean;
   onClick?: (d: CardData) => void;
   onHover?: (d: CardData) => void;
+  /** 顯示「查看效果」按鈕 */
+  onInfo?: (d: CardData) => void;
 }) {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>('all');
@@ -105,6 +108,18 @@ export function CardBrowser({
           <div key={d.id} className="browser-item" onClick={() => onClick?.(d)} onMouseEnter={() => onHover?.(d)}>
             <CardView data={d} size="sm" dim={dim?.(d)} showRarity />
             {badge && <div className="browser-badge">{badge(d)}</div>}
+            {onInfo && (
+              <button
+                className="info-btn"
+                title="查看效果"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInfo(d);
+                }}
+              >
+                ⓘ
+              </button>
+            )}
           </div>
         ))}
         {!filtered.length && <div className="empty">沒有符合條件的卡片</div>}

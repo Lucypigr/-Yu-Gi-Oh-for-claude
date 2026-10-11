@@ -196,3 +196,422 @@
 85742772  # Gravity Bind
 83968380  # Jar of Greed
 77754944  # Widespread Ruin
+
+# ---- 效果卡（第二彈） ----
+33396948  # Exodia the Forbidden One
+8124921  # Right Leg of the Forbidden One
+44519536  # Left Leg of the Forbidden One
+70903634  # Right Arm of the Forbidden One
+7902349  # Left Arm of the Forbidden One
+40737112  # Dark Magician of Chaos
+95178994  # Giant Germ
+23205979  # Spirit Reaper
+22609617  # Mataza the Zapper
+21015833  # Hayabusa Knight
+87621407  # Dekoichi the Battlechanted Locomotive
+21502796  # Ryko, Lightsworn Hunter
+83104731  # Ancient Gear Golem
+74157028  # Cyber Twin Dragon
+1546123  # Cyber End Dragon
+98502113  # Dark Paladin
+25366484  # Elemental HERO Shining Flare Wingman
+89943723  # Elemental HERO Neos
+79979666  # Elemental HERO Bubbleman
+52031567  # Elemental HERO Mudballman
+8131171  # Sinister Serpent
+57281778  # Ryu Kokki
+14878871  # Rescue Cat
+12538374  # Treeborn Frog
+20932152  # Quickdraw Synchron
+97268402  # Effect Veiler
+37742478  # Honest
+19665973  # Battle Fader
+18964575  # Swift Scarecrow
+57116033  # Winged Kuriboh
+85306040  # Goblin Elite Attack Force
+16226786  # Night Assailant
+28933734  # Mask of Darkness
+80741828  # Witch's Apprentice
+28470714  # Bladefly
+7489323  # Milus Radiant
+68658728  # Little Chimera
+8201910  # Star Boy
+67629977  # Hoshiningen
+52824910  # Kaiser Glider
+39191307  # Masked Dragon
+65287621  # Dark Driceratops
+47606319  # Gigantes
+18318842  # Abyss Soldier
+24435369  # Mermaid Knight
+64342551  # Amphibious Bugroth MK-3
+88240808  # Kycoo the Ghost Destroyer
+40133511  # Bazoo the Soul-Eater
+52077741  # Obnoxious Celtic Guard
+69579761  # Des Koala
+11384280  # Cannon Soldier
+9817927  # Gyaku-Gire Panda
+7391448  # Goyo Guardian
+23693634  # Colossal Fighter
+27315304  # Mist Wurm
+50321796  # Brionac, Dragon of the Ice Barrier
+88643579  # Dark End Dragon
+52687916  # Trishula, Dragon of the Ice Barrier
+70780151  # Thought Ruler Archfiend
+45815891  # Scrap Archfiend
+9053187  # Gagagigo the Risen
+25341652  # Maestroke the Symphony Djinn
+31386180  # Tiras, Keeper of Genesis
+581014  # Daigusto Emeral
+29669359  # Number 61: Volcasaurus
+95169481  # Diamond Dire Wolf
+81330115  # Number 30: Acid Golem of Destruction
+47805931  # Number 20: Giga-Brilliant
+10002346  # Gachi Gachi Gantetsu
+95992081  # Leviair the Sea Dragon
+61854111  # Legendary Sword
+91595718  # Book of Secret Arts
+4614116  # Dark Energy
+46009906  # Beast Fangs
+39774685  # Vile Germs
+77027445  # Power of Kaishin
+1557499  # Silver Bow and Arrow
+1435851  # Dragon Treasure
+37820550  # Electro-Whip
+77007920  # Laser Cannon Armor
+2370081  # Steel Shell
+37120512  # Sword of Dark Destruction
+32268901  # Salamandra
+64047146  # Horn of the Unicorn
+99597615  # Malevolent Nuzzler
+39897277  # Elf's Light
+36607978  # Mystical Moon
+83746708  # Mage Power
+18161786  # Mystic Plasma Zone
+19384334  # Molten Destruction
+45778932  # Rising Air Current
+81777047  # Luminous Spark
+56594520  # Gaia Power
+82999629  # Umiiruka
+76103675  # Sparks
+46918794  # Tremendous Fire
+73134081  # Final Flame
+24068492  # Just Desserts
+38199696  # Red Medicine
+11868825  # Goblin's Secret Remedy
+47852924  # Soul of the Pure
+98299011  # Gift of the Mystical Elf
+8842266  # Poison of the Old Man
+42664989  # Card of Sanctity
+1475311  # Allure of Darkness
+38120068  # Trade-In
+67169062  # Pot of Avarice
+98494543  # Magical Stone Excavation
+74848038  # Monster Reincarnation
+74519184  # Hand Destruction
+26412047  # Hammer Shot
+63102017  # Stop Defense
+5758500  # Soul Release
+17655904  # Burst Stream of Destruction
+2314238  # Dark Magic Attack
+10667321  # Ancient Rules
+87025064  # Silver's Cry
+99789342  # Dark Magic Curtain
+13604200  # Sage's Stone
+52684508  # Inferno Fire Blast
+52097679  # Shield & Sword
+3136426  # Level Limit - Area B
+44656491  # Messenger of Peace
+58775978  # Nightmare's Steelcage
+18511384  # Fusion Recovery
+63703130  # O - Oversoul
+37318031  # R - Righteous Justice
+74825788  # H - Heated Heart
+63035430  # Skyscraper
+22020907  # Hero Signal
+41356845  # Acid Trap Hole
+29267084  # Shadow Spell
+18807108  # Spellbinding Circle
+50078509  # Fiendish Chain
+74458486  # Covering Fire
+83887306  # Two-Pronged Attack
+37580756  # Michizure
+53239672  # Spirit Barrier
+44209392  # Castle Walls
+57882509  # Mask of Weakness
+36468556  # Ceasefire
+27053506  # Secret Barrel
+84749824  # Solemn Warning
+98069388  # Horn of Heaven
+77538567  # Dark Bribe
+49010598  # Divine Wrath
+19252988  # Trap Jammer
+27174286  # Return from the Different Dimension
+93382620  # Rope of Life
+126218  # Skull Dice
+74137509  # Graceful Dice
+88279736  # Robbin' Goblin
+37390589  # Kunai with Chain
+
+# ---- 融合素材 ----
+32274490  # Skull Servant
+55550921  # Battle Warrior
+56342351  # M-Warrior #1
+92731455  # M-Warrior #2
+98818516  # Frenzied Panda
+15303296  # Ryu-Kishin
+22026707  # Curtain of the Dark Ones
+36121917  # Monster Egg
+96851799  # Hinotama Soul
+53293545  # Firegrass
+75356564  # Petit Dragon
+38142739  # Petit Angel
+83464209  # Mystical Sheep #2
+40826495  # Dissolverock
+75376965  # Enchanting Mermaid
+72842870  # Tyhone
+92944626  # Wings of Wicked Flame
+53153481  # Armaill
+33064647  # One-Eyed Shield Dragon
+8471389  # Giga-Tech Wolf
+89272878  # Guardian of the Labyrinth
+10071456  # Protector of the Throne
+29172562  # Steel Ogre Grotto #1
+55444629  # Lesser Dragon
+87796900  # Winged Dragon, Guardian of the Fortress #1
+20315854  # Fairy Dragon
+81386177  # Bottom Dweller
+69572024  # Tongyo
+86088138  # Ocubeam
+21817254  # Mega Thunderball
+41396436  # Blue-Winged Crown
+7805359  # Niwatori
+75582395  # Faith Bird
+10202894  # Skull Red Bird
+99510761  # Lord of the Lamp
+28450915  # Invader from Another Dimension
+62403074  # Rhaimundos of the Red Sword
+71407486  # Fireyarou
+42348802  # Trakodon
+2830619  # Flame Viper
+43500484  # Darkworld Thorns
+17358176  # Lady of Faith
+94119974  # Two-Headed King Rex
+38289717  # Crawling Dragon #2
+3170832  # Takuhee
+732302  # Temple of Skulls
+93221206  # Ancient Elf
+60802233  # Kuwagata α
+52584282  # Hercules Beetle
+29491031  # The Snake Hair
+87564352  # Blackland Fire Dragon
+66672569  # Dragon Zombie
+71746462  # Sea Kamen
+65623423  # Gruesome Goo
+17968114  # Amazon of the Seas
+29802344  # Snakeyashi
+93343894  # Water Magician
+94022093  # Behegon
+38942059  # Sonic Maid
+16899564  # Beautiful Headhuntress
+58314394  # Ground Attacker Bugroth
+85448931  # Sentinel of the Seas
+73216412  # Worm Drake
+46821314  # Humanoid Slime
+
+# ---- 融合怪獸（無效果） ----
+31339260  # Zombie Warrior
+54541900  # Karbonala Warrior
+6840573  # Barox
+41544074  # Kamionwizard
+37421579  # Charubin the Fire Knight
+17881964  # Darkfire Dragon
+1641882  # Fusionist
+58528964  # Flame Ghost
+80516007  # Rare Fish
+59036972  # Mavelus
+70681994  # Dragoness the Wicked Knight
+99551425  # Labyrinth Tank
+51828629  # Giltia the D. Knight
+9293977  # Metal Dragon
+94566432  # Kaiser Dragon
+28593363  # Deepsea Shark
+9653271  # Kaminari Attack
+74703140  # Punished Eagle
+46696593  # Crimson Sunbird
+72869010  # Soul Hunter
+35752363  # Vermillion Sparrow
+33691040  # Pragtical
+95952802  # Flower Wolf
+56907389  # Musician King
+16507828  # Bracchio-raidus
+8327462  # Skullbird
+32751480  # Mystical Sand
+95144193  # Kwagar Hercules
+32355828  # Skelgon
+54622031  # Great Mammoth of Goldfine
+80727036  # Man-eating Black Shark
+32485271  # Rose Spectre of Dunn
+29929832  # Marine Beast
+56413937  # Warrior of Tradition
+40173854  # Amphibious Bugroth
+5600127  # Humanoid Worm Drake
+53539634  # Sanwitch
+
+# ---- 儀式怪獸 ----
+33951077  # Super War-Lion
+69123138  # Zera the Mant
+31890399  # Fiend's Mirror
+4849037  # Performance of Sword
+30243636  # Hungry Burger
+3627449  # Skull Guardian
+65393205  # Chakra
+91782219  # Crab Turtle
+90844184  # Garma Sword
+26932788  # Javelin Beetle
+62337487  # Fortress Whale
+99721536  # Dokurorider
+49064413  # The Masked Beast
+
+# ---- 儀式魔法 ----
+54539105  # War-Lion Ritual
+81756897  # Zera Ritual
+81933259  # Beastly Mirror Ritual
+43417563  # Commencement Dance
+80811661  # Hamburger Recipe
+43694075  # Novox's Prayer
+39399168  # Resurrection of Chakra
+76806714  # Turtle Oath
+78577570  # Garma Sword Oath
+41182875  # Javelin Beetle Pact
+77454922  # Fortress Whale's Oath
+31066283  # Revival of Dokurorider
+94377247  # Curse of the Masked Beast
+
+# ---- 通常怪獸（第二彈） ----
+39674352  # Gogiga Gagagigo
+76232340  # Sengenjin
+2964201  # Ryu-Ran
+38277918  # Mikazukinoyaiba
+89386122  # Ally of Justice Clausolas
+90908427  # Steel Ogre Grotto #2
+62762898  # Parrot Dragon
+26378150  # Rude Kaiser
+18246479  # Battle Steer
+48365709  # Ansatsu
+55291359  # Succubus Knight
+74637266  # Octoberser
+55784832  # Morinphen
+33178416  # Misairuzame
+4035199  # Shapesnatch
+84754430  # Mekk-Knight Avram
+24639891  # Gunkan Suship Shari
+37265642  # Sabersaurus
+5464695  # Blazing Inpachi
+42071342  # Sea Serpent Warrior of Darkness
+11813953  # Great Angus
+58831685  # Giant Red Seasnake
+56369281  # Wolf Axwielder
+91996584  # Whiptail Crow
+13723605  # Man-Eating Treasure Chest
+94042337  # Violent Rain
+47060154  # Mystic Clown
+3134241  # Flying Kamakiri #2
+1184620  # Kojikocy
+36304921  # Witty Phantom
+99785935  # Alpha The Magnet Warrior
+14037717  # Spirit of the Books
+69750536  # Wow Warrior
+14851496  # Jellyfish
+63308047  # Terra the Terrible
+45042329  # Tripwire Beast
+4042268  # Island Turtle
+15734813  # Soul Tiger
+97240270  # Mad Lobster
+58696829  # Bio-Mage
+47372349  # Acrobat Monkey
+22910685  # Green Phantom King
+36211150  # Bitron
+69380702  # Bunilla
+13179332  # Charcoal Inpachi
+
+# ---- 通常怪獸（第三彈）----
+56649609  # Phantasm Spiral Dragon
+38999506  # Cosmo Queen
+65957473  # Metal Armored Bug
+64413994  # Stealth Angecradle
+31447217  # Wingweaver
+24311372  # Zoa
+6740720  # Seiyaryu
+11212437  # Draluvice the Diabolic Dragon Fortress
+87322377  # Launcher Spider
+62397231  # Hyozanryu
+3797883  # Slot Machine
+67371383  # Amphibian Beast
+43352213  # Nekogal #2
+31122090  # Gyakutenno Megami
+13069066  # Sword Arm of Dragon
+24433920  # Pendulum Machine
+56789759  # Tyhone #2
+43793530  # Giga Gagagigo
+90876561  # Jack's Knight
+97612389  # Monster Tamer
+10538007  # Leogun
+20624263  # Peacock
+80141480  # Hunter Spider
+55998462  # Metal Fish
+70345785  # Yamadron
+7562372  # Megasonic Eye
+78780140  # Trent
+68339286  # Metal Guardian
+17192817  # Molten Behemoth
+32012841  # Millennium Shield
+4148264  # Shiny Black "C" Squadder
+47226949  # Leotron
+87979586  # Angel Trumpeter
+98234196  # Clavkiys, the Magikey Skyblaster
+49003308  # Gagagigo
+23771716  # 7 Colored Fish
+62651957  # X-Head Cannon
+11987744  # Nin-Ken Dog
+30532390  # Sky Scout
+16587243  # Neo Bug
+51934376  # Kabazauls
+5388481  # Darkfire Soldier #1
+36119641  # Space Mambo
+54579801  # High Tide Gyojin
+47879985  # Guardian of the Throne Room
+66073051  # Warrior of Zera
+5265750  # Skull Mariner
+53713014  # Crazy Fish
+54620698  # Gem-Knight Tourmaline
+51638941  # V-Tiger Jet
+86325596  # Baron of the Fiend Sword
+41762634  # Giant Flea
+5818798  # Gazelle the King of Mythical Beasts
+79629370  # Maiden of the Moonlight
+21263083  # Pale Beast
+44073668  # Takriminos
+49218300  # Sorcerer of the Doomed
+64501875  # Hibikime
+5434080  # Headless Knight
+97023549  # Blade Skater
+93346024  # The Dragon Dwelling in the Cave
+31242786  # Souleater
+57405307  # Winged Dragon, Guardian of the Fortress #2
+5628232  # Flying Penguin
+53829412  # Griffore
+52367652  # That Which Feeds on Life
+53606874  # Big Insect
+85639257  # Aqua Madoor
+78423643  # Three-Headed Geedo
+2863439  # Fiend Reflection #2
+37313348  # Turtle Tiger
+7526150  # Golgoil
+22499463  # Venom Cobra
+96005454  # Hunter Dragon
+8508055  # Chu-Ske the Mouse Fighter
+44430454  # Chamberlain of the Six Samurai
+11066358  # Galaxy Serpent
+95511642  # Crowned by the World Chalice
+20129614  # Melffy Rabby
+86498013  # D.D. Trainer

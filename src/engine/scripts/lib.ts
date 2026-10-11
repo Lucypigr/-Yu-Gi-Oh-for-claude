@@ -10,7 +10,11 @@ export { RACE } from '../cardDb';
 // ---- 卡片價值（AI 評估用）----
 
 /** 從 viewer 的角度評估一張卡的價值 */
+/** 被封印的艾克佐迪亞的 5 張卡 */
+const EXODIA = new Set([33396948, 8124921, 44519536, 70903634, 7902349]);
+
 export function cardValue(duel: Duel, c: Card, viewer?: PlayerId): number {
+  if (EXODIA.has(c.id) && c.location !== 'mzone') return 3500;
   if (isMonster(c.data)) {
     const hidden = c.location === 'mzone' && !c.faceUp && viewer !== undefined && viewer !== c.controller;
     if (hidden) return 1400;

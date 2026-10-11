@@ -14,6 +14,12 @@ export interface CardData {
   level: number;
   race: number;
   attribute: number;
+  /** 融合素材（卡號，由卡片文字解析） */
+  materials?: number[];
+  /** 超量素材數量 */
+  xyzCount?: number;
+  /** 儀式魔法對應的儀式怪獸 */
+  ritualFor?: number;
 }
 
 // ---- 種類位元（與 YGOPro 相同）----

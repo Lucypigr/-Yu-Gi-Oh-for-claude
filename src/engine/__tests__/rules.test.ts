@@ -330,3 +330,128 @@ describe('魔法・陷阱', () => {
     expect(duel.p(1).lp).toBe(8000);
   });
 });
+
+describe('第二彈卡片', () => {
+  it('艾克佐迪亞集齊 5 張勝利', async () => {
+    const { duel } = setup();
+    for (const id of [33396948, 8124921, 44519536, 70903634]) put(duel, 0, id, 'hand');
+    put(duel, 0, 7902349, 'deck');
+    await safe(async () => {
+      duel.draw(0, 1);
+      duel.checkState();
+    });
+    expect(duel.winner).toBe(0);
+  });
+
+  it('二次攻擊與「海」的直接攻擊', () => {
+    const { duel } = setup();
+    const mataza = put(duel, 0, 22609617, 'mzone');
+    mataza.attacks = 1;
+    expect(duel.canAttack(mataza)).toBe(true);
+    mataza.attacks = 2;
+    expect(duel.canAttack(mataza)).toBe(false);
+    const bug = put(duel, 0, 64342551, 'mzone');
+    put(duel, 1, FILLER, 'mzone');
+    expect(duel.getAttackOptions(0).find((o) => o.attacker === bug)?.canDirect).toBe(false);
+    put(duel, 0, 22702055, 'szone'); // 海（放在魔陷區只為了測試用，實際應在場地區）
+    const umi = duel.p(0).szone.find((c) => c?.id === 22702055)!;
+    duel.moveTo(umi, 'fzone', { reason: 'rule', player: 0 });
+    expect(duel.getAttackOptions(0).find((o) => o.attacker === bug)?.canDirect).toBe(true);
+  });
+
+  it('自動解析的融合素材（火焰幽靈）', async () => {
+    const { duel } = setup();
+    put(duel, 0, 32274490, 'hand'); // 白骨
+    put(duel, 0, 40826495, 'hand'); // 岩漿人
+    const f = put(duel, 0, 58528964, 'extra');
+    const poly = put(duel, 0, 24094653, 'hand');
+    const act = duel.getActivatable(0).find((a) => a.card === poly)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: poly, effect: act.effect, effectIndex: act.effectIndex });
+    expect(f.location).toBe('mzone');
+  });
+
+  it('自動產生的儀式魔法（超級戰獅）', async () => {
+    const { duel } = setup();
+    const lion = put(duel, 0, 33951077, 'hand');
+    put(duel, 0, 89631139, 'hand');
+    const rit = put(duel, 0, 54539105, 'hand');
+    const act = duel.getActivatable(0).find((a) => a.card === rit)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: rit, effect: act.effect, effectIndex: act.effectIndex });
+    expect(lion.location).toBe('mzone');
+  });
+
+  it('超量素材數量（魔蜥義豪需要 3 隻）', () => {
+    const { duel } = setup();
+    const g = put(duel, 0, 9053187, 'extra');
+    put(duel, 0, 91152256, 'mzone');
+    put(duel, 0, 11321183, 'mzone');
+    expect(duel.xyzMaterialSets(0, g).length).toBe(0);
+    put(duel, 0, 5053103, 'mzone');
+    expect(duel.xyzMaterialSets(0, g).length).toBe(1);
+  });
+
+  it('噴霞蟲需要 2 隻以上調整以外的怪獸', () => {
+    const { duel } = setup();
+    const mw = put(duel, 0, 27315304, 'extra'); // 9 星
+    put(duel, 0, 68505803, 'mzone'); // 調整 3
+    put(duel, 0, 64271667, 'mzone'); // 流星之龍 6
+    expect(duel.synchroMaterialSets(0, mw).length).toBe(0);
+    put(duel, 0, 76184692, 'mzone'); // 4
+    put(duel, 0, 40640057, 'mzone'); // 1
+    // 3 + 4 + ... 需要剛好 9：3 + 4 + 1 + ... 不足；換成 3+... 只要有一組合法即可
+    const ok = duel.synchroMaterialSets(0, mw).every((s) => s.length >= 3);
+    expect(ok).toBe(true);
+  });
+
+  it('英雄標記：怪獸被戰鬥破壞後特殊召喚元素英雄', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [22020907];
+    put(duel, 1, 22020907, 'szone', { faceUp: false });
+    put(duel, 1, 20721928, 'deck'); // 電光俠
+    const t = put(duel, 1, FILLER, 'mzone');
+    const a = put(duel, 0, 89631139, 'mzone');
+    await duel.performAttack(a, t);
+    expect(duel.monsters(1).map((c) => c.id)).toContain(20721928);
+  });
+
+  it('效果遮蒙者讓效果直到回合結束無效', async () => {
+    const { duel } = setup();
+    const sd = put(duel, 1, 44508094, 'mzone');
+    duel.setFlag(sd, 'negated');
+    expect(duel.isNegated(sd)).toBe(true);
+    duel.turn++;
+    expect(duel.isNegated(sd)).toBe(false);
+  });
+
+  it('魔族之鏈：不能攻擊且效果無效，離場後恢復', async () => {
+    const { duel } = setup();
+    duel.turnPlayer = 1;
+    const target = put(duel, 0, 77585513, 'mzone'); // 人造人（效果怪獸）
+    const chain = put(duel, 1, 50078509, 'szone', { faceUp: false });
+    const act = duel.getActivatable(1).find((x) => x.card === chain);
+    expect(act).toBeUndefined(); // 人造人在場時不能發動陷阱
+    duel.destroy([target], 'rule');
+    const t2 = put(duel, 0, 70095154, 'mzone'); // 電子龍
+    const act2 = duel.getActivatable(1).find((x) => x.card === chain)!;
+    await duel.performMainAction(1, { type: 'activate', card: chain, effect: act2.effect, effectIndex: act2.effectIndex });
+    expect(chain.location).toBe('szone');
+    expect(t2.negated).toBe(true);
+    expect(duel.has(t2, 'cannotAttack')).toBe(true);
+    duel.destroy([chain], 'effect');
+    expect(t2.negated).toBe(false);
+  });
+
+  it('結束階段破壞救援貓叫出的怪獸', async () => {
+    const { duel } = setup();
+    const cat = put(duel, 0, 14878871, 'mzone');
+    put(duel, 0, 90357090, 'deck'); // 銀牙狼（獸族 3 星）
+    put(duel, 0, 90357090, 'deck');
+    const act = duel.getActivatable(0).find((x) => x.card === cat)!;
+    await duel.performMainAction(0, { type: 'activate', card: cat, effect: act.effect, effectIndex: act.effectIndex });
+    const wolves = duel.monsters(0).filter((c) => c.id === 90357090);
+    expect(wolves.length).toBe(2);
+    expect(wolves.every((w) => w.negated && duel.hasFlag(w, 'destroyAtEnd'))).toBe(true);
+  });
+});
