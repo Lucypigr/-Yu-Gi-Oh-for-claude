@@ -14,6 +14,8 @@ export interface Settings {
   speed: number;
   /** 沒有特殊時機時自動略過連鎖確認 */
   autoPass: boolean;
+  /** 卡面樣式：real = 整張實卡圖片；drawn = 自繪的繁體中文卡面 */
+  cardStyle: 'real' | 'drawn';
 }
 
 export interface Profile {
@@ -106,7 +108,7 @@ function update(fn: (p: Profile) => void) {
 function migrate(raw: any): Profile {
   const p = raw as Profile;
   p.version = SAVE_VERSION;
-  const defaultSettings: Settings = { speed: 1, autoPass: true };
+  const defaultSettings: Settings = { speed: 1, autoPass: true, cardStyle: 'real' };
   const defaultStats: Profile['stats'] = { wins: 0, losses: 0, draws: 0, packsOpened: 0, beaten: {} };
   p.settings = { ...defaultSettings, ...(raw.settings ?? {}) };
   p.stats = { ...defaultStats, ...(raw.stats ?? {}) };
@@ -137,7 +139,7 @@ export function createProfile(playerName: string, starterId: string): Profile {
     decks: [{ id: 'starter', name: starter.name, main: [...starter.deck.main], extra: [...starter.deck.extra] }],
     activeDeckId: 'starter',
     stats: { wins: 0, losses: 0, draws: 0, packsOpened: 0, beaten: {} },
-    settings: { speed: 1, autoPass: true },
+    settings: { speed: 1, autoPass: true, cardStyle: 'real' },
   };
   persist();
   emit();

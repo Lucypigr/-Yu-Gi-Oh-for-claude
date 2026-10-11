@@ -1,5 +1,5 @@
 // 中文卡面
-import { memo, useState, type ReactNode } from 'react';
+import { memo, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   type CardData,
   attrName,
@@ -16,6 +16,7 @@ import {
   trapKind,
   typeLine,
 } from '../../engine/cardDb';
+import { getProfile, subscribe } from '../../game/profile';
 import { RARITY_NAMES, rarityOf } from '../../game/rarity';
 
 const ATTR_CLASS: Record<string, string> = { 光: 'light', 暗: 'dark', 炎: 'fire', 水: 'water', 地: 'earth', 風: 'wind', 神: 'divine' };
@@ -32,6 +33,103 @@ const SPELL_ICON: Record<string, string> = {
 
 export function artUrl(id: number) {
   return `${import.meta.env.BASE_URL}art/${id}.webp`;
+}
+
+/** 整張卡面的圖片（實卡卡面） */
+export function faceUrl(id: number) {
+  return `${import.meta.env.BASE_URL}cards/${id}.webp`;
+}
+/** 沒有實卡圖片的卡（改用自繪卡面） */
+const faceFailed = new Set<number>();
+const getCardStyle = () => getProfile()?.settings.cardStyle ?? 'real';
+function useCardStyle() {
+  return useSyncExternalStore(subscribe, getCardStyle);
+}
+
+// ---- 長按（或滑鼠右鍵）顯示卡片資訊 ----
+interface InfoRequest {
+  data: CardData;
+  atk?: number;
+  def?: number;
+}
+let infoRequest: InfoRequest | null = null;
+let infoOpenedAt = 0;
+const infoListeners = new Set<() => void>();
+export function showCardInfo(r: InfoRequest | null) {
+  infoRequest = r;
+  infoOpenedAt = Date.now();
+  infoListeners.forEach((f) => f());
+}
+const subscribeInfo = (cb: () => void) => {
+  infoListeners.add(cb);
+  return () => {
+    infoListeners.delete(cb);
+  };
+};
+
+/** 放在畫面最上層：顯示長按的卡片資訊 */
+export function CardInfoHost() {
+  const r = useSyncExternalStore(subscribeInfo, () => infoRequest);
+  if (!r) return null;
+  // 長按放開時的點擊不要馬上把視窗關掉
+  const close = () => Date.now() - infoOpenedAt > 350 && showCardInfo(null);
+  return (
+    <div className="modal-backdrop card-info-backdrop" onClick={close}>
+      <div className="modal card-info-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-title">
+          <span>{r.data.name}</span>
+          <button className="close-btn" onClick={() => showCardInfo(null)}>
+            ✕
+          </button>
+        </div>
+        <div className="modal-body">
+          <CardDetail data={r.data} atk={r.atk} def={r.def} layout="row" noInfo />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useLongPress(request: () => InfoRequest, enabled: boolean) {
+  const timer = useRef<number | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const fired = useRef(false);
+  if (!enabled) return {};
+  const clear = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      fired.current = false;
+      start.current = { x: e.clientX, y: e.clientY };
+      clear();
+      timer.current = window.setTimeout(() => {
+        timer.current = null;
+        fired.current = true;
+        showCardInfo(request());
+      }, 450);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 10) clear();
+    },
+    onPointerUp: clear,
+    onPointerLeave: clear,
+    onPointerCancel: clear,
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      clear();
+      showCardInfo(request());
+    },
+    // 長按之後的點擊不要觸發原本的動作
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!fired.current) return;
+      fired.current = false;
+      e.stopPropagation();
+      e.preventDefault();
+    },
+  };
 }
 
 function attrOf(data: CardData) {
@@ -64,6 +162,8 @@ export interface CardViewProps {
   onClick?: () => void;
   onMouseEnter?: () => void;
   dim?: boolean;
+  /** 不要長按顯示資訊（資訊視窗裡的卡面） */
+  noInfo?: boolean;
 }
 
 function Stars({ data }: { data: CardData }) {
@@ -113,7 +213,11 @@ export const CardView = memo(function CardView({
   onClick,
   onMouseEnter,
   dim,
+  noInfo,
 }: CardViewProps) {
+  const style = useCardStyle();
+  const [, rerender] = useReducer((x: number) => x + 1, 0);
+  const press = useLongPress(() => ({ data, atk, def }), !noInfo);
   const frame = frameKind(data);
   const monster = isMonster(data);
   const { attr, cls: attrCls } = attrOf(data);
@@ -128,6 +232,45 @@ export const CardView = memo(function CardView({
   const link = isLink(data);
   const extraCls = `${pend ? 'pendulum' : ''} ${link ? 'is-link' : ''}`;
 
+  // 實卡卡面：整張卡的圖片，場上再加上目前的攻守
+  if (style === 'real' && !faceFailed.has(data.id)) {
+    const showStats = monster && (size === 'xs' || atkCls !== '' || defCls !== '');
+    return (
+      <div
+        className={`card card-${size} card-real ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        title={data.name}
+        {...press}
+      >
+        <img
+          className="real-img"
+          src={faceUrl(data.id)}
+          alt={data.name}
+          loading="lazy"
+          draggable={false}
+          onError={() => {
+            faceFailed.add(data.id);
+            rerender();
+          }}
+        />
+        {showRarity && foil && <div className={`real-shine shine-${rarity}`} />}
+        {showStats && (
+          <div className={`real-stats real-stats-${size}`}>
+            <span className={atkCls}>{atkShown < 0 ? '?' : atkShown}</span>
+            {!link && (
+              <>
+                <span className="sep">/</span>
+                <span className={defCls}>{defShown < 0 ? '?' : defShown}</span>
+              </>
+            )}
+          </div>
+        )}
+        {showRarity && rarity !== 'N' && <div className={`rarity-badge r-${rarity}`}>{rarity}</div>}
+      </div>
+    );
+  }
+
   // 場上用的小卡：以卡圖為主
   if (size === 'xs') {
     return (
@@ -136,6 +279,7 @@ export const CardView = memo(function CardView({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         title={data.name}
+        {...press}
       >
         <div className="xs-art">
           <CardArt data={data} />
@@ -174,6 +318,7 @@ export const CardView = memo(function CardView({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       title={size === 'sm' ? data.name : undefined}
+      {...press}
     >
       <div className="card-inner">
         <div className="card-head">
@@ -239,6 +384,7 @@ export function CardDetail({
   layout = 'column',
   faceSize = 'md',
   dim,
+  noInfo,
 }: {
   data: CardData;
   atk?: number;
@@ -247,6 +393,7 @@ export function CardDetail({
   layout?: 'column' | 'row';
   faceSize?: 'sm' | 'md';
   dim?: boolean;
+  noInfo?: boolean;
 }) {
   const monster = isMonster(data);
   const { attr, cls } = attrOf(data);
@@ -255,7 +402,7 @@ export function CardDetail({
   return (
     <div className={`card-detail ${layout}`}>
       <div className="detail-face">
-        <CardView data={data} size={faceSize} atk={atk} def={def} showRarity dim={dim} />
+        <CardView data={data} size={faceSize} atk={atk} def={def} showRarity dim={dim} noInfo={noInfo} />
       </div>
       <div className="detail-info">
         <div className="detail-name">{data.name}</div>

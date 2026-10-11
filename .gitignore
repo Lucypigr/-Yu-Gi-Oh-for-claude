@@ -4,3 +4,5 @@ dist
 public/art/*
 !public/art/.gitkeep
 *.log
+public/cards/*
+!public/cards/.gitkeep

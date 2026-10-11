@@ -26,6 +26,14 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             onChange={(e) => updateSettings({ speed: Number(e.target.value) })}
           />
         </label>
+        <label className="field">
+          <span>卡面樣式</span>
+          <select value={profile.settings.cardStyle} onChange={(e) => updateSettings({ cardStyle: e.target.value as 'real' | 'drawn' })}>
+            <option value="real">實卡卡面（整張卡的圖片，簡體中文）</option>
+            <option value="drawn">自繪卡面（繁體中文）</option>
+          </select>
+          <span className="note">長按卡片（電腦版按滑鼠右鍵）可以查看繁體中文的完整效果。</span>
+        </label>
         <label className="field checkbox">
           <input type="checkbox" checked={profile.settings.autoPass} onChange={(e) => updateSettings({ autoPass: e.target.checked })} />
           <span>自動略過不重要的連鎖確認（只在召喚、攻擊、發動、對方戰鬥階段與結束階段時詢問）</span>
