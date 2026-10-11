@@ -687,3 +687,60 @@
 76353872  # Defcon Bird
 65100616  # Link Infra-Flier
 9523599  # Stack Reviver
+
+# ---- ZEXAL 超量（第四彈）----
+26082117  # Gagaga Magician
+3606728  # Gagaga Girl
+12423762  # Gagaga Gardna
+62476815  # Gogogo Golem
+39695323  # Gogogo Giant
+56105047  # Gogogo Ghost
+83274244  # Dododo Warrior
+97896503  # Zubaba Knight
+57036718  # Zubaba Buster
+94656263  # Kagetokage
+25259669  # Goblindbergh
+34143852  # Heroic Challenger - Extra Sword
+89774530  # Heroic Challenger - Double Lance
+85138716  # Rescue Rabbit
+17201174  # Hammer Shark
+20838380  # Shark Stickers
+51254277  # Big Jaws
+65367484  # Photon Thrasher
+1362589  # Photon Crusher
+80495985  # Photon Sabre Tiger
+93717133  # Galaxy-Eyes Photon Dragon
+35950025  # Galaxy Knight
+98555327  # Galaxy Wizard
+72355441  # Xyz Gift
+27068117  # Overlay Regen
+60222582  # Galaxy Expedition
+17418744  # Photon Sanctuary
+35848254  # Photon Lead
+13032689  # Xyz Unit
+6595475  # Onomatopaira
+17494901  # Gagagabolt
+73866096  # Dodododraw
+26708437  # Xyz Reborn
+73860462  # Wonder Xyz
+56840427  # Number C39: Utopia Ray
+51735257  # Number 50: Blackship of Corn
+48739166  # Number 101: Silent Honor ARK
+94380860  # Number 103: Ragnazero
+31437713  # Number 82: Heartlandraco
+32003338  # Number 34: Terror-Byte
+11411223  # Number 10: Illumiknight
+31801517  # Number 62: Galaxy-Eyes Prime Photon Dragon
+80764541  # Number 44: Sky Pegasus
+7194917  # Number 52: Diamond Crab King
+37279508  # Number 37: Hope Woven Dragon Spider Shark
+64554883  # Number 25: Force Focus
+22653490  # Lightning Chidori
+21044178  # Abyss Dweller
+82633039  # Castel, the Skyblaster Musketeer
+440556  # Bahamut Shark
+61344030  # Starliege Paladynamo
+12014404  # Gagaga Cowboy
+91499077  # Gagaga Samurai
+31563350  # Zubaba General
+66506689  # Tin Archduke

@@ -1285,6 +1285,8 @@ export class Duel {
           if (!ev || !evs.includes(ev.type)) return;
         }
         if (!this.onceOk(card, effect, effectIndex, p)) return;
+        // 同一張卡的同一個效果已經在連鎖上
+        if (this.chain.some((l) => l.card === card && l.effect === effect)) return;
         const ctx = this.makeCtx(card, effect, p, win?.event ?? this.windowEvent ?? undefined);
         if (effect.condition && !this.safeCond(effect, ctx)) return;
         out.push({ card, effect, effectIndex });
@@ -1431,12 +1433,18 @@ export class Duel {
     return this.monsters(p).filter((c) => !this.has(c, 'cannotTribute'));
   }
 
+  /** 可以不用解放召喚（怒怒怒戰士、銀河騎士） */
+  canSummonWithoutTribute(card: Card): boolean {
+    const nt = getScript(card.id).noTribute;
+    return !!nt && this.tributesNeeded(card) > 0 && nt.condition(this, card);
+  }
+
   canNormalSummon(p: PlayerId, card: Card): boolean {
     const ps = this.p(p);
     if (card.location !== 'hand' || !isMonster(card.data) || cannotNormalSummon(card.data)) return false;
     if (ps.normalSummons <= 0 || ps.turnFlags.noSummon) return false;
     const need = this.tributesNeeded(card);
-    if (need === 0) return this.freeMZones(p) > 0;
+    if (need === 0 || this.canSummonWithoutTribute(card)) return this.freeMZones(p) > 0 || this.tributable(p).length >= need;
     return this.tributable(p).length >= need;
   }
 
@@ -1560,8 +1568,18 @@ export class Duel {
 
   private async doNormalSummon(p: PlayerId, card: Card, set: boolean) {
     const ps = this.p(p);
-    const need = this.tributesNeeded(card);
+    let need = this.tributesNeeded(card);
     let tributes: Card[] = [];
+    let noTribute = false;
+    if (need > 0 && this.canSummonWithoutTribute(card)) {
+      const enough = this.tributable(p).length >= need;
+      noTribute =
+        !enough ||
+        this.freeMZones(p) <= 0 ||
+        (await this.confirm({ player: p, title: `不解放怪獸召喚「${card.name}」嗎？`, card, ai: true }));
+      if (noTribute && this.freeMZones(p) <= 0) noTribute = false;
+      if (noTribute) need = 0;
+    }
     if (need > 0) {
       tributes = await this.select({
         player: p,
@@ -1586,6 +1604,10 @@ export class Duel {
     }
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk' });
     card.summonType = need > 0 ? 'tribute' : 'normal';
+    if (noTribute) {
+      this.setFlag(card, 'noTributeSummon', true);
+      getScript(card.id).noTribute?.apply?.(this, card);
+    }
     ps.turnFlags.summoned = true;
     this.log(`${ps.name} ${need > 0 ? '上級召喚' : '召喚'}「${card.name}」`, p);
     await this.pause(400);
@@ -1675,6 +1697,9 @@ export class Duel {
       (c) => !isToken(c.data) && !isXyz(c.data) && !isLink(c.data) && this.getLevel(c) === xyz.data.level && filter(c),
     );
     const out: Card[][] = [];
+    // 在超量怪獸上面重叠來超量召喚（混沌No.39 希望皇 霍普雷等）
+    const over = script.xyz?.over;
+    if (over) for (const c of this.faceUpMonsters(p)) if (c !== xyz && over(c) && this.extraZones(p, xyz, [c]).length) out.push([c]);
     const n = mons.length;
     for (let mask = 1; mask < 1 << n; mask++) {
       const set = mons.filter((_, i) => mask & (1 << i));
@@ -1831,26 +1856,69 @@ export class Duel {
     if (!sets.length) return;
     const count = getScript(card.id).xyz?.count ?? 2;
     const pool = [...new Set(sets.flat())];
+    const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
     const mats = await this.select({
       player: p,
       title: `選擇「${card.name}」的超量素材（${card.data.level} 星 × ${count}）`,
       cards: pool,
-      min: count,
+      min: 1,
       max: count,
       hint: 'cost',
-      validate: (sel) => sets.some((s) => s.every((c) => sel.includes(c))),
+      validate: (sel) => sets.some((s) => same(s, sel)),
     });
-    if (mats.length !== count) return;
+    if (!sets.some((s) => same(s, mats))) return;
     const pos = await this.choosePosition(p, card);
     const zone = this.extraZones(p, card, mats)[0];
+    // 重叠召喚：下面的超量怪獸的素材也一起變成素材
+    const inherited = mats.flatMap((m) => m.overlays.splice(0));
     for (const m of mats) this.moveTo(m, 'overlay', { reason: 'material' });
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone });
-    card.overlays.push(...mats);
+    card.overlays.push(...inherited, ...mats);
     card.summonType = 'xyz';
     this.p(p).turnFlags.summoned = true;
     this.log(`${this.p(p).name} 超量召喚「${card.name}」！`, p);
     await this.pause(500);
+    // 作為素材時賦予效果（英豪挑戰者 贈劍兵、我我我少女）
+    for (const m of mats) await getScript(m.id).asXyzMaterial?.(this, card, m);
     await this.finishProcedureSummon(p, card, 'xyz');
+  }
+
+  /** 用效果進行超量召喚（奇妙超量）：在效果處理中使用，召喚成功的事件交給連鎖處理 */
+  async xyzSummonByEffect(p: PlayerId, card: Card): Promise<boolean> {
+    const sets = this.xyzMaterialSets(p, card);
+    if (!sets.length) return false;
+    const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
+    const pool = [...new Set(sets.flat())];
+    const mats = await this.select({
+      player: p,
+      title: `選擇「${card.name}」的超量素材`,
+      cards: pool,
+      min: 1,
+      max: getScript(card.id).xyz?.count ?? 2,
+      hint: 'cost',
+      validate: (sel) => sets.some((s) => same(s, sel)),
+    });
+    if (!sets.some((s) => same(s, mats))) return false;
+    const inherited = mats.flatMap((m) => m.overlays.splice(0));
+    for (const m of mats) this.moveTo(m, 'overlay', { reason: 'material' });
+    card.overlays.push(...inherited, ...mats);
+    if (!this.specialSummon(card, p, { summonType: 'xyz' })) {
+      card.overlays = [];
+      for (const m of mats) this.moveTo(m, 'grave', { reason: 'rule' });
+      return false;
+    }
+    for (const m of mats) await getScript(m.id).asXyzMaterial?.(this, card, m);
+    return true;
+  }
+
+  /** 把卡重叠在超量怪獸下面作為超量素材 */
+  attachMaterial(xyz: Card, card: Card): boolean {
+    if (!xyz.isFaceUpMonster || !isXyz(xyz.data) || card === xyz) return false;
+    this.moveTo(card, 'overlay', { reason: 'effect' });
+    xyz.overlays.push(card);
+    this.log(`「${card.name}」成為「${xyz.name}」的超量素材`);
+    this.update();
+    return true;
   }
 
   /** 取除超量素材 */
@@ -2084,9 +2152,10 @@ export class Duel {
     await this.pause(300);
 
     // 異色眼靈擺龍：給予對方的戰鬥傷害 2 倍
-    if (dmgTo !== null && dmg > 0 && target) {
+    if (dmgTo !== null && dmg > 0) {
       const dealer = dmgTo === opp ? attacker : target;
-      if (this.has(dealer, 'doubleBattleDamage')) dmg *= 2;
+      if (dealer && target && this.has(dealer, 'doubleBattleDamage')) dmg *= 2;
+      if (dealer && this.has(dealer, 'halfBattleDamage')) dmg = Math.floor(dmg / 2);
     }
     if (dmgTo !== null && dmg > 0) {
       const ps = this.p(dmgTo);

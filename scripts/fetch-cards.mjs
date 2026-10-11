@@ -42,6 +42,18 @@ const MANUAL = [
     race: 0x4000,
     attribute: 0x1,
   },
+  {
+    id: 17418745,
+    name: '光子衍生物',
+    nameEn: 'Photon Token',
+    desc: '「光子聖域」的效果特殊召喚的衍生物。不能攻擊，也不能作為同步素材。',
+    type: 0x4011,
+    atk: 2000,
+    def: 0,
+    level: 4,
+    race: 0x1000,
+    attribute: 0x10,
+  },
 ];
 
 async function loadDb() {

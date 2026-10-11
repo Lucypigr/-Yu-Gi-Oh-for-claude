@@ -122,7 +122,8 @@ export type Query =
   | 'cannotSpecialSummon' // 玩家不能特殊召喚（全域）
   | 'noSTDuringAttack' // 這張卡攻擊時對方不能發動魔法・陷阱
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
-  | 'doubleBattleDamage'; // 給予對方的戰鬥傷害變成 2 倍
+  | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
+  | 'halfBattleDamage'; // 給予對方的戰鬥傷害變成一半
 
 export interface StatMod {
   atk?: number;
@@ -202,7 +203,16 @@ export interface CardScript {
   /** 和某隻怪獸戰鬥時不會被戰鬥破壞 */
   battleIndesAgainst?: (duel: Duel, self: Card, foe: Card) => boolean;
   /** 超量素材 */
-  xyz?: { count: number; filter?: (c: Card) => boolean };
+  xyz?: {
+    count: number;
+    filter?: (c: Card) => boolean;
+    /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
+    over?: (c: Card) => boolean;
+  };
+  /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
+  asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
+  /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */
+  noTribute?: { condition: (duel: Duel, card: Card) => boolean; apply?: (duel: Duel, card: Card) => void };
   /** 從手牌特殊召喚的規則（電子龍、混沌戰士等） */
   spSummon?: {
     label?: string;

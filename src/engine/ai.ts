@@ -74,7 +74,11 @@ export class AIController implements Controller {
                 ? duel.xyzMaterialSets(p, a.card)
                 : duel.linkMaterialSets(p, a.card);
           const cheapest = Math.min(...sets.map((s) => s.reduce((t, c) => t + cardValue(duel, c, p), 0)));
-          const gain = cardValue(duel, a.card, p) + 600 - cheapest;
+          // 超量素材留在怪獸下面可以當效果的資源，素材的價值打折計算
+          const gain =
+            a.type === 'xyz'
+              ? cardValue(duel, a.card, p) + 600 + 300 * Math.max(...sets.map((s) => s.length + s.reduce((t, c) => t + c.overlays.length, 0))) - 0.6 * cheapest
+              : cardValue(duel, a.card, p) + 600 - cheapest;
           s = gain > 0 ? 50 + gain / 100 : 0;
           break;
         }
@@ -143,7 +147,7 @@ export class AIController implements Controller {
   }
 
   private scoreSummon(duel: Duel, p: PlayerId, card: Card, oppMax: number, set: boolean): number {
-    const need = duel.tributesNeeded(card);
+    const need = duel.canSummonWithoutTribute(card) ? 0 : duel.tributesNeeded(card);
     const atk = card.data.atk;
     const defv = card.data.def;
     let tributeCost = 0;

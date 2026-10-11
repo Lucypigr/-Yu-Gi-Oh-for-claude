@@ -550,3 +550,103 @@ describe('靈擺與連結', () => {
     expect(duel.getAtk(ct)).toBe(1300 + 500 * pointed);
   });
 });
+
+describe('超量（第四彈）', () => {
+  const UTOPIA = 84013237;
+
+  function utopiaWith(duel: Duel, p: PlayerId, n: number) {
+    const u = put(duel, p, UTOPIA, 'mzone');
+    for (let i = 0; i < n; i++) duel.attachMaterial(u, put(duel, p, FILLER, 'grave'));
+    return u;
+  }
+
+  it('混沌No.39 希望皇 霍普雷可以重叠在希望皇霍普上面，素材一起移過去', async () => {
+    const { duel } = setup();
+    const u = utopiaWith(duel, 0, 2);
+    const ray = put(duel, 0, 56840427, 'extra');
+    expect(duel.xyzMaterialSets(0, ray)).toEqual([[u]]);
+    await duel.performMainAction(0, { type: 'xyz', card: ray });
+    expect(ray.location).toBe('mzone');
+    expect(u.location).toBe('overlay');
+    expect(ray.overlays.length).toBe(3);
+  });
+
+  it('我我我魔術師宣言等級後可以和 8 星怪獸超量召喚', async () => {
+    const { duel } = setup();
+    const mag = put(duel, 0, 26082117, 'mzone');
+    put(duel, 0, 93717133, 'mzone'); // 銀河眼光子龍 8 星
+    const n62 = put(duel, 0, 31801517, 'extra');
+    expect(duel.xyzMaterialSets(0, n62).length).toBe(0);
+    const act = duel.getActivatable(0).find((x) => x.card === mag)!;
+    await duel.performMainAction(0, { type: 'activate', card: mag, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.getLevel(mag)).toBe(8);
+    expect(duel.xyzMaterialSets(0, n62).length).toBe(1);
+  });
+
+  it('英豪挑戰者 贈劍兵：超量怪獸攻擊力上升 1000', async () => {
+    const { duel } = setup();
+    put(duel, 0, 34143852, 'mzone');
+    put(duel, 0, FILLER, 'mzone');
+    const u = put(duel, 0, UTOPIA, 'extra');
+    await duel.performMainAction(0, { type: 'xyz', card: u });
+    expect(duel.getAtk(u)).toBe(3500);
+  });
+
+  it('怒怒怒戰士可以不用解放召喚，攻擊力變成 1800', async () => {
+    const { duel } = setup();
+    const w = put(duel, 0, 83274244, 'hand');
+    expect(duel.canNormalSummon(0, w)).toBe(true);
+    await duel.performMainAction(0, { type: 'summon', card: w });
+    expect(w.location).toBe('mzone');
+    expect(duel.getAtk(w)).toBe(1800);
+  });
+
+  it('疊光再生成為超量素材', async () => {
+    const { duel } = setup();
+    const u = utopiaWith(duel, 0, 0);
+    const regen = put(duel, 0, 27068117, 'hand');
+    const act = duel.getActivatable(0).find((x) => x.card === regen)!;
+    await duel.performMainAction(0, { type: 'activate', card: regen, effect: act.effect, effectIndex: act.effectIndex });
+    expect(u.overlays).toContain(regen);
+    expect(regen.location).toBe('overlay');
+  });
+
+  it('奇妙超量：用效果超量召喚', async () => {
+    const { duel } = setup();
+    put(duel, 0, FILLER, 'mzone');
+    put(duel, 0, FILLER, 'mzone');
+    const u = put(duel, 0, UTOPIA, 'extra');
+    const trap = put(duel, 0, 73860462, 'szone', { faceUp: false });
+    const act = duel.getActivatable(0).find((x) => x.card === trap)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: trap, effect: act.effect, effectIndex: act.effectIndex });
+    expect(u.location).toBe('mzone');
+    expect(u.summonType).toBe('xyz');
+    expect(u.overlays.length).toBe(2);
+  });
+
+  it('銀河眼光子龍：和對方怪獸一起除外，戰鬥階段結束時回來並吸收素材的力量', async () => {
+    const { duel, a, b } = setup();
+    b.declineAll = true;
+    a.respondWith = [93717133];
+    const ge = put(duel, 0, 93717133, 'mzone');
+    const u = utopiaWith(duel, 1, 2);
+    await safe(() => duel.performAttack(ge, u));
+    expect(ge.location).toBe('banished');
+    expect(u.location).toBe('banished');
+    duel.raise({ type: 'battlePhaseEnd', player: 0 });
+    await duel.settle();
+    expect(ge.location).toBe('mzone');
+    expect(u.location).toBe('mzone');
+    expect(u.controller).toBe(1);
+    expect(duel.getAtk(ge)).toBe(4000);
+  });
+
+  it('No.62 沒有銀河眼光子龍作為素材時戰鬥傷害減半', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const n62 = put(duel, 0, 31801517, 'mzone');
+    await duel.performAttack(n62, null);
+    expect(duel.p(1).lp).toBe(6000);
+  });
+});
