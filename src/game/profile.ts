@@ -36,6 +36,8 @@ export interface Profile {
     beaten: Record<string, number>;
   };
   settings: Settings;
+  /** 已經領取過的起始牌組 */
+  claimedStarters: string[];
 }
 
 export const START_COINS = 500;
@@ -120,6 +122,8 @@ function migrate(raw: any): Profile {
     main: d.main.filter((id) => hasCard(id)),
     extra: d.extra.filter((id) => hasCard(id)),
   }));
+  // 舊存檔：從一開始的牌組名稱推斷已領取的起始牌組
+  p.claimedStarters ??= STARTER_DECKS.filter((s) => p.decks.some((d) => d.id === 'starter' && d.name === s.name)).map((s) => s.id);
   return p;
 }
 
@@ -140,10 +144,27 @@ export function createProfile(playerName: string, starterId: string): Profile {
     activeDeckId: 'starter',
     stats: { wins: 0, losses: 0, draws: 0, packsOpened: 0, beaten: {} },
     settings: { speed: 1, autoPass: true, cardStyle: 'real' },
+    claimedStarters: [starter.id],
   };
   persist();
   emit();
   return current;
+}
+
+/** 領取另一套起始牌組（每套 1 次）：卡片加入收藏，並新增為使用中的牌組 */
+export function claimStarter(starterId: string): boolean {
+  const starter = STARTER_DECKS.find((s) => s.id === starterId);
+  const p = current;
+  if (!starter || !p || p.claimedStarters.includes(starterId)) return false;
+  update((next) => {
+    for (const id of [...starter.deck.main, ...starter.deck.extra]) next.collection[id] = (next.collection[id] ?? 0) + 1;
+    const id = `starter-${starter.id}`;
+    next.decks = next.decks.filter((d) => d.id !== id);
+    next.decks.push({ id, name: starter.name, main: [...starter.deck.main], extra: [...starter.deck.extra] });
+    next.activeDeckId = id;
+    next.claimedStarters = [...next.claimedStarters, starterId];
+  });
+  return true;
 }
 
 export function resetProfile() {

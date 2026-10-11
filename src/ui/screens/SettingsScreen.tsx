@@ -1,6 +1,9 @@
 // 設定與存檔管理
 import { useState } from 'react';
-import { type Profile, exportSave, importSave, renamePlayer, resetProfile, updateSettings } from '../../game/profile';
+import { getCard } from '../../engine/cardDb';
+import { STARTER_DECKS } from '../../game/decks';
+import { type Profile, claimStarter, exportSave, importSave, renamePlayer, resetProfile, updateSettings } from '../../game/profile';
+import { CardView } from '../components/CardView';
 
 export function SettingsScreen({ profile }: { profile: Profile }) {
   const [name, setName] = useState(profile.playerName);
@@ -38,6 +41,32 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
           <input type="checkbox" checked={profile.settings.autoPass} onChange={(e) => updateSettings({ autoPass: e.target.checked })} />
           <span>自動略過不重要的連鎖確認（只在召喚、攻擊、發動、對方戰鬥階段與結束階段時詢問）</span>
         </label>
+
+        <h3>起始牌組</h3>
+        <p className="note">每套起始牌組可以領取 1 次：卡片會加入收藏，並自動設為使用中的牌組。</p>
+        <div className="starter-list">
+          {STARTER_DECKS.map((s) => {
+            const claimed = profile.claimedStarters.includes(s.id);
+            return (
+              <div key={s.id} className="starter">
+                <CardView data={getCard(s.cover)} size="sm" />
+                <div className="starter-info">
+                  <div className="starter-name">{s.name}</div>
+                  <div className="starter-desc">{s.desc}</div>
+                  <button
+                    className="btn primary"
+                    disabled={claimed}
+                    onClick={() => {
+                      if (claimStarter(s.id)) setMsg(`已領取「${s.name}」，並設為使用中的牌組`);
+                    }}
+                  >
+                    {claimed ? '已領取' : '領取並使用'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         <h3>存檔</h3>
         <p className="note">存檔儲存在這個瀏覽器中。換電腦或清除瀏覽器資料前，請先匯出存檔。</p>

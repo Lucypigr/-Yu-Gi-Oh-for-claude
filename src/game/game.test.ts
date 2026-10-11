@@ -6,7 +6,7 @@ import { STARTER_DECKS } from './decks';
 import { validateDeck } from './deckRules';
 import { OPPONENTS } from './opponents';
 import { PACKS, openPack } from './packs';
-import { buyPack, createProfile, getProfile, recordDuel, sellCards, setStorage } from './profile';
+import { buyPack, claimStarter, createProfile, getProfile, recordDuel, sellCards, setStorage } from './profile';
 
 function memoryStorage() {
   const m = new Map<string, string>();
@@ -68,6 +68,18 @@ describe('存檔', () => {
     // 牌組中使用的卡不能分解
     expect(sellCards(89631139, 1)).toBe(0);
   });
+  it('領取另一套起始牌組（只能 1 次）', () => {
+    setStorage(memoryStorage());
+    createProfile('測試', 'dragon');
+    expect(claimStarter('dragon')).toBe(false);
+    expect(claimStarter('blackwing')).toBe(true);
+    const p = getProfile()!;
+    expect(p.activeDeckId).toBe('starter-blackwing');
+    expect(p.collection[85215458]).toBe(3); // 月影之卡魯特
+    expect(validateDeck(p.decks.find((d) => d.id === 'starter-blackwing')!)).toEqual([]);
+    expect(claimStarter('blackwing')).toBe(false);
+  });
+
   it('金幣不足不能買', () => {
     createProfile('測試', 'dragon');
     for (let i = 0; i < 5; i++) buyPack('lob');
