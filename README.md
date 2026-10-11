@@ -5,6 +5,12 @@
 - 卡片資料來源：[百鴿 ygocdb.com](https://ygocdb.com)（與 [ourocg.cn](https://www.ourocg.cn/) 同一套中文翻譯，用 OpenCC 轉成繁體）
 - 卡圖：[YGOPRODeck](https://ygoprodeck.com) 的卡圖裁切版（只取圖片，卡框與中文文字由遊戲自己畫）
 
+## 線上遊玩
+
+👉 **https://lucypigr.github.io/-Yu-Gi-Oh-for-claude/**
+
+存檔存在你自己的瀏覽器裡，換電腦時請到「設定」匯出存檔。
+
 ## 快速開始
 
 需要 [Node.js](https://nodejs.org/) 18 以上。
@@ -17,7 +23,9 @@ npm run dev         # 開啟 http://localhost:5173
 
 沒有下載卡圖也可以玩，卡片會改用屬性顏色的預設圖。
 
-打包成靜態網站：`npm run build`，產生的 `dist/` 資料夾可以直接放到 GitHub Pages 或任何靜態網站空間。
+打包成靜態網站：`npm run build`，產生的 `dist/` 資料夾可以直接放到任何靜態網站空間。
+
+更新 GitHub Pages：`npm run deploy`（自動下載卡圖、打包，並推送到 `gh-pages` 分支）。
 
 ## 遊戲內容
 
@@ -120,6 +128,7 @@ def(55144522, {
 | `npm test` | 執行測試（規則、存檔、AI 對戰模擬） |
 | `npm run fetch-cards` | 重新下載卡片資料（加 `-- --simplified` 保留簡體中文） |
 | `npm run fetch-art` | 下載卡圖 |
+| `npm run deploy` | 發佈到 GitHub Pages |
 
 ## 聲明
 

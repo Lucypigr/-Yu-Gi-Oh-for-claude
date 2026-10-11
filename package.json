@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "fetch-cards": "node scripts/fetch-cards.mjs",
-    "fetch-art": "node scripts/fetch-art.mjs"
+    "fetch-art": "node scripts/fetch-art.mjs",
+    "deploy": "bash scripts/deploy-pages.sh"
   },
   "dependencies": {
     "react": "^19.1.0",
