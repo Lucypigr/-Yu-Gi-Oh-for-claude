@@ -66,6 +66,18 @@ const MANUAL = [
     race: 0x4,
     attribute: 0x10,
   },
+  {
+    id: 29843092,
+    name: '擾亂衍生物',
+    nameEn: 'Ojama Token',
+    desc: '「擾亂三人組」的效果特殊召喚的衍生物。不能為上級召喚而解放。被破壞時那控制者受到 300 傷害。',
+    type: 0x4011,
+    atk: 0,
+    def: 1000,
+    level: 2,
+    race: 0x4000,
+    attribute: 0x10,
+  },
 ];
 
 async function loadDb() {

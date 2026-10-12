@@ -972,3 +972,17 @@
 86308219  # Harpie Lady Phoenix Formation
 12181376  # Triangle Ecstasy Spark
 63224564  # Cyber Shield
+
+# ---- 初代 三幻神（第八彈）----
+10000000  # Obelisk the Tormentor
+10000020  # Slifer the Sky Dragon
+10000010  # The Winged Dragon of Ra
+10000080  # The Winged Dragon of Ra - Sphere Mode
+10000090  # The Winged Dragon of Ra - Immortal Phoenix
+74875003  # Ra's Disciple
+41044418  # Millennium Revelation
+269012  # Mound of the Bound Creator
+39913299  # The True Name
+7373632  # Divine Evolution
+68005187  # Soul Exchange
+29843091  # Ojama Trio

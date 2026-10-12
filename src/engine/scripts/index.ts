@@ -11,6 +11,7 @@ import './zexal';
 import './fived';
 import './gx';
 import './dm';
+import './gods';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

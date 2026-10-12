@@ -157,7 +157,9 @@ export class AIController implements Controller {
         .map((c) => cardValue(duel, c, p))
         .sort((a, b) => a - b);
       tributeCost = vals.slice(0, need).reduce((a, b) => a + b, 0);
-      if (cardValue(duel, card, p) < tributeCost + 400) return 0;
+      const worth = getScript(card.id).aiSummonValue?.(duel, card) ?? cardValue(duel, card, p);
+      if (worth < tributeCost + 400) return 0;
+      if (getScript(card.id).aiSummonValue) return 60 + worth / 200;
     }
     const flip = isFlip(card.data);
     const hasSummonTrigger = getScript(card.id).effects?.some((e) => e.kind === 'trigger' && e.event === 'summoned');

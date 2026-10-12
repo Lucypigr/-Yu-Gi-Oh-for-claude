@@ -466,6 +466,7 @@ export class Duel {
       const effects = getScript(target.id).effects;
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
+    if (selfQuery('immuneAll')) return true;
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
     if ((isTrap(source.data) || isSpell(source.data)) && selfQuery('immuneSpellsTraps')) return true;
     return false;
@@ -941,9 +942,16 @@ export class Duel {
       negateEffects?: boolean;
       /** 只能放在這些格子（例如：連結怪獸所連接區） */
       zones?: number[];
+      /** 無視召喚條件 */
+      ignoreConditions?: boolean;
     } = {},
   ): boolean {
     if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return false;
+    // 不能特殊召喚的卡（拉之翼神龍），ignoreConditions 時無視
+    if (!opts.ignoreConditions && getScript(card.id).cannotSpecialSummon?.(this, card)) {
+      this.log(`「${card.name}」不能特殊召喚`);
+      return false;
+    }
     let zones = card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
     if (opts.zones) zones = zones.filter((z) => opts.zones!.includes(z));
     if (!zones.length) return false;
@@ -1483,6 +1491,8 @@ export class Duel {
   // =====================================================================
 
   tributesNeeded(card: Card): number {
+    const fixed = getScript(card.id).tributes;
+    if (fixed !== undefined) return fixed;
     const lv = this.getLevel(card);
     if (lv >= 7) return 2;
     if (lv >= 5) return 1;
@@ -1490,7 +1500,9 @@ export class Duel {
   }
 
   tributable(p: PlayerId): Card[] {
-    return this.monsters(p).filter((c) => !this.has(c, 'cannotTribute'));
+    // 靈魂交錯：這回合可以解放對方的怪獸
+    const borrowed = this.monsters(other(p)).filter((c) => c.flags.soulExchange === p + 1 && this.hasFlag(c, 'soulExchangeTurn'));
+    return [...this.monsters(p), ...borrowed].filter((c) => !this.has(c, 'cannotTribute'));
   }
 
   /** 可以不用解放召喚（怒怒怒戰士、銀河騎士） */
@@ -1677,13 +1689,19 @@ export class Duel {
     ps.turnFlags.summoned = true;
     this.log(`${ps.name} ${need > 0 ? '上級召喚' : '召喚'}「${card.name}」`, p);
     await this.pause(400);
-    if (await this.summonAttemptWindow([card], p, card.summonType)) {
+    // 三幻神：召喚不會被無效，召喚成功時雙方不能發動效果
+    const divine = getScript(card.id).divineSummon;
+    if (!divine && (await this.summonAttemptWindow([card], p, card.summonType))) {
       await this.settle();
       return;
     }
     const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType };
     this.raise(ev);
-    await this.settle({ kind: 'summon', event: ev });
+    if (divine) {
+      this.log(`「${card.name}」召喚成功時，雙方不能發動卡的效果`);
+      this.pendingTriggers = this.pendingTriggers.filter((t) => t.card === card);
+      await this.settle();
+    } else await this.settle({ kind: 'summon', event: ev });
   }
 
   private async doFlipSummon(p: PlayerId, card: Card) {

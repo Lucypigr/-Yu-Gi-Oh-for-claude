@@ -854,3 +854,59 @@ describe('第七彈：初代經典', () => {
     expect(att.location).toBe('grave'); // 1500 vs 2500
   });
 });
+
+describe('第八彈：三幻神', () => {
+  it('歐貝利斯克之巨神兵：需要解放 3 隻，召喚不會被神之宣告無效', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [41420027];
+    put(duel, 1, 41420027, 'szone', { faceUp: false });
+    for (let i = 0; i < 3; i++) put(duel, 0, FILLER, 'mzone');
+    const ob = put(duel, 0, 10000000, 'hand');
+    expect(duel.tributesNeeded(ob)).toBe(3);
+    await duel.performMainAction(0, { type: 'summon', card: ob });
+    expect(ob.location).toBe('mzone');
+    expect(duel.monsters(0).length).toBe(1);
+  });
+
+  it('歐貝利斯克不能成為效果的對象；解放 2 隻破壞對方全部怪獸', async () => {
+    const { duel } = setup();
+    const ob = put(duel, 0, 10000000, 'mzone');
+    put(duel, 0, FILLER, 'mzone');
+    put(duel, 0, FILLER, 'mzone');
+    put(duel, 1, 89631139, 'mzone');
+    put(duel, 1, 46986414, 'mzone');
+    const act = duel.getActivatable(0).find((x) => x.card === ob)!;
+    await duel.performMainAction(0, { type: 'activate', card: ob, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.monsters(1).length).toBe(0);
+    expect(duel.has(ob, 'untargetable')).toBe(true);
+  });
+
+  it('奧西里斯之天空龍：攻擊力等於手牌數 × 1000，對方攻擊表示召喚的怪獸下降 2000', async () => {
+    const { duel } = setup();
+    duel.turnPlayer = 1;
+    const sl = put(duel, 0, 10000020, 'mzone');
+    put(duel, 0, FILLER, 'hand');
+    put(duel, 0, FILLER, 'hand');
+    expect(duel.getAtk(sl)).toBe(2000);
+    const mon = put(duel, 1, 76184692, 'hand'); // 1200
+    await duel.performMainAction(1, { type: 'summon', card: mon });
+    expect(mon.location).toBe('grave');
+  });
+
+  it('拉之翼神龍不能用死者蘇生特殊召喚（千年的啟示的回合除外）', () => {
+    const { duel } = setup();
+    const ra = put(duel, 0, 10000010, 'grave');
+    expect(duel.specialSummon(ra, 0, {})).toBe(false);
+    expect(ra.location).toBe('grave');
+  });
+
+  it('靈魂交錯：可以解放對方的怪獸上級召喚', async () => {
+    const { duel } = setup();
+    put(duel, 0, FILLER, 'mzone');
+    const theirs = put(duel, 1, 89631139, 'mzone');
+    const se = put(duel, 0, 68005187, 'hand');
+    const act = duel.getActivatable(0).find((x) => x.card === se)!;
+    await duel.performMainAction(0, { type: 'activate', card: se, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.tributable(0)).toContain(theirs);
+  });
+});

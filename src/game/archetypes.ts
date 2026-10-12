@@ -10,6 +10,7 @@ export interface Archetype {
 const en = (...keys: string[]) => (d: CardData) => keys.some((k) => d.nameEn.includes(k));
 
 export const ARCHETYPES: Archetype[] = [
+  { id: 'gods', name: '三幻神', match: en('Obelisk', 'Slifer', 'Winged Dragon of Ra', "Ra's Disciple", 'Millennium Revelation', 'Mound of the Bound', 'The True Name', 'Divine Evolution') },
   { id: 'blue-eyes', name: '青眼', match: en('Blue-Eyes') },
   { id: 'red-eyes', name: '真紅眼', match: en('Red-Eyes') },
   { id: 'dark-magician', name: '黑魔術師', match: en('Dark Magician') },

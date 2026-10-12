@@ -50,6 +50,8 @@ export async function chooseTargets(
   cards: Card[],
   opts: { min?: number; max?: number; title: string; hint?: SelectHint; aiValue?: (c: Card) => number },
 ): Promise<Card[]> {
+  // 不能成為效果對象的卡（歐貝利斯克之巨神兵等）
+  cards = cards.filter((c) => c === ctx.card || !c.onField || !ctx.duel.has(c, 'untargetable'));
   const sel = await ctx.duel.select({
     player: ctx.player,
     title: opts.title,

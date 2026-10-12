@@ -309,6 +309,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.masterdm,
   },
   {
+    id: 'pharaoh',
+    name: '名字不明的法老王',
+    title: '三幻神的主人',
+    avatar: '☥',
+    desc: '解放 3 隻召喚歐貝利斯克、奧西里斯、拉之翼神龍！靈魂交錯和擾亂三人組讓祭品永遠不缺。',
+    level: 5,
+    reward: 520,
+    randomness: 0,
+    requires: 'masterdm',
+    deck: OPPONENT_DECKS.pharaoh,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

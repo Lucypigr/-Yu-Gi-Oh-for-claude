@@ -204,6 +204,10 @@ SR.push(
   52040216, // 鷹身女妖的寵物龍
 );
 
+// 第八彈：三幻神
+UR.push(10000000, 10000020, 10000010); // 歐貝利斯克、奧西里斯、拉
+SR.push(10000080, 10000090, 41044418, 269012, 7373632, 68005187);
+
 const map = new Map<number, Rarity>();
 for (const id of R) map.set(id, 'R');
 for (const id of SR) map.set(id, 'SR');

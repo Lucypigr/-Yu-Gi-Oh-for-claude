@@ -125,7 +125,9 @@ export type Query =
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
   | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
   | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
-  | 'oneSpellTrapPerTurn'; // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
+  | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
+  | 'untargetable' // 不能成為效果的對象
+  | 'immuneAll'; // 不受其他卡的效果影響
 
 export interface StatMod {
   atk?: number;
@@ -211,6 +213,14 @@ export interface CardScript {
     /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
     over?: (c: Card) => boolean;
   };
+  /** AI 評估召喚這張卡的價值（攻擊力會變動的怪獸用） */
+  aiSummonValue?: (duel: Duel, card: Card) => number;
+  /** 通常召喚需要的解放數（三幻神：3 隻） */
+  tributes?: number;
+  /** 三幻神：召喚不會被無效，召喚成功時雙方不能發動效果 */
+  divineSummon?: boolean;
+  /** 不能特殊召喚（無視召喚條件時除外） */
+  cannotSpecialSummon?: (duel: Duel, card: Card) => boolean;
   /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
   placeAsSpellOnDestroy?: boolean;
   /** 被破壞時可以改為破壞的卡（六武眾等）；回傳候補 */
