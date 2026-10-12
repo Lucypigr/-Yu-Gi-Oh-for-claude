@@ -177,8 +177,8 @@ export interface EffectDef {
 /** 卡片腳本：一張卡的所有效果與特殊召喚條件 */
 export interface CardScript {
   effects?: EffectDef[];
-  /** 融合素材：每個條件需要 1 張不同的卡 */
-  fusion?: Array<(d: CardData) => boolean>;
+  /** 融合素材：每個條件需要 1 張不同的卡（c 是實際的卡，可以用來限定「場上的」素材） */
+  fusion?: Array<(d: CardData, c?: Card) => boolean>;
   /** 同步素材額外條件 */
   synchro?: {
     tuner?: (c: Card, duel: Duel) => boolean;

@@ -962,3 +962,110 @@ describe('第九彈：初代經典補完', () => {
     expect(duel.monsters(1).length).toBe(0);
   });
 });
+
+describe('第十彈：ARC-V 四天龍', () => {
+  /** 給超量怪獸加上超量素材 */
+  const attach = (duel: Duel, xyz: Card, ids: number[]) => {
+    for (const id of ids) {
+      const m = new Card(getCard(id), xyz.controller);
+      m.location = 'overlay';
+      xyz.overlays.push(m);
+    }
+    duel.update();
+  };
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const acts = duel.getActivatable(p).filter((x) => x.card === card);
+    const act = acts[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('暗叛逆超量龍：取除 2 個素材，對方怪獸攻擊力減半並吸收', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dr = put(duel, 0, 16195942, 'mzone');
+    attach(duel, dr, [FILLER, FILLER]);
+    const bewd = put(duel, 1, 89631139, 'mzone');
+    await activateMain(duel, 0, dr);
+    expect(duel.getAtk(bewd)).toBe(1500);
+    expect(duel.getAtk(dr)).toBe(4000);
+    expect(dr.overlays.length).toBe(0);
+  });
+
+  it('升階魔法－幻影騎士團的出擊：沒有素材的暗叛逆升階成暗鎮魂，並取得無效效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dr = put(duel, 0, 16195942, 'mzone');
+    const req = put(duel, 0, 1621413, 'extra');
+    const launch = put(duel, 0, 3298689, 'hand');
+    await activateMain(duel, 0, launch);
+    expect(req.location).toBe('mzone');
+    expect(req.summonType).toBe('xyz');
+    expect(req.overlays).toContain(dr);
+    expect(req.overlays).toContain(launch);
+    // 有「暗叛逆超量龍」作為素材：可以發動攻擊力變成 0 的效果
+    put(duel, 1, 89631139, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === req)).toBe(true);
+  });
+
+  it('幻透翼同調龍：無效 5 星以上怪獸的效果並破壞，攻擊力上升那個原本攻擊力', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [82044279];
+    const cw = put(duel, 0, 82044279, 'mzone');
+    const chimera = put(duel, 1, 25586143, 'mzone'); // 7 星
+    await activateMain(duel, 1, chimera);
+    expect(chimera.location).toBe('grave');
+    expect(cw.location).toBe('mzone');
+    expect(duel.getAtk(cw)).toBe(2500 + 2500);
+  });
+
+  it('凶飢毒融合龍：只能用場上的暗屬性怪獸作為融合素材', () => {
+    const { duel } = setup();
+    put(duel, 0, 41209827, 'extra');
+    const poly = put(duel, 0, 24094653, 'hand');
+    put(duel, 0, 36426778, 'hand');
+    put(duel, 0, 63821877, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === poly)).toBe(false);
+    put(duel, 0, 99315585, 'mzone');
+    put(duel, 0, 36704180, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === poly)).toBe(true);
+  });
+
+  it('捕食植物 蒼蠅地獄草：放置捕食指示物後，對方 2 星以上的怪獸等級變成 1 星', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const fly = put(duel, 0, 96622984, 'mzone');
+    const bewd = put(duel, 1, 89631139, 'mzone');
+    expect(duel.getLevel(bewd)).toBe(8);
+    await activateMain(duel, 0, fly);
+    expect(duel.getLevel(bewd)).toBe(1);
+  });
+
+  it('幻影騎士團 破洞鱗甲：墓地的「幻影騎士團」被除外時特殊召喚，離場時除外', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const scales = put(duel, 0, 25538345, 'grave');
+    const boots = put(duel, 0, 36426778, 'grave');
+    const blade = put(duel, 0, 25542642, 'deck');
+    await activateMain(duel, 0, boots); // 除外無聲靴：把「幻影」魔法・陷阱加入手牌
+    expect(boots.location).toBe('banished');
+    expect(blade.location).toBe('hand');
+    expect(scales.location).toBe('mzone');
+    duel.destroy([scales], 'effect');
+    expect(scales.location).toBe('banished');
+  });
+
+  it('幻影霧劍：對象怪獸效果無效、不能攻擊；對象離場時霧劍破壞', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const fog = put(duel, 0, 25542642, 'szone', { faceUp: false });
+    const foe = put(duel, 1, 16195942, 'mzone');
+    await activateMain(duel, 0, fog);
+    expect(fog.location).toBe('szone');
+    expect(duel.isNegated(foe)).toBe(true);
+    expect(duel.has(foe, 'cannotAttack')).toBe(true);
+    duel.destroy([foe], 'effect');
+    expect(fog.location).toBe('grave');
+  });
+});

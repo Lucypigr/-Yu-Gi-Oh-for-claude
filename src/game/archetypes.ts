@@ -38,5 +38,9 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'performapal', name: '娛樂夥伴', match: en('Performapal') },
   { id: 'dracoslayer', name: '龍劍士・龍魔王', match: en('Dracoslayer', 'Dracoverlord') },
   { id: 'code-talker', name: '碼語者', match: en('ode Talker') },
+  { id: 'phantom-knights', name: '幻影騎士團', match: en('Phantom Knights', 'Dark Rebellion', 'Dark Requiem') },
+  { id: 'raidraptor', name: '急襲猛禽', match: en('Raidraptor') },
+  { id: 'speedroid', name: '疾行機人・幻透翼', match: en('Speedroid', 'Clear Wing', 'Crystal Wing') },
+  { id: 'predaplant', name: '捕食植物・凶飢毒', match: en('Predaplant', 'Venom Fusion Dragon') },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

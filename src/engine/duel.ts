@@ -526,6 +526,8 @@ export class Duel {
     if (isLink(c.data)) return 0;
     let lv = c.data.level;
     if (c.location === 'mzone' && c.faceUp) for (const m of c.mods) lv += m.level ?? 0;
+    // 捕食指示物：2 星以上的怪獸等級變成 1 星
+    if (c.location === 'mzone' && this.hasFlag(c, 'predator') && lv >= 2) return 1;
     return Math.max(1, lv);
   }
 
@@ -609,7 +611,14 @@ export class Duel {
     // 額外牌組的怪獸回到手牌/牌組時改回額外牌組
     if ((to === 'hand' || to === 'deck') && isExtraDeckCard(card.data)) to = 'extra';
     // 「從場上離開的場合除外」
-    if (wasOnField && wasFaceUp && to !== 'banished' && to !== 'mzone' && to !== 'overlay' && getScript(card.id).banishOnLeave)
+    if (
+      wasOnField &&
+      wasFaceUp &&
+      to !== 'banished' &&
+      to !== 'mzone' &&
+      to !== 'overlay' &&
+      (getScript(card.id).banishOnLeave || this.hasFlag(card, 'banishOnLeave'))
+    )
       to = 'banished';
     // 場上的靈擺怪獸送去墓地時，改為表側加入額外牌組
     let pendulumToExtra = false;
@@ -2060,13 +2069,13 @@ export class Duel {
   // ---- 融合・儀式（由魔法卡的效果呼叫）----
 
   /** 判斷 cards 是否能分配給所有素材條件 */
-  matchMaterials(conds: Array<(d: CardData) => boolean>, cards: Card[]): boolean {
+  matchMaterials(conds: Array<(d: CardData, c?: Card) => boolean>, cards: Card[]): boolean {
     if (conds.length !== cards.length) return false;
     const used = new Array(cards.length).fill(false);
     const rec = (i: number): boolean => {
       if (i === conds.length) return true;
       for (let j = 0; j < cards.length; j++) {
-        if (used[j] || !conds[i](cards[j].data)) continue;
+        if (used[j] || !conds[i](cards[j].data, cards[j])) continue;
         used[j] = true;
         if (rec(i + 1)) return true;
         used[j] = false;
@@ -2086,12 +2095,12 @@ export class Duel {
     });
   }
 
-  findMaterialSet(conds: Array<(d: CardData) => boolean>, pool: Card[]): Card[] | null {
+  findMaterialSet(conds: Array<(d: CardData, c?: Card) => boolean>, pool: Card[]): Card[] | null {
     const chosen: Card[] = [];
     const rec = (i: number): boolean => {
       if (i === conds.length) return true;
       for (const c of pool) {
-        if (chosen.includes(c) || !conds[i](c.data)) continue;
+        if (chosen.includes(c) || !conds[i](c.data, c)) continue;
         chosen.push(c);
         if (rec(i + 1)) return true;
         chosen.pop();
@@ -2330,6 +2339,8 @@ export class Duel {
       const from = c.location;
       const prevController = c.controller;
       if (this.moveTo(c, this.destroyDestination(c), { reason: 'battle', by, player: c.owner })) {
+        // 這回合戰鬥破壞過怪獸（「戰鬥破壞對方怪獸的回合」的效果用）
+        if (by?.onField && prevController !== by.controller) this.setFlag(by, 'battleKill');
         this.raise({ type: 'destroyed', card: c, from, reason: 'battle', by, prevController, wasFaceUp: true });
       }
     }
@@ -2390,7 +2401,10 @@ export class Duel {
     const ps = this.p(tp);
     for (const pl of this.players) pl.turnFlags = {};
     ps.normalSummons = 1;
-    for (const c of this.monsters()) c.attacks = 0;
+    for (const c of this.monsters()) {
+      c.attacks = 0;
+      c.extraAttacks = 0;
+    }
     this.log(`第 ${this.turn} 回合：${ps.name}`, tp);
 
     // 抽牌階段

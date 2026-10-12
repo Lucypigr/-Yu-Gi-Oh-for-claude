@@ -1026,3 +1026,55 @@
 75347539  # Valkyrion the Magna Warrior
 39256679  # Beta The Magnet Warrior
 11549357  # Gamma The Magnet Warrior
+
+# ---- ARC-V 四天龍（第十彈）----
+# 幻影騎士團
+36426778  # The Phantom Knights of Silent Boots
+63821877  # The Phantom Knights of Ragged Gloves
+90432163  # The Phantom Knights of Ancient Cloak
+99315585  # The Phantom Knights of Cloven Helm
+36704180  # The Phantom Knights of Fragile Armor
+88544390  # The Phantom Knights of Stained Greaves
+25538345  # The Phantom Knights of Torn Scales
+25542642  # Phantom Knights' Fog Blade
+3298689  # The Phantom Knights' Rank-Up-Magic Launch
+62709239  # The Phantom Knights of Break Sword
+12219047  # The Phantom Knights of Cursed Javelin
+16195942  # Dark Rebellion Xyz Dragon
+1621413  # Dark Requiem Xyz Dragon
+# 急襲猛禽
+53251824  # Raidraptor - Vanishing Lanius
+60950180  # Raidraptor - Sharp Lanius
+96345188  # Raidraptor - Mimicry Lanius
+83236601  # Raidraptor - Tribute Lanius
+5929801  # Raidraptor - Fuzzy Lanius
+45184165  # Raidraptor - Skull Eagle
+31314549  # Raidraptor - Singing Lanius
+50692511  # Raidraptor - Call
+8559793  # Raidraptor - Nest
+73347079  # Raidraptor - Force Strix
+73887236  # Raidraptor - Rise Falcon
+45533023  # Raidraptor - Blaze Falcon
+81927732  # Raidraptor - Revolution Falcon
+# 疾行機人
+81275020  # Speedroid Terrortop
+53932291  # Speedroid Taketomborg
+53054833  # Speedroid Double Yoyo
+16725505  # Speedroid Red-Eyed Dice
+27660735  # Speedroid Tri-Eyed Dice
+80559548  # Speedroid Razorang
+16947147  # Speedroid Menko
+42110604  # Hi-Speedroid Chanbara
+97007933  # Hi-Speedroid Kendama
+82044279  # Clear Wing Synchro Dragon
+50954680  # Crystal Wing Synchro Dragon
+# 捕食植物
+35272499  # Predaplant Ophrys Scorpio
+61677004  # Predaplant Darlingtonia Cobra
+89181134  # Predaplant Chlamydosundew
+52792430  # Predaplant Spinodionaea
+96622984  # Predaplant Flytrap
+41209827  # Starving Venom Fusion Dragon
+51570882  # Greedy Venom Fusion Dragon
+25586143  # Predaplant Chimerafflesia
+69946549  # Predaplant Dragostapelia

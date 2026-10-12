@@ -309,7 +309,7 @@ def(24094653, {
         const f = await d.selectOne({ player: ctx.player, title: '選擇要融合召喚的融合怪獸', cards: cands, hint: 'benefit' });
         if (!f) return;
         const conds = getScript(f.id).fusion!;
-        const usable = pool.filter((c) => conds.some((cond) => cond(c.data)));
+        const usable = pool.filter((c) => conds.some((cond) => cond(c.data, c)));
         let mats = await d.select({
           player: ctx.player,
           title: `選擇「${f.name}」的融合素材`,

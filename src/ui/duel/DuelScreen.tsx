@@ -388,6 +388,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
               {duel.equipsOf(detail).length > 0 && <div>裝備：{duel.equipsOf(detail).map((e) => e.name).join('、')}</div>}
               {detail.equipTarget && <div>裝備對象：{detail.equipTarget.name}</div>}
               {detail.negated && <div className="warn">效果無效中</div>}
+              {detail.location === 'mzone' && duel.hasFlag(detail, 'predator') && <div className="warn">有捕食指示物（2 星以上的等級變成 1 星）</div>}
               {duel.isNegated(detail) && !detail.negated && <div className="warn">效果直到回合結束時無效</div>}
             </div>
           </CardDetail>

@@ -13,6 +13,7 @@ import './gx';
 import './dm';
 import './gods';
 import './classic';
+import './arcv';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
