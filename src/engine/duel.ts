@@ -88,6 +88,8 @@ export interface PlayerState {
   summonLocks: SummonLock[];
   /** 本回合召喚・特殊召喚成功的怪獸 */
   summonedThisTurn: { card: Card; kind: SummonKind }[];
+  /** 本回合不能發動效果的怪獸（回傳 false 表示不能發動） */
+  activationLocks: ((c: Card) => boolean)[];
 }
 
 /** 召喚的種類：通常召喚（含上級召喚・蓋放）、反轉召喚、特殊召喚 */
@@ -176,6 +178,8 @@ export class Duel {
   resolvingLink: ChainLink | null = null;
   /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
   lingering: { turn: number; query: (card: Card, q: Query) => boolean }[] = [];
+  /** 在指定回合的結束階段處理的事（「下個回合的結束階段送去墓地」等） */
+  delayed: { turn: number; run: () => void }[] = [];
   /** 正在發動的卡（UI 用來顯示發動演出） */
   activating: { card: Card; player: PlayerId; isCardActivation: boolean; label?: string } | null = null;
 
@@ -208,6 +212,7 @@ export class Duel {
         usedNames: {},
         summonLocks: [],
         summonedThisTurn: [],
+        activationLocks: [],
       };
       for (const code of s.deck.main) {
         const c = new Card(getCard(code), id);
@@ -503,6 +508,7 @@ export class Duel {
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
     if (selfQuery('immuneAll')) return true;
+    if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
     if ((isTrap(source.data) || isSpell(source.data)) && selfQuery('immuneSpellsTraps')) return true;
     return false;
@@ -635,6 +641,7 @@ export class Duel {
     },
   ): boolean {
     const from = card.location;
+    const fromZone = card.zone;
     const wasOnField = card.onField;
     const prevController = card.controller;
     const wasFaceUp = card.faceUp;
@@ -644,11 +651,10 @@ export class Duel {
     // 「從場上離開的場合除外」
     if (
       wasOnField &&
-      wasFaceUp &&
       to !== 'banished' &&
       to !== 'mzone' &&
       to !== 'overlay' &&
-      (getScript(card.id).banishOnLeave || this.hasFlag(card, 'banishOnLeave'))
+      ((wasFaceUp && getScript(card.id).banishOnLeave) || this.hasFlag(card, 'banishOnLeave'))
     )
       to = 'banished';
     // 場上的靈擺怪獸送去墓地時，改為表側加入額外牌組
@@ -751,7 +757,7 @@ export class Duel {
         break;
     }
 
-    const base: GameEvent = { type: 'toGrave', card, from, reason: opts.reason, by: opts.by, prevController, wasFaceUp };
+    const base: GameEvent = { type: 'toGrave', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp };
     if (to === 'grave') this.raise({ ...base, type: 'toGrave' });
     if (to === 'banished') this.raise({ ...base, type: 'banished' });
     if (to === 'hand' && from !== 'deck') this.raise({ ...base, type: 'toHand' });
@@ -804,6 +810,7 @@ export class Duel {
       this.moveTo(c, 'hand', { reason: 'draw' });
       drawn.push(c);
     }
+    if (drawn.length) this.raise({ type: 'drawn', cards: drawn, player: p });
     return drawn;
   }
 
@@ -813,6 +820,17 @@ export class Duel {
    * 為了不打斷處理，自動選擇價值最低的卡；代替的卡比這張卡更強時不代替。
    */
   private substituteDestroy(c: Card, batch: Card[], reason: Reason): boolean {
+    // 墓地的卡除外代替（轉生炎獸 烽火猞猁）
+    if (c.onField && (reason === 'battle' || reason === 'effect')) {
+      for (const g of [...this.p(c.controller).grave]) {
+        const f = getScript(g.id).graveSubstitute;
+        if (f && f(this, g, c, reason)) {
+          this.log(`除外墓地的「${g.name}」代替「${c.name}」的破壞`);
+          this.banish([g], 'effect', g);
+          return true;
+        }
+      }
+    }
     const sub = getScript(c.id).destroySubstitute;
     if (!sub || !c.faceUp || c.location !== 'mzone' || this.isNegated(c)) return false;
     const cands = sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x));
@@ -841,12 +859,16 @@ export class Duel {
       if (!c.onField) continue;
       if (reason === 'effect' && by && this.isImmune(c, by)) continue;
       if (reason === 'effect' && this.has(c, 'effectIndestructible')) continue;
+      if (reason === 'effect' && by && by.controller !== c.controller && this.has(c, 'oppEffectIndestructible')) continue;
       const from = c.location;
+      const fromZone = c.zone;
       const prevController = c.controller;
       const wasFaceUp = c.faceUp;
+      const prevSummonType = c.summonType;
       if (this.moveTo(c, this.destroyDestination(c), { reason, by, player: c.owner })) {
         done.push(c);
-        this.raise({ type: 'destroyed', card: c, from, reason, by, prevController, wasFaceUp });
+        c.destroyedTurn = this.turn;
+        this.raise({ type: 'destroyed', card: c, from, fromZone, reason, by, prevController, wasFaceUp, summonType: prevSummonType ?? undefined });
       }
     }
     if (done.length) this.log(`${done.map((c) => `「${c.name}」`).join('、')} 被破壞`);
@@ -1158,6 +1180,10 @@ export class Duel {
         this.p(c.controller).summonedThisTurn.push({ card: c, kind: summonKindOf(ev.summonType ?? c.summonType) });
       }
     }
+    // 永續效果的「每次…」處理（不用發動）
+    for (const { card, effect } of [...this.activeContinuous()]) {
+      if (effect.onEvent) effect.onEvent(this, card, ev);
+    }
     for (const card of this.allCards()) {
       if (card.location === 'deck') continue;
       const effects = this.effectsOf(card);
@@ -1171,6 +1197,7 @@ export class Duel {
         if (card.location === 'mzone' && !card.faceUp && ev.type !== 'flipped') return;
         const player = card.onField ? card.controller : card.owner;
         if (!this.onceOk(card, effect, effectIndex, player)) return;
+        if (!this.activationAllowed(player, card)) return;
         const ctx = this.makeCtx(card, effect, player, ev);
         if (effect.condition && !this.safeCond(effect, ctx)) return;
         this.pendingTriggers.push({ card, effect, effectIndex, event: ev, player });
@@ -1424,9 +1451,18 @@ export class Duel {
     return out;
   }
 
+  /** 「自己不能把○○以外的怪獸的效果發動」 */
+  activationAllowed(p: PlayerId, card: Card): boolean {
+    if (!isMonster(card.data)) return true;
+    return this.p(p).activationLocks.every((f) => f(card));
+  }
+
   /** 卡片所在位置、種類等是否允許發動這個效果 */
   private canActivateHere(p: PlayerId, card: Card, effect: EffectDef): boolean {
     const d = card.data;
+    if (!this.activationAllowed(p, card)) return false;
+    // 「這張卡不能發動」（淘氣仙星的燈光舞台等）
+    if (this.hasFlag(card, 'cannotActivate')) return false;
     if (isSpell(d) && effect.kind === 'activate' && this.playerHas(p, 'cannotActivateSpells')) return false;
     // 大將軍 紫炎：1 回合只能發動 1 次魔法・陷阱卡
     if ((isSpell(d) || isTrap(d)) && effect.kind === 'activate' && this.p(p).turnFlags.stActivated && this.playerHas(p, 'oneSpellTrapPerTurn'))
@@ -1496,6 +1532,7 @@ export class Duel {
       negated: false,
       isCardActivation,
       index: this.chain.length + 1,
+      activatedFrom: card.location,
     };
     ctx.link = link;
     this.activating = { card, player: p, isCardActivation, label: effect.label };
@@ -1959,8 +1996,27 @@ export class Duel {
       if (!this.extraZones(p, link, set).length) continue;
       out.push(set);
     }
+    // 只用 1 隻同名連結怪獸作為素材（轉生炎獸的聖域）
+    if (this.sameNameLinkSource(p, link)) {
+      for (const m of this.faceUpMonsters(p)) {
+        if (m.id === link.id && this.extraZones(p, link, [m]).length) out.push([m]);
+      }
+    }
     return out;
   }
+
+  /** 允許「只用 1 隻同名連結怪獸作為素材」的卡 */
+  private sameNameLinkSource(p: PlayerId, link: Card): Card | null {
+    for (const f of this.fieldCards(p)) {
+      if (!f.faceUp || this.isNegated(f)) continue;
+      const hook = getScript(f.id).sameNameLink;
+      if (hook && hook(this, f, p, link)) return f;
+    }
+    return null;
+  }
+
+  /** 最近一次連結召喚的怪獸 */
+  lastLinkSummon: Card | null = null;
 
   /** 最近一次連結召喚使用的素材（堆棧修復員用） */
   lastLinkMaterials: Card[] = [];
@@ -1981,11 +2037,20 @@ export class Duel {
     });
     if (!sets.some((s) => same(s, mats))) return;
     const zone = this.extraZones(p, card, mats)[0];
+    // 只用 1 隻同名怪獸的連結召喚：記錄聖域的使用次數
+    if (mats.length === 1 && mats[0].id === card.id) {
+      const src = this.sameNameLinkSource(p, card);
+      if (src) this.p(p).usedNames[`${src.id}:sameNameLink`] = this.turn;
+    }
     this.lastLinkMaterials = mats;
+    this.lastLinkSummon = card;
+    const reincarnated = mats.some((m) => m.id === card.id);
     for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 連結召喚`, p);
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk', zone });
     card.summonType = 'link';
+    card.reincarnated = reincarnated;
+    card.summonMaterials = mats;
     this.p(p).turnFlags.summoned = true;
     this.log(`連結召喚「${card.name}」！`, p);
     await this.pause(500);
@@ -2477,11 +2542,14 @@ export class Duel {
     for (const c of still) {
       const by = c === attacker ? target ?? undefined : attacker;
       const from = c.location;
+      const fromZone = c.zone;
       const prevController = c.controller;
+      const prevSummonType = c.summonType;
       if (this.moveTo(c, this.destroyDestination(c), { reason: 'battle', by, player: c.owner })) {
+        c.destroyedTurn = this.turn;
         // 這回合戰鬥破壞過怪獸（「戰鬥破壞對方怪獸的回合」的效果用）
         if (by?.onField && prevController !== by.controller) this.setFlag(by, 'battleKill');
-        this.raise({ type: 'destroyed', card: c, from, reason: 'battle', by, prevController, wasFaceUp: true });
+        this.raise({ type: 'destroyed', card: c, from, fromZone, reason: 'battle', by, prevController, wasFaceUp: true, summonType: prevSummonType ?? undefined });
       }
     }
     if (still.length) {
@@ -2543,6 +2611,7 @@ export class Duel {
       pl.turnFlags = {};
       pl.summonLocks = [];
       pl.summonedThisTurn = [];
+      pl.activationLocks = [];
     }
     this.lingering = this.lingering.filter((l) => l.turn >= this.turn);
     ps.normalSummons = 1;
@@ -2586,6 +2655,10 @@ export class Duel {
     await this.setPhase('end');
     // 「直到結束階段」得到的卡名・效果
     for (const c of this.allCards()) c.copied = null;
+    // 預定在這個結束階段處理的事
+    const due = this.delayed.filter((x) => x.turn === this.turn);
+    this.delayed = this.delayed.filter((x) => x.turn > this.turn);
+    for (const x of due) x.run();
     this.raise({ type: 'endPhase', player: tp });
     await this.settle({ kind: 'phase' });
     // 暫時控制權返還

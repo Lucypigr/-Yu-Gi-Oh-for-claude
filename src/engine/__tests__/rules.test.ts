@@ -1206,3 +1206,121 @@ describe('第十彈：和原卡一致的規則', () => {
     expect(strix.location).toBe('overlay');
   });
 });
+
+describe('第十一彈：VRAINS', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('轉生炎獸的聖域：只用 1 隻同名連結怪獸轉生連結召喚，觸發「轉生」的效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 1295111, 'szone'); // 聖域（放到場地區）
+    const sanctuary = duel.p(0).szone.find((c) => c?.id === 1295111)!;
+    duel.moveTo(sanctuary, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const wolf = put(duel, 0, 87871125, 'mzone');
+    duel.p(0).mzone[wolf.zone] = null;
+    duel.p(0).mzone[5] = wolf;
+    wolf.zone = 5;
+    const wolf2 = put(duel, 0, 87871125, 'extra');
+    const circle = put(duel, 0, 52155219, 'grave');
+    const act = duel.getMainActions(0).find((a) => a.type === 'link' && a.card === wolf2);
+    expect(act, '可以轉生連結召喚').toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(wolf2.location).toBe('mzone');
+    expect(wolf2.reincarnated).toBe(true);
+    expect(circle.location).toBe('hand'); // 日光狼②：把墓地的「轉生炎獸」魔法・陷阱加入手牌
+    // 聖域的轉生連結 1 回合 1 次
+    const wolf3 = put(duel, 0, 87871125, 'extra');
+    expect(duel.getMainActions(0).some((a) => a.type === 'link' && a.card === wolf3)).toBe(false);
+  });
+
+  it('轉生炎獸的咆哮：有「轉生炎獸」連結怪獸時，無效怪獸效果的發動並破壞', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [51339637];
+    put(duel, 0, 41463181, 'mzone'); // 熾熱多頭獅
+    const roar = put(duel, 0, 51339637, 'szone', { faceUp: false });
+    const dr = put(duel, 1, 16195942, 'mzone');
+    for (let i = 0; i < 2; i++) {
+      const m = new Card(getCard(FILLER), 1);
+      m.location = 'overlay';
+      dr.overlays.push(m);
+    }
+    put(duel, 0, FILLER, 'mzone');
+    await activateMain(duel, 1, dr);
+    expect(roar.location).toBe('grave');
+    expect(dr.location).toBe('grave');
+  });
+
+  it('淘氣仙星・坎迪娜與曼珠詩華：對方發動魔法・陷阱、抽卡時給予傷害', async () => {
+    const { duel } = setup();
+    const pot = put(duel, 1, 55144522, 'hand');
+    put(duel, 0, 61283655, 'mzone');
+    put(duel, 0, 35199656, 'mzone');
+    duel.draw(1, 2);
+    expect(duel.p(1).lp).toBe(8000 - 400);
+    duel.turnPlayer = 1;
+    await activateMain(duel, 1, pot);
+    // 坎迪娜 200 ＋ 抽 2 張 400
+    expect(duel.p(1).lp).toBe(8000 - 400 - 200 - 400);
+  });
+
+  it('馬格努姆彈丸龍：成為連結怪獸效果的對象時破壞自己，把場上 1 隻怪獸送去墓地', async () => {
+    const { duel, b } = setup();
+    duel.turnPlayer = 1;
+    b.respondWith = [];
+    const { a } = { a: (duel as any).controllers[0] as TestAI };
+    a.respondWith = [26655293];
+    const magna = put(duel, 0, 26655293, 'mzone');
+    const heat = put(duel, 1, 41463181, 'mzone');
+    heat.reincarnated = true;
+    put(duel, 1, FILLER, 'grave');
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await activateMain(duel, 1, heat);
+    expect(magna.location).toBe('grave');
+    expect(foe.location).toBe('grave');
+  });
+
+  it('轉生炎獸 獨角兔：解放讓怪獸這回合不會被對方的效果破壞', () => {
+    const { duel } = setup();
+    const m = put(duel, 0, 89631139, 'mzone');
+    duel.setFlag(m, 'oppEffectIndestructible');
+    const raigeki = put(duel, 1, 12580477, 'grave');
+    expect(duel.destroy([m], 'effect', raigeki).length).toBe(0);
+    expect(duel.destroy([m], 'effect', m).length).toBe(1);
+  });
+
+  it('轉生炎獸 蜃景雄馬：發動後這回合不能發動炎屬性以外的怪獸效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const mirage = put(duel, 0, 87327776, 'mzone');
+    const m = new Card(getCard(FILLER), 0);
+    m.location = 'overlay';
+    mirage.overlays.push(m);
+    put(duel, 0, 26889158, 'deck');
+    const dr = put(duel, 0, 16195942, 'mzone');
+    const m2 = new Card(getCard(FILLER), 0);
+    m2.location = 'overlay';
+    dr.overlays.push(m2, new Card(getCard(FILLER), 0));
+    put(duel, 1, 89631139, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === dr)).toBe(true);
+    await activateMain(duel, 0, mirage);
+    expect(duel.getActivatable(0).some((x) => x.card === dr)).toBe(false);
+  });
+
+  it('裝彈槍管龍：攻擊時得到對方怪獸的控制權，下個回合的結束階段送去墓地', async () => {
+    const { duel } = setup();
+    const bl = put(duel, 0, 31833038, 'mzone');
+    duel.p(0).mzone[bl.zone] = null;
+    duel.p(0).mzone[5] = bl;
+    bl.zone = 5;
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await safe(() => duel.performAttack(bl, foe));
+    expect(foe.controller).toBe(0);
+    expect(duel.delayed.length).toBe(1);
+    expect(duel.delayed[0].turn).toBe(duel.turn + 1);
+  });
+});

@@ -1087,3 +1087,56 @@
 36247316  # The Phantom Knights of Lost Vambrace
 38044854  # Rise Rank-Up-Magic Raidraptor's Force
 23603403  # Raidraptor - Satellite Cannon Falcon
+
+# ---- VRAINS（第十一彈）----
+# 轉生炎獸
+26889158  # Salamangreat Gazelle
+52277807  # Salamangreat Spinny
+94620082  # Salamangreat Foxy
+20618081  # Salamangreat Falco
+56003780  # Salamangreat Jack Jaguar
+89662401  # Salamangreat Fowl
+52155219  # Salamangreat Circle
+1295111  # Salamangreat Sanctuary
+14934922  # Salamangreat Rage
+51339637  # Salamangreat Roar
+87871125  # Salamangreat Sunlight Wolf
+41463181  # Salamangreat Heatleo
+14812471  # Salamangreat Balelynx
+60303245  # Salamangreat Almiraj
+16313112  # Salamangreat Emerald Eagle
+38784726  # Rise of the Salamangreat
+37261776  # Salamangreat Violet Chimera
+25800447  # Fusion of Fire
+87327776  # Salamangreat Miragestallio
+# 淘氣仙星
+61283655  # Trickstar Candina
+35199656  # Trickstar Lycoris
+98700941  # Trickstar Lilybell
+91505214  # Trickstar Narkissus
+22219822  # Trickstar Mandrake
+35371948  # Trickstar Light Stage
+21076084  # Trickstar Reincarnation
+32448765  # Trickstar Holly Angel
+94626871  # Trickstar Black Catbat
+51011872  # Trickstar Crimson Heart
+22159429  # Trickstar Magical Laurel
+# 彈丸龍・槍管龍
+80250185  # Autorokket Dragon
+26655293  # Magnarokket Dragon
+5087128  # Shelrokket Dragon
+53266486  # Anesthrokket Dragon
+32472237  # Metalrokket Dragon
+32476603  # Silverrokket Dragon
+68464358  # Rokket Tracer
+5969957  # Rokket Recharger
+31833038  # Borreload Dragon
+85289965  # Borrelsword Dragon
+68987122  # Borrelguard Dragon
+# 防火龍・碼語者
+5043010  # Firewall Dragon
+46947713  # Transcode Talker
+6622715  # Encode Talker
+645087  # Cyberse Gadget
+57160136  # Cynet Mining
+36033786  # Cyberse Wizard

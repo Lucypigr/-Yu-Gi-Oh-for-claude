@@ -42,5 +42,8 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'raidraptor', name: '急襲猛禽', match: en('Raidraptor') },
   { id: 'speedroid', name: '疾行機人・幻透翼', match: en('Speedroid', 'Clear Wing', 'Crystal Wing') },
   { id: 'predaplant', name: '捕食植物・凶飢毒', match: en('Predaplant', 'Venom Fusion Dragon') },
+  { id: 'salamangreat', name: '轉生炎獸', match: (d) => d.nameEn.includes('Salamangreat') || d.id === 25800447 },
+  { id: 'trickstar', name: '淘氣仙星', match: en('Trickstar') },
+  { id: 'rokket', name: '彈丸龍・槍管龍', match: (d) => /rokket|Borrel/i.test(d.nameEn) },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

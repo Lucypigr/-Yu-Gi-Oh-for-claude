@@ -325,7 +325,13 @@ def(24094653, {
         for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
         const pos = await d.choosePosition(ctx.player, f);
-        d.specialSummon(f, ctx.player, { position: pos, summonType: 'fusion', by: ctx.card });
+        // 召喚成功時的誘發效果會看素材與「轉生」，要在特殊召喚之前記錄
+        f.summonMaterials = mats;
+        f.reincarnated = mats.some((m) => m.id === f.id);
+        if (!d.specialSummon(f, ctx.player, { position: pos, summonType: 'fusion', by: ctx.card })) {
+          f.summonMaterials = [];
+          f.reincarnated = false;
+        }
       },
       ai: (ctx) => {
         const d = ctx.duel;

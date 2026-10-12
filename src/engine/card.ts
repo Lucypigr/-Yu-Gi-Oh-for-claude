@@ -33,6 +33,12 @@ export class Card {
   attacks = 0;
   /** 可以額外攻擊的次數 */
   extraAttacks = 0;
+  /** 融合・連結召喚時使用的素材 */
+  summonMaterials: Card[] = [];
+  /** 用和自身同名的怪獸作為素材召喚（轉生炎獸的「轉生」） */
+  reincarnated = false;
+  /** 最後一次被破壞送去墓地的回合（離場後保留） */
+  destroyedTurn = 0;
   /** 陷阱怪獸：在怪獸區域時原本的陷阱卡資料（離場時還原） */
   trapData: CardData | null = null;
   /** 暫時得到的卡名・效果（凶飢毒融合龍），回合開始時清除 */
@@ -87,6 +93,8 @@ export class Card {
     this.extraAttacks = 0;
     this.attackedTargets = [];
     this.copied = null;
+    this.reincarnated = false;
+    this.summonMaterials = [];
     this.posChangedTurn = 0;
     this.counters = 0;
     this.equipTarget = null;

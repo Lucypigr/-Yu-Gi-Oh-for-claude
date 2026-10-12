@@ -1742,7 +1742,8 @@ def(89181134, {
         d.sendToGrave(mats, 'material');
         for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
-        d.specialSummon(f, ctx.player, { position: 'atk', summonType: 'fusion', by: ctx.card });
+        f.summonMaterials = mats;
+        if (!d.specialSummon(f, ctx.player, { position: 'atk', summonType: 'fusion', by: ctx.card })) f.summonMaterials = [];
       },
       ai: () => 80,
     },

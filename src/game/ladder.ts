@@ -359,6 +359,9 @@ const THEME_NAMES: Record<string, string> = {
   raidraptor: '急襲猛禽',
   speedroid: '疾行機人',
   predaplant: '捕食植物',
+  salamangreat: '轉生炎獸',
+  trickstar: '淘氣仙星',
+  rokket: '彈丸龍・槍管龍',
 };
 
 function themeDecks(): ThemeDeck[] {

@@ -14,6 +14,7 @@ import './dm';
 import './gods';
 import './classic';
 import './arcv';
+import './vrains';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
