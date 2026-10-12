@@ -1,0 +1,8 @@
+node_modules
+dist
+.cache
+public/art/*
+!public/art/.gitkeep
+*.log
+public/cards/*
+!public/cards/.gitkeep
