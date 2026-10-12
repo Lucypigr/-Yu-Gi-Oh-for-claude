@@ -1324,3 +1324,73 @@ describe('第十一彈：VRAINS', () => {
     expect(duel.delayed[0].turn).toBe(duel.turn + 1);
   });
 });
+
+describe('第十二彈：@火靈天星', () => {
+
+  it('傷害計算時的誘發效果會發動（水海龍@火靈天星：對方怪獸攻擊力只在傷害計算時變成一半）', async () => {
+    const { duel } = setup();
+    const lev = put(duel, 0, 37061511, 'mzone'); // 2300
+    const bewd = put(duel, 1, 89631139, 'mzone'); // 3000 → 1500
+    await safe(() => duel.performAttack(lev, bewd));
+    expect(bewd.location).toBe('grave');
+    expect(duel.p(1).lp).toBe(8000 - 800);
+  });
+
+  it('牢牢妖@火靈天星：自己的電子界族怪獸 1 回合各 1 次不會被效果破壞', () => {
+    const { duel } = setup();
+    put(duel, 0, 82257671, 'mzone');
+    const m = put(duel, 0, 15808381, 'mzone');
+    expect(duel.destroy([m], 'effect').length).toBe(0);
+    expect(m.location).toBe('mzone');
+    expect(duel.destroy([m], 'effect').length).toBe(1);
+  });
+
+  it('電子界到臨者@火靈天星：原本攻擊力是素材數量×1000，不受其他卡的效果影響', async () => {
+    const { duel } = setup();
+    // 連結 6：日光狼（炎・連結 2）＋轉碼語者（地・連結 3）＋連接栗子球（暗・連結 1）
+    for (const id of [87871125, 46947713, 41999284]) put(duel, 0, id, 'mzone');
+    const arrival = put(duel, 0, 11738489, 'extra');
+    const act = duel.getMainActions(0).find((a) => a.type === 'link' && a.card === arrival);
+    expect(act).toBeTruthy();
+    await safe(() => duel.performMainAction(0, act!));
+    expect(arrival.location).toBe('mzone');
+    expect(duel.getAtk(arrival)).toBe(3000);
+    expect(arrival.data.atk).toBe(3000);
+    const raigeki = put(duel, 1, 12580477, 'grave');
+    expect(duel.destroy([arrival], 'effect', raigeki).length).toBe(0);
+    // 離場時原本攻擊力還原
+    duel.destroy([arrival], 'rule' as any);
+    expect(arrival.data.atk).toBe(0);
+  });
+
+  it('「艾」思考-I·Q：雙方 1 回合只能有 1 次連結召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 69381150, 'szone', { faceUp: true });
+    put(duel, 0, 15808381, 'mzone');
+    put(duel, 0, 16020923, 'mzone');
+    put(duel, 0, 77637979, 'extra'); // LAN喙嘴龍（怪獸 2 隻）
+    expect(duel.getMainActions(0).some((a) => a.type === 'link')).toBe(true);
+    duel.p(0).turnFlags.linkSummoned = true;
+    expect(duel.getMainActions(0).some((a) => a.type === 'link')).toBe(false);
+  });
+
+  it('光龍王@火靈天星：自己的怪獸被效果破壞時取除超量素材代替', () => {
+    const { duel } = setup();
+    const ld = put(duel, 0, 61399402, 'mzone');
+    const m = new Card(getCard(FILLER), 0);
+    m.location = 'overlay';
+    ld.overlays.push(m);
+    const mon = put(duel, 0, 89631139, 'mzone');
+    expect(duel.destroy([mon], 'effect').length).toBe(0);
+    expect(mon.location).toBe('mzone');
+    expect(ld.overlays.length).toBe(0);
+  });
+
+  it('陰雲栗仔球@火靈天星：效果給予對方的傷害變成 2 倍', () => {
+    const { duel } = setup();
+    const src = put(duel, 0, 24882256, 'mzone');
+    duel.doubleDamageFrom.push(src);
+    duel.damage(1, 1000, 'effect', src);
+    expect(duel.p(1).lp).toBe(6000);
+  });
+});

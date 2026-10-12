@@ -422,6 +422,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.rokket,
   },
   {
+    id: 'ignister',
+    name: '電子界的艾',
+    title: '@火靈天星的意志',
+    avatar: '👾',
+    desc: '6 種屬性的@火靈天星互相支援，連結召喚電子界到臨者與協心代碼語者！',
+    level: 5,
+    reward: 480,
+    randomness: 0.05,
+    requires: 'rokket',
+    deck: OPPONENT_DECKS.ignister,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

@@ -45,5 +45,6 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'salamangreat', name: '轉生炎獸', match: (d) => d.nameEn.includes('Salamangreat') || d.id === 25800447 },
   { id: 'trickstar', name: '淘氣仙星', match: en('Trickstar') },
   { id: 'rokket', name: '彈丸龍・槍管龍', match: (d) => /rokket|Borrel/i.test(d.nameEn) },
+  { id: 'ignister', name: '@火靈天星・「艾」', match: (d) => d.nameEn.includes('@Ignister') || /A\.I\./.test(d.nameEn) },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

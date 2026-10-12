@@ -178,6 +178,10 @@ export class Duel {
   resolvingLink: ChainLink | null = null;
   /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
   lingering: { turn: number; query: (card: Card, q: Query) => boolean }[] = [];
+  /** 一次性的事件監聽（回傳 true 表示處理完畢、移除）：「那次傷害步驟結束時…」等 */
+  listeners: ((ev: GameEvent) => boolean)[] = [];
+  /** 這張卡的效果給予對方的傷害變成 2 倍（陰雲栗仔球@火靈天星），連鎖處理完時清除 */
+  doubleDamageFrom: Card[] = [];
   /** 在指定回合的結束階段處理的事（「下個回合的結束階段送去墓地」等） */
   delayed: { turn: number; run: () => void }[] = [];
   /** 正在發動的卡（UI 用來顯示發動演出） */
@@ -509,6 +513,7 @@ export class Duel {
     };
     if (selfQuery('immuneAll')) return true;
     if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
+    if ((source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOpp')) return true;
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
     if ((isTrap(source.data) || isSpell(source.data)) && selfQuery('immuneSpellsTraps')) return true;
     return false;
@@ -780,6 +785,12 @@ export class Duel {
       o.faceUp = true;
       this.p(o.owner).grave.push(o);
     }
+    card.prevSummonType = card.summonType;
+    // 暫時改變的卡片資料還原
+    if (card.baseData) {
+      card.data = card.baseData;
+      card.baseData = null;
+    }
     // 陷阱怪獸離場時變回陷阱卡
     if (card.trapData) {
       card.data = card.trapData;
@@ -831,6 +842,14 @@ export class Duel {
         }
       }
     }
+    // 場上其他卡的代替（光龍王@火靈天星）
+    if (c.onField && (reason === 'battle' || reason === 'effect')) {
+      for (const f of this.fieldCards(c.controller)) {
+        if (f === c || !f.faceUp || this.isNegated(f)) continue;
+        const hook = getScript(f.id).fieldSubstitute;
+        if (hook && hook(this, f, c, reason)) return true;
+      }
+    }
     const sub = getScript(c.id).destroySubstitute;
     if (!sub || !c.faceUp || c.location !== 'mzone' || this.isNegated(c)) return false;
     const cands = sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x));
@@ -860,6 +879,11 @@ export class Duel {
       if (reason === 'effect' && by && this.isImmune(c, by)) continue;
       if (reason === 'effect' && this.has(c, 'effectIndestructible')) continue;
       if (reason === 'effect' && by && by.controller !== c.controller && this.has(c, 'oppEffectIndestructible')) continue;
+      if (reason === 'effect' && this.has(c, 'effectIndesOnce') && c.flags.effectIndesUsed !== this.turn) {
+        c.flags.effectIndesUsed = this.turn;
+        this.log(`「${c.name}」這回合 1 次不會被效果破壞`);
+        continue;
+      }
       const from = c.location;
       const fromZone = c.zone;
       const prevController = c.controller;
@@ -956,6 +980,9 @@ export class Duel {
   damage(p: PlayerId, amount: number, reason: 'battle' | 'effect' = 'effect', by?: Card) {
     amount = Math.max(0, Math.floor(amount));
     if (amount <= 0) return;
+    // 「這回合自己受到的全部傷害變成 0」
+    if (this.p(p).turnFlags.noDamage) return;
+    if (reason === 'effect' && by && by.controller !== p && this.doubleDamageFrom.includes(by)) amount *= 2;
     // 受到效果傷害時的代替（黑翼龍）
     if (reason === 'effect')
       for (const m of this.faceUpMonsters(p)) {
@@ -1175,6 +1202,7 @@ export class Duel {
   // =====================================================================
 
   raise(ev: GameEvent) {
+    if (this.listeners.length) this.listeners = this.listeners.filter((l) => !l(ev));
     if (ev.type === 'summoned') {
       for (const c of ev.cards ?? (ev.card ? [ev.card] : [])) {
         this.p(c.controller).summonedThisTurn.push({ card: c, kind: summonKindOf(ev.summonType ?? c.summonType) });
@@ -1332,6 +1360,7 @@ export class Duel {
     } finally {
       this.resolvingChain = false;
       this.resolvingLink = null;
+      this.doubleDamageFrom = [];
     }
     const out = this.summonEventsDuringResolution;
     this.summonEventsDuringResolution = [];
@@ -1645,6 +1674,8 @@ export class Duel {
       if (lock.fromExtraOnly && card.location !== 'extra') continue;
       if (!lock.allow(card)) return false;
     }
+    // 「○○在自己場上只能有 1 隻表側表示存在」
+    if (getScript(card.id).uniqueOnField && this.faceUpMonsters(p).some((c) => c.id === card.id && c !== card)) return false;
     // 「自己對這張卡 1 回合只能有 1 次特殊召喚」
     if (kind === 'special' && getScript(card.id).ssOncePerTurn && ps.summonedThisTurn.some((s) => s.kind === 'special' && s.card.id === card.id))
       return false;
@@ -1659,6 +1690,30 @@ export class Duel {
   /** 這回合已經召喚過不符合條件的怪獸（「這張卡發動的回合，自己不是○○不能特殊召喚」的發動條件） */
   summonedOtherThan(p: PlayerId, allow: (c: Card) => boolean, kinds: SummonKind[] = ['special']): boolean {
     return this.p(p).summonedThisTurn.some((s) => kinds.includes(s.kind) && !allow(s.card));
+  }
+
+  /** 「1 回合只能有 1 次連結召喚」且已經連結召喚過 */
+  linkLimited(p: PlayerId): boolean {
+    return this.playerHas(p, 'oneLinkSummonPerTurn') && !!this.p(p).turnFlags.linkSummoned;
+  }
+
+  /** 暫時改變卡片的資料（原本攻擊力・屬性等），離場時還原；until 為還原的回合（結束階段） */
+  overrideData(card: Card, patch: Partial<CardData>, untilTurn?: number) {
+    if (!card.baseData) card.baseData = card.data;
+    card.data = { ...card.data, ...patch };
+    if (untilTurn !== undefined) {
+      const stint = card.stint;
+      this.delayed.push({
+        turn: untilTurn,
+        run: () => {
+          if (card.stint === stint && card.baseData) {
+            card.data = card.baseData;
+            card.baseData = null;
+          }
+        },
+      });
+    }
+    this.update();
   }
 
   /** 這回合已經通常召喚・蓋放過 */
@@ -1721,7 +1776,7 @@ export class Duel {
         if (!this.summonAllowed(p, card, 'special')) continue;
         if (card.data.type & 0x2000 && this.synchroMaterialSets(p, card).length) actions.push({ type: 'synchro', card });
         if (isXyz(card.data) && this.xyzMaterialSets(p, card).length) actions.push({ type: 'xyz', card });
-        if (isLink(card.data) && this.linkMaterialSets(p, card).length) actions.push({ type: 'link', card });
+        if (isLink(card.data) && !this.linkLimited(p) && this.linkMaterialSets(p, card).length) actions.push({ type: 'link', card });
       }
     }
     // 靈擺
@@ -2015,6 +2070,10 @@ export class Duel {
     return null;
   }
 
+  /** 最近一次同步召喚的素材與怪獸 */
+  lastSynchroMaterials: Card[] = [];
+  lastSynchroSummon: Card | null = null;
+
   /** 最近一次連結召喚的怪獸 */
   lastLinkSummon: Card | null = null;
 
@@ -2049,6 +2108,7 @@ export class Duel {
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 連結召喚`, p);
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk', zone });
     card.summonType = 'link';
+    this.p(p).turnFlags.linkSummoned = true;
     card.reincarnated = reincarnated;
     card.summonMaterials = mats;
     this.p(p).turnFlags.summoned = true;
@@ -2126,6 +2186,8 @@ export class Duel {
       validate: (sel) => sets.some((s) => s.length === sel.length && s.every((c) => sel.includes(c))),
     });
     if (!sets.some((s) => s.length === mats.length && s.every((c) => mats.includes(c)))) return;
+    this.lastSynchroMaterials = mats;
+    this.lastSynchroSummon = card;
     for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     const pos = await this.choosePosition(p, card);
@@ -2433,8 +2495,10 @@ export class Duel {
     }
 
     if (!b.skipCalc) {
-      // 傷害計算時
-      await this.settle({ kind: 'damageCalc', event: { type: 'damageCalc', attacker, target, player: p } });
+      // 傷害計算時（誘發效果與可以回應的時點）
+      const calcEvent: GameEvent = { type: 'damageCalc', card: attacker, attacker, target, player: p };
+      this.raise(calcEvent);
+      await this.settle({ kind: 'damageCalc', event: calcEvent });
       if (!this.battleValid()) {
         this.battle = null;
         return;

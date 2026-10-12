@@ -39,6 +39,10 @@ export class Card {
   reincarnated = false;
   /** 最後一次被破壞送去墓地的回合（離場後保留） */
   destroyedTurn = 0;
+  /** 離場前的召喚方式（「連結召喚的這張卡被破壞送去墓地的場合」用，離場後保留） */
+  prevSummonType: SummonType | null = null;
+  /** 暫時改變卡片資料（原本攻擊力・屬性）時的原始資料，離場或效果結束時還原 */
+  baseData: CardData | null = null;
   /** 陷阱怪獸：在怪獸區域時原本的陷阱卡資料（離場時還原） */
   trapData: CardData | null = null;
   /** 暫時得到的卡名・效果（凶飢毒融合龍），回合開始時清除 */

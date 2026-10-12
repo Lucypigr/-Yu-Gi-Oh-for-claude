@@ -1140,3 +1140,34 @@
 645087  # Cyberse Gadget
 57160136  # Cynet Mining
 36033786  # Cyberse Wizard
+
+# ---- VRAINS @火靈天星（第十二彈）----
+15808381  # Achichi @Ignister
+16020923  # Pikari @Ignister
+42429678  # Bururu @Ignister
+88413677  # Doyon @Ignister
+41306080  # Hiyari @Ignister
+78751195  # Doshin @Ignister
+14146794  # Donyoribo @Ignister
+55762976  # Gussari @Ignister
+82257671  # Gatchiri @Ignister
+66192538  # Danmari @Ignister
+3723262  # Wizard @Ignister
+30118811  # Backup @Ignister
+66102515  # Kurikurinku @Ignister
+37061511  # Water Leviathan @Ignister
+62111090  # Earth Golem @Ignister
+98506199  # Wind Pegasus @Ignister
+61399402  # Light Dragon @Ignister
+97383507  # Dark Templar @Ignister
+24882256  # Fire Phoenix @Ignister
+11738489  # The Arrival Cyberse @Ignister
+74567889  # Dark Infant @Ignister
+39138610  # Allied Code Talker @Ignister
+59054773  # Ignister A.I.Land
+86449372  # TA.I. Strike
+22933016  # A.I.dle Reborn
+59332125  # A.I. Love Fusion
+85327820  # A.I.'s Ritual
+77421977  # A.I. Shadow
+69381150  # A.I.Q

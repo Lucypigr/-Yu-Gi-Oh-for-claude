@@ -134,6 +134,9 @@ export type Query =
   | 'untargetableByOpp' // 對方不能作為效果的對象
   | 'immuneMonsters' // 不受自身以外的怪獸的效果影響
   | 'oppEffectIndestructible' // 不會被對方的效果破壞
+  | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
+  | 'immuneOpp' // 不受對方的效果影響
+  | 'oneLinkSummonPerTurn' // 1 回合只能有 1 次連結召喚（全域，player 為被限制方）
   | 'immuneAll'; // 不受其他卡的效果影響
 
 export interface StatMod {
@@ -239,6 +242,10 @@ export interface CardScript {
   attackEach?: (duel: Duel, self: Card, target: Card) => boolean;
   /** 場地魔法等：可以只用 1 隻同名連結怪獸作為素材連結召喚（轉生炎獸的聖域） */
   sameNameLink?: (duel: Duel, self: Card, p: PlayerId, link: Card) => boolean;
+  /** 在場上的這張卡：自己場上的其他卡被破壞時可以代替（光龍王@火靈天星取除素材），回傳是否代替 */
+  fieldSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  /** 「○○在自己場上只能有 1 隻表側表示存在」 */
+  uniqueOnField?: boolean;
   /** 在墓地的這張卡：自己場上的卡被破壞時可以除外代替（轉生炎獸 烽火猞猁），回傳是否代替 */
   graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
   /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */

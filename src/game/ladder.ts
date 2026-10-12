@@ -362,6 +362,7 @@ const THEME_NAMES: Record<string, string> = {
   salamangreat: '轉生炎獸',
   trickstar: '淘氣仙星',
   rokket: '彈丸龍・槍管龍',
+  ignister: '@火靈天星',
 };
 
 function themeDecks(): ThemeDeck[] {
