@@ -1,6 +1,7 @@
 // 卡片列表＋篩選（牌組編輯與圖鑑共用）
 import { useMemo, useState } from 'react';
 import { type CardData, ATTR, attrName, isExtraDeckCard, isMonster, isSpell, isTrap, isToken, raceName, typeLine } from '../../engine/cardDb';
+import { ARCHETYPES } from '../../game/archetypes';
 import { rarityOf } from '../../game/rarity';
 import { CardView } from './CardView';
 
@@ -53,6 +54,9 @@ export function CardBrowser({
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>('all');
   const [attr, setAttr] = useState(0);
+  const [arch, setArch] = useState('');
+  // 只列出這個清單裡有卡的系列
+  const archOptions = useMemo(() => ARCHETYPES.filter((a) => cards.some((d) => !isToken(d) && a.match(d))), [cards]);
   const [sort, setSort] = useState<Sort>('type');
 
   const filtered = useMemo(() => {
@@ -64,6 +68,7 @@ export function CardBrowser({
       if (kind === 'trap' && !isTrap(d)) return false;
       if (kind === 'extra' && !isExtraDeckCard(d)) return false;
       if (attr && !(isMonster(d) && d.attribute & attr)) return false;
+      if (arch && !ARCHETYPES.find((a) => a.id === arch)?.match(d)) return false;
       if (text) {
         const hay = `${d.name} ${d.nameEn} ${d.desc} ${typeLine(d)} ${isMonster(d) ? raceName(d.race) : ''}`.toLowerCase();
         if (!hay.includes(text)) return false;
@@ -71,7 +76,7 @@ export function CardBrowser({
       return true;
     });
     return sortCards(list, sort);
-  }, [cards, q, kind, attr, sort]);
+  }, [cards, q, kind, attr, arch, sort]);
 
   return (
     <div className="card-browser">
@@ -90,6 +95,14 @@ export function CardBrowser({
             {Object.values(ATTR).map((a) => (
               <option key={a} value={a}>
                 {attrName(a)}屬性
+              </option>
+            ))}
+          </select>
+          <select value={arch} onChange={(e) => setArch(e.target.value)}>
+            <option value="">所有系列</option>
+            {archOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
               </option>
             ))}
           </select>
