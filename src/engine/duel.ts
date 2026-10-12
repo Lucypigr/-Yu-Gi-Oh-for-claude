@@ -155,6 +155,8 @@ export class Duel {
   windowEvent: GameEvent | null = null;
   /** 目前正在處理的連鎖（UI 顯示用） */
   resolvingLink: ChainLink | null = null;
+  /** 正在發動的卡（UI 用來顯示發動演出） */
+  activating: { card: Card; player: PlayerId; isCardActivation: boolean; label?: string } | null = null;
 
   private opts: DuelOptions;
   private pendingTriggers: PendingTrigger[] = [];
@@ -1436,7 +1438,12 @@ export class Duel {
       index: this.chain.length + 1,
     };
     ctx.link = link;
-    await this.pause(250);
+    this.activating = { card, player: p, isCardActivation, label: effect.label };
+    try {
+      await this.pause(900);
+    } finally {
+      this.activating = null;
+    }
     if (effect.cost) await effect.cost(ctx);
     // 支付代價時卡片可能移動（例如解放自己），用移動後的 stint
     ctx.data.__stint = card.stint;

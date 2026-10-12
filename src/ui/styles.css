@@ -2459,3 +2459,205 @@ h4 {
   padding-top: 10px;
   margin-top: 6px;
 }
+
+/* ============ 發動演出・連鎖對象・查看場地 ============ */
+.zone.activating,
+.hand-card.activating {
+  z-index: 8;
+  animation: activateFlash 0.3s ease-in-out infinite alternate;
+}
+@keyframes activateFlash {
+  from {
+    box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgba(255, 255, 255, 0.9);
+    filter: brightness(1.8);
+  }
+  to {
+    box-shadow: 0 0 0 3px var(--gold), 0 0 28px 10px rgba(231, 195, 90, 0.9);
+    filter: brightness(1.1);
+  }
+}
+.activate-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 28px;
+  border-radius: 16px;
+  pointer-events: none;
+  background: rgba(8, 10, 22, 0.92);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 40px rgba(231, 195, 90, 0.5);
+  animation: bannerIn 0.25s ease-out;
+  max-width: calc(100% - 24px);
+}
+.activate-banner.opp {
+  border-color: #ff5a4e;
+  box-shadow: 0 0 40px rgba(255, 90, 78, 0.6);
+}
+.activate-banner.me {
+  border-color: var(--accent);
+  box-shadow: 0 0 40px rgba(79, 163, 255, 0.6);
+}
+.activate-banner .card {
+  animation: activateFlash 0.3s ease-in-out infinite alternate;
+  flex-shrink: 0;
+}
+@keyframes bannerIn {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+}
+.activate-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.activate-who {
+  font-size: 15px;
+  color: var(--muted);
+}
+.activate-banner.opp .activate-who {
+  color: #ff9d94;
+}
+.activate-banner.me .activate-who {
+  color: #9cc8ff;
+}
+.activate-what {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+.activate-banner.opp .activate-what {
+  color: #ff6b5e;
+}
+.activate-banner.me .activate-what {
+  color: #6fb8ff;
+}
+.activate-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gold);
+}
+.activate-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.activate-chain {
+  margin-top: 4px;
+  align-self: flex-start;
+  background: var(--gold);
+  color: #2a1d00;
+  font-weight: bold;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+.chain-badge {
+  background: #a77b12;
+  top: auto;
+  bottom: 2px;
+  left: 2px;
+  right: auto;
+}
+.target-badge {
+  background: #d32f2f;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: 0 0 8px rgba(255, 50, 50, 0.9);
+}
+.zone.chain-target {
+  box-shadow: 0 0 0 3px #ff1744, 0 0 18px rgba(255, 23, 68, 0.9);
+  animation: pulse 0.8s infinite;
+}
+.chain-targets {
+  color: #ff9d94;
+  font-size: 11px;
+}
+.zone.pickable,
+.hand-card.pickable .card {
+  box-shadow: 0 0 0 3px #3fe0a0, 0 0 14px rgba(63, 224, 160, 0.8);
+  cursor: pointer;
+}
+.zone.picked,
+.hand-card.picked .card {
+  box-shadow: 0 0 0 4px var(--gold), 0 0 20px rgba(231, 195, 90, 1);
+}
+.hand-card.picked {
+  transform: translateY(-10px);
+}
+.log-line.activate {
+  font-weight: bold;
+  border-left: 3px solid var(--gold);
+  padding-left: 4px;
+}
+.peek-btn {
+  margin-left: auto;
+  margin-right: 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+.peek-btn:hover {
+  border-color: var(--gold);
+}
+.peek-bar {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px;
+  white-space: nowrap;
+  border-radius: 12px;
+  background: rgba(10, 14, 30, 0.95);
+  border: 1px solid var(--gold);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
+}
+.peek-title {
+  font-weight: bold;
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.peek-bar .hint {
+  font-size: 12px;
+}
+.response-context {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.response-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
+.response-link.opp {
+  border-left-color: #ff5a4e;
+}
