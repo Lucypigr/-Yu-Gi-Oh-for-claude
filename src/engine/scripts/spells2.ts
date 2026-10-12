@@ -1,6 +1,6 @@
 // 魔法卡的效果腳本（第二彈）
 import type { Card } from '../card';
-import { ATTR, RACE, isMonster, isSpell, isVanilla } from '../cardDb';
+import { ATTR, RACE, isMonster, isNamed, isSpell, isVanilla } from '../cardDb';
 import type { Duel } from '../duel';
 import type { EffectContext, PlayerId } from '../types';
 import { def } from './registry';
@@ -432,11 +432,11 @@ def(17655904, {
   effects: [
     activate({
       categories: ['destroy'],
-      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => c.id === BEWD) && ctx.duel.monsters(ctx.opp).length > 0,
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, BEWD)) && ctx.duel.monsters(ctx.opp).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
         d.destroy(d.monsters(ctx.opp), 'effect', ctx.card);
-        for (const c of d.monsters(ctx.player)) if (c.id === BEWD) d.setFlag(c, 'cannotAttack');
+        for (const c of d.monsters(ctx.player)) if (isNamed(c.data, BEWD)) d.setFlag(c, 'cannotAttack');
       },
       ai: (ctx) => (sum(ctx.duel.monsters(ctx.opp).map((c) => cardValue(ctx.duel, c, ctx.player))) >= 2500 ? 80 : 0),
     }),
@@ -448,7 +448,7 @@ def(2314238, {
   effects: [
     activate({
       categories: ['destroy'],
-      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => c.id === DM) && ctx.duel.spellTraps(ctx.opp).length > 0,
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, DM)) && ctx.duel.spellTraps(ctx.opp).length > 0,
       operation: async (ctx) => {
         ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
       },
@@ -558,9 +558,9 @@ def(52684508, {
   effects: [
     activate({
       categories: ['damage'],
-      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => c.id === REBD && c.attacks === 0),
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, REBD) && c.attacks === 0),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player).filter((c) => c.id === REBD), { title: '選擇「真紅眼黑龍」', hint: 'benefit' });
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player).filter((c) => isNamed(c.data, REBD)), { title: '選擇「真紅眼黑龍」', hint: 'benefit' });
       },
       operation: async (ctx) => {
         const t = tgt(ctx);

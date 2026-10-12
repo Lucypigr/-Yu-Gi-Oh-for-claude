@@ -903,3 +903,72 @@
 47408488  # Crystal Tree
 34487429  # Ancient City - Rainbow Ruins
 60876124  # Rare Value
+
+# ---- 初代 青眼（第七彈）----
+53347303  # Blue-Eyes Shining Dragon
+38517737  # Blue-Eyes Alternative White Dragon
+45467446  # Dragon Spirit of White
+40908371  # Azure-Eyes Silver Dragon
+2129638  # Blue-Eyes Twin Burst Dragon
+56532353  # Neo Blue-Eyes Ultimate Dragon
+55410871  # Blue-Eyes Chaos MAX Dragon
+21082832  # Chaos Form
+8240199  # Sage with Eyes of Blue
+88241506  # Maiden with Eyes of Blue
+71039903  # The White Stone of Ancients
+6853254  # Return of the Dragon Lords
+34627841  # Kaibaman
+73398797  # Paladin of White Dragon
+9786492  # White Dragon Ritual
+
+# ---- 初代 真紅眼（第七彈）----
+64335804  # Red-Eyes Black Metal Dragon
+68540058  # Metalmorph
+96561011  # Red-Eyes Darkness Dragon
+88264978  # Red-Eyes Darkness Metal Dragon
+67300516  # Red-Eyes Wyvern
+36262024  # Black Dragon's Chick
+92353449  # Red-Eyes Insight
+44397496  # Red-Eyes Spirit
+71782404  # Red-Eyes Burn
+85651167  # Gearfried the Red-Eyes Iron Knight
+21140872  # Red-Eyes Slash Dragon
+58257569  # Red-Eyes Baby Dragon
+39387565  # Return of the Red-Eyes
+
+# ---- 初代 黑魔術師（第七彈）----
+50725996  # Dark Magician Knight
+87210505  # Knight's Title
+41721210  # Dark Magician the Dragon Knight
+50237654  # The Dark Magicians
+43892408  # Dark Magician Girl the Dragon Knight
+34318086  # Lemon Magician Girl
+7198399  # Chocolate Magician Girl
+20747792  # Berry Magician Girl
+56132807  # Apple Magician Girl
+82627406  # Kiwi Magician Girl
+35191415  # Magician of Dark Illusion
+7084129  # Magician's Rod
+48680970  # Eternal Soul
+70168345  # Dark Magic Twin Burst
+60709218  # Bond Between Teacher and Student
+
+# ---- 初代 鷹身女郎（第七彈）----
+12206212  # Harpie Lady Sisters
+52040216  # Harpie's Pet Dragon
+80316585  # Cyber Harpie Lady
+34100324  # Harpie Girl
+91932350  # Harpie Lady 1
+27927359  # Harpie Lady 2
+54415063  # Harpie Lady 3
+75782277  # Harpies' Hunting Ground
+6924874  # Harpie's Pet Baby Dragon
+75064463  # Harpie Queen
+90238142  # Harpie Channeler
+68815132  # Harpie Dancer
+56585883  # Harpie Harpist
+90219263  # Elegant Egotist
+19337371  # Hysteric Sign
+86308219  # Harpie Lady Phoenix Formation
+12181376  # Triangle Ecstasy Spark
+63224564  # Cyber Shield

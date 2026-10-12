@@ -1,6 +1,6 @@
 // 魔法卡的效果腳本
 import { Card } from '../card';
-import { getCard, isMonster, RACE, cannotNormalSummon, isFlip } from '../cardDb';
+import { getCard, isMonster, isNamed, RACE, cannotNormalSummon, isFlip } from '../cardDb';
 import type { Duel } from '../duel';
 import type { EffectContext, PlayerId } from '../types';
 import { def, getScript } from './registry';
@@ -763,15 +763,21 @@ def(87430998, { effects: fieldSpell([RACE.INSECT, RACE.BEAST, RACE.PLANT, RACE.B
 def(23424603, { effects: fieldSpell([RACE.DINOSAUR, RACE.ZOMBIE, RACE.ROCK]) }); // 荒野
 
 // 儀式魔法
-export function ritualSpell(monsterId: number) {
-  const level = getCard(monsterId).level;
-  const ritualMons = (ctx: EffectContext) => ctx.duel.p(ctx.player).hand.filter((c) => c.id === monsterId);
+/**
+ * 儀式魔法：解放手牌・場上等級合計以上的怪獸，從手牌儀式召喚。
+ * graveBanish：可以改為從墓地除外的卡（混沌形態：青眼白龍・黑魔術師）
+ */
+export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?: (c: Card) => boolean } = {}) {
+  const ids = Array.isArray(monsterIds) ? monsterIds : [monsterIds];
+  const ritualMons = (ctx: EffectContext) => ctx.duel.p(ctx.player).hand.filter((c) => ids.includes(c.id));
   const tributePool = (ctx: EffectContext, ritual?: Card) =>
-    [...ctx.duel.p(ctx.player).hand, ...ctx.duel.monsters(ctx.player)].filter(
-      (c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0 && !(c.data.type & 0x4000000),
-    );
+    [
+      ...ctx.duel.p(ctx.player).hand,
+      ...ctx.duel.monsters(ctx.player),
+      ...(opts.graveBanish ? ctx.duel.p(ctx.player).grave.filter(opts.graveBanish) : []),
+    ].filter((c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0 && !(c.data.type & 0x4000000));
   const canRitual = (ctx: EffectContext) =>
-    ritualMons(ctx).some((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= level) &&
+    ritualMons(ctx).some((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level) &&
     (ctx.duel.freeMZones(ctx.player) > 0 || ctx.duel.monsters(ctx.player).length > 0);
   return {
     effects: [
@@ -780,8 +786,13 @@ export function ritualSpell(monsterId: number) {
         condition: canRitual,
         operation: async (ctx) => {
           const d = ctx.duel;
-          const ritual = ritualMons(ctx)[0];
+          const able = ritualMons(ctx).filter((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level);
+          const ritual =
+            able.length > 1
+              ? await d.selectOne({ player: ctx.player, title: '選擇要儀式召喚的怪獸', cards: able, hint: 'benefit', aiValue: (c) => c.data.atk })
+              : able[0];
           if (!ritual) return;
+          const level = ritual.data.level;
           const pool = tributePool(ctx, ritual);
           const valid = (sel: Card[]) =>
             sum(sel.map((c) => c.data.level)) >= level &&
@@ -798,7 +809,12 @@ export function ritualSpell(monsterId: number) {
             validate: valid,
           });
           if (!valid(sel)) return;
-          d.sendToGrave(sel, 'tribute');
+          const fromGrave = sel.filter((c) => c.location === 'grave');
+          d.sendToGrave(
+            sel.filter((c) => c.location !== 'grave'),
+            'tribute',
+          );
+          if (fromGrave.length) d.banish(fromGrave, 'cost', ctx.card);
           d.log(`解放 ${sel.map((c) => `「${c.name}」`).join('、')}，儀式召喚！`);
           const pos = await d.choosePosition(ctx.player, ritual);
           d.specialSummon(ritual, ctx.player, { position: pos, summonType: 'ritual', by: ctx.card });
@@ -909,7 +925,7 @@ def(63391643, {
   effects: [
     activate({
       categories: ['destroy'],
-      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => c.id === 46986414) && ctx.duel.monsters(ctx.opp).length > 0,
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, 46986414)) && ctx.duel.monsters(ctx.opp).length > 0,
       target: async (ctx) => {
         await chooseTargets(ctx, ctx.duel.monsters(ctx.opp), { title: '選擇要破壞的對方怪獸' });
       },

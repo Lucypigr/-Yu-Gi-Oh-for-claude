@@ -809,3 +809,48 @@ describe('第六彈：寶玉獸・卡通・命運英雄・黑羽補完', () => {
     expect(vayu.location).toBe('banished');
   });
 });
+
+describe('第七彈：初代經典', () => {
+  it('混沌形態：從墓地除外「青眼白龍」代替解放，儀式召喚青眼混沌極龍', async () => {
+    const { duel } = setup();
+    const bewd = put(duel, 0, 89631139, 'grave');
+    const max = put(duel, 0, 55410871, 'hand');
+    const form = put(duel, 0, 21082832, 'hand');
+    const act = duel.getActivatable(0).find((x) => x.card === form)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: form, effect: act.effect, effectIndex: act.effectIndex });
+    expect(max.location).toBe('mzone');
+    expect(bewd.location).toBe('banished');
+  });
+
+  it('青眼亞白龍的卡名當作「青眼白龍」：可以發動毀滅之爆裂疾風彈', () => {
+    const { duel } = setup();
+    put(duel, 0, 38517737, 'mzone');
+    put(duel, 1, FILLER, 'mzone');
+    const burst = put(duel, 0, 17655904, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === burst)).toBe(true);
+  });
+
+  it('萬華鏡：有鷹身女郎（鷹身女郎1）時從牌組特殊召喚三姐妹', async () => {
+    const { duel } = setup();
+    put(duel, 0, 91932350, 'mzone'); // 鷹身女郎1（當作鷹身女郎）
+    const sisters = put(duel, 0, 12206212, 'deck');
+    const ego = put(duel, 0, 90219263, 'hand');
+    const act = duel.getActivatable(0).find((x) => x.card === ego)!;
+    await duel.performMainAction(0, { type: 'activate', card: ego, effect: act.effect, effectIndex: act.effectIndex });
+    expect(sisters.location).toBe('mzone');
+  });
+
+  it('檸檬魔術少女：被攻擊時叫出魔法師族並轉移攻擊，攻擊怪獸攻擊力減半', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [34318086];
+    const lemon = put(duel, 0, 34318086, 'mzone');
+    const dm = put(duel, 0, 46986414, 'hand'); // 黑魔術師 2500
+    const att = put(duel, 1, 89631139, 'mzone'); // 青眼白龍 3000
+    await duel.performAttack(att, lemon);
+    expect(dm.location).toBe('mzone');
+    expect(lemon.location).toBe('mzone');
+    expect(att.location).toBe('grave'); // 1500 vs 2500
+  });
+});
