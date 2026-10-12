@@ -104,6 +104,8 @@ export interface BattleState {
   skipCalc: boolean;
   /** 被攻擊的裡側怪獸在傷害步驟翻開 */
   flipped: boolean;
+  /** 效果讓攻擊變成直接攻擊（對方有怪獸也繼續） */
+  forcedDirect?: boolean;
 }
 
 class DuelEnd extends Error {}
@@ -790,13 +792,31 @@ export class Duel {
       const from = c.location;
       const prevController = c.controller;
       const wasFaceUp = c.faceUp;
-      if (this.moveTo(c, 'grave', { reason, by })) {
+      if (this.moveTo(c, this.destroyDestination(c), { reason, by, player: c.owner })) {
         done.push(c);
         this.raise({ type: 'destroyed', card: c, from, reason, by, prevController, wasFaceUp });
       }
     }
     if (done.length) this.log(`${done.map((c) => `「${c.name}」`).join('、')} 被破壞`);
     return done;
+  }
+
+  /** 被破壞的卡要去哪裡：寶玉獸可以改為當作永續魔法放到魔法・陷阱區域 */
+  private destroyDestination(c: Card): 'grave' | 'szone' {
+    if (c.location === 'mzone' && c.faceUp && getScript(c.id).placeAsSpellOnDestroy && this.freeSZones(c.owner) > 0) {
+      this.log(`「${c.name}」不送去墓地，當作永續魔法放到魔法・陷阱區域`);
+      return 'szone';
+    }
+    return 'grave';
+  }
+
+  /** 把怪獸卡當作永續魔法卡表側放到魔法・陷阱區域（寶玉獸） */
+  placeAsSpell(card: Card, p: PlayerId, by?: Card): boolean {
+    if (this.freeSZones(p) <= 0) return false;
+    if (!this.moveTo(card, 'szone', { reason: 'effect', player: p, faceUp: true, by })) return false;
+    this.log(`「${card.name}」當作永續魔法放到魔法・陷阱區域`);
+    this.raise({ type: 'placedAsSpell', card, player: p, by });
+    return true;
   }
 
   sendToGrave(cards: Card[], reason: Reason, by?: Card): Card[] {
@@ -2065,6 +2085,16 @@ export class Duel {
     return true;
   }
 
+  /** 轉移攻擊對象（null 表示變成直接攻擊） */
+  changeAttackTarget(target: Card | null) {
+    const b = this.battle;
+    if (!b) return;
+    b.target = target;
+    b.targetStint = target?.stint ?? 0;
+    if (!target) b.forcedDirect = true;
+    this.log(target ? `攻擊對象轉移為「${target.name}」` : '攻擊變成直接攻擊');
+  }
+
   /** 讓目前的攻擊無效 */
   negateAttack() {
     if (this.battle) {
@@ -2103,8 +2133,10 @@ export class Duel {
       this.battle = null;
       return;
     }
+    // 攻擊對象被轉移（寶玉獸 琥珀猛獁、卡通防禦）
+    target = this.battle!.target;
     // 攻擊對象消失或直接攻擊時對方出現怪獸：攻擊中止
-    if (!target && this.monsters(opp).length > 0) {
+    if (!target && !this.battle!.forcedDirect && this.monsters(opp).length > 0) {
       this.log('對方場上出現怪獸，攻擊中止');
       this.battle = null;
       return;
@@ -2242,7 +2274,7 @@ export class Duel {
       const by = c === attacker ? target ?? undefined : attacker;
       const from = c.location;
       const prevController = c.controller;
-      if (this.moveTo(c, 'grave', { reason: 'battle', by })) {
+      if (this.moveTo(c, this.destroyDestination(c), { reason: 'battle', by, player: c.owner })) {
         this.raise({ type: 'destroyed', card: c, from, reason: 'battle', by, prevController, wasFaceUp: true });
       }
     }

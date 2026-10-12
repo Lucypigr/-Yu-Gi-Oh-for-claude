@@ -731,3 +731,81 @@ describe('5D\'s 經典（第五彈）', () => {
     expect(gate.counters).toBe(2);
   });
 });
+
+describe('第六彈：寶玉獸・卡通・命運英雄・黑羽補完', () => {
+  it('寶玉獸被破壞時當作永續魔法放到魔法・陷阱區域，紅玉獸特殊召喚它們', async () => {
+    const { duel } = setup();
+    const cat = put(duel, 0, 32933942, 'mzone'); // 紫晶貓
+    duel.destroy([cat], 'effect');
+    expect(cat.location).toBe('szone');
+    expect(cat.faceUp).toBe(true);
+    const ruby = put(duel, 0, 32710364, 'hand');
+    duel.specialSummon(ruby, 0, { position: 'atk', by: ruby });
+    await duel.settle();
+    expect(cat.location).toBe('mzone');
+  });
+
+  it('寶玉獸 琥珀猛獁：攻擊對象轉移為這張卡', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [69937550];
+    const cat = put(duel, 1, 32933942, 'mzone'); // 1200
+    const mam = put(duel, 1, 69937550, 'mzone'); // 1700
+    const att = put(duel, 0, 76184692, 'mzone'); // 獨眼巨人 1200
+    await duel.performAttack(att, cat);
+    expect(cat.location).toBe('mzone');
+    expect(att.location).toBe('grave');
+    expect(mam.location).toBe('mzone');
+  });
+
+  it('卡通怪獸：召喚的回合不能攻擊；有卡通世界時直接攻擊；卡通世界被破壞時一起破壞', async () => {
+    const { duel } = setup();
+    const world = put(duel, 0, 15259703, 'szone', { faceUp: true });
+    const elf = put(duel, 0, 42386471, 'hand');
+    put(duel, 1, 89631139, 'mzone'); // 對方有青眼白龍
+    await duel.performMainAction(0, { type: 'summon', card: elf });
+    expect(duel.has(elf, 'cannotAttack')).toBe(true);
+    duel.turn++;
+    expect(duel.has(elf, 'cannotAttack')).toBe(false);
+    expect(duel.getAttackOptions(0).find((o) => o.attacker === elf)?.canDirect).toBe(true);
+    duel.destroy([world], 'effect');
+    await duel.settle();
+    expect(elf.location).toBe('grave');
+  });
+
+  it('王宮的彈壓：支付 800 讓特殊召喚無效', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [93016201];
+    put(duel, 0, 93016201, 'szone', { faceUp: true });
+    put(duel, 0, FILLER, 'mzone');
+    const thr = put(duel, 1, 83629030, 'hand'); // 卡通電子龍：只有對方有怪獸時特殊召喚
+    const act = duel.getMainActions(1).find((x) => x.type === 'spSummon' && x.card === thr);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(1, act!);
+    expect(thr.location).toBe('grave');
+    expect(duel.p(0).lp).toBe(7200);
+  });
+
+  it('命運英雄 敵托邦人可以用融合召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 13093792, 'hand');
+    put(duel, 0, 81866673, 'hand');
+    put(duel, 0, 90579153, 'extra');
+    expect(duel.fusionCandidates(0, duel.p(0).hand).map((c) => c.id)).toContain(90579153);
+  });
+
+  it('黑羽-大旆之伐由：從墓地特殊召喚「黑羽」同步怪獸', async () => {
+    const { duel } = setup();
+    const vayu = put(duel, 0, 72714392, 'grave'); // 1 星
+    put(duel, 0, 85215458, 'grave'); // 卡魯特 3 星
+    const aw = put(duel, 0, 76913983, 'extra'); // 兵翼鴉 6 星
+    // 1+3=4：沒有 4 星的「黑羽」同步怪獸
+    expect(duel.getActivatable(0).find((x) => x.card === vayu)).toBeFalsy();
+    put(duel, 0, 75498415, 'grave'); // 希洛克 5 星 → 1+5=6：兵翼鴉
+    const act2 = duel.getActivatable(0).find((x) => x.card === vayu)!;
+    expect(act2).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: vayu, effect: act2.effect, effectIndex: act2.effectIndex });
+    expect(aw.location).toBe('mzone');
+    expect(vayu.location).toBe('banished');
+  });
+});

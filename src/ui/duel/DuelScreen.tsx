@@ -229,6 +229,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
             atk={c.location === 'mzone' ? duel.getAtk(c) : undefined}
             def={c.location === 'mzone' ? duel.getDef(c) : undefined}
             className={!c.faceUp ? 'own-facedown' : ''}
+            hideStats={c.location !== 'mzone'}
           />
         ) : (
           <CardBack size="xs" />

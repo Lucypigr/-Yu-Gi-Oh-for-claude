@@ -55,7 +55,8 @@ export type EventType =
   | 'standby'
   | 'endPhase'
   | 'battlePhaseEnd'
-  | 'activated';
+  | 'activated'
+  | 'placedAsSpell'; // 怪獸卡當作永續魔法放到魔法・陷阱區域
 
 export interface GameEvent {
   type: EventType;
@@ -210,6 +211,8 @@ export interface CardScript {
     /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
     over?: (c: Card) => boolean;
   };
+  /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
+  placeAsSpellOnDestroy?: boolean;
   /** 被破壞時可以改為破壞的卡（六武眾等）；回傳候補 */
   destroySubstitute?: (duel: Duel, self: Card, reason: Reason) => Card[];
   /** 控制者受到效果傷害時的代替處理，回傳 true 表示不受到傷害（黑翼龍） */

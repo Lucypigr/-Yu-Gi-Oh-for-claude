@@ -86,3 +86,27 @@ describe('存檔', () => {
     expect(buyPack('lob')).toBeNull();
   });
 });
+
+describe('存檔升級', () => {
+  it('已領取的舊版「疾風黑羽」補上原版卡片並換成原版牌組', async () => {
+    const { BLACKWING_STARTER_V1, STARTER_DECKS: S } = await import('./decks');
+    const { importSave } = await import('./profile');
+    setStorage(memoryStorage());
+    createProfile('測試', 'dragon');
+    const p = structuredClone(getProfile()!) as any;
+    p.claimedStarters = ['dragon', 'blackwing'];
+    delete p.upgrades;
+    p.decks.push({ id: 'starter-blackwing', name: '疾風黑羽', main: [...BLACKWING_STARTER_V1.main], extra: [...BLACKWING_STARTER_V1.extra] });
+    for (const id of [...BLACKWING_STARTER_V1.main, ...BLACKWING_STARTER_V1.extra]) p.collection[id] = (p.collection[id] ?? 0) + 1;
+    expect(importSave(JSON.stringify(p))).toBe(true);
+    const q = getProfile()!;
+    const deck = q.decks.find((d) => d.id === 'starter-blackwing')!;
+    const now = S.find((s) => s.id === 'blackwing')!.deck;
+    expect([...deck.main].sort()).toEqual([...now.main].sort());
+    expect(q.collection[72714392]).toBe(2); // 大旆之伐由
+    expect(validateDeck(deck)).toEqual([]);
+    // 再匯入一次不會重複給卡
+    expect(importSave(JSON.stringify(q))).toBe(true);
+    expect(getProfile()!.collection[72714392]).toBe(2);
+  });
+});

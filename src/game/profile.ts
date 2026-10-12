@@ -1,6 +1,6 @@
 // 玩家存檔：金幣、收藏、牌組、戰績（儲存在瀏覽器 localStorage）
 import { hasCard } from '../engine/cardDb';
-import { STARTER_DECKS } from './decks';
+import { BLACKWING_STARTER_V1, STARTER_DECKS } from './decks';
 import { type DeckData, countIds } from './deckRules';
 import { getOpponent } from './opponents';
 import { getPack, openPack } from './packs';
@@ -38,6 +38,8 @@ export interface Profile {
   settings: Settings;
   /** 已經領取過的起始牌組 */
   claimedStarters: string[];
+  /** 已經套用過的存檔升級 */
+  upgrades?: string[];
 }
 
 export const START_COINS = 500;
@@ -124,7 +126,30 @@ function migrate(raw: any): Profile {
   }));
   // 舊存檔：從一開始的牌組名稱推斷已領取的起始牌組
   p.claimedStarters ??= STARTER_DECKS.filter((s) => p.decks.some((d) => d.id === 'starter' && d.name === s.name)).map((s) => s.id);
+  p.upgrades ??= [];
+  upgradeBlackwingStarter(p);
   return p;
+}
+
+/** 「疾風黑羽」補上原版卡片：已領取的玩家得到新增的卡，沒改過的牌組換成原版 */
+function upgradeBlackwingStarter(p: Profile) {
+  const KEY = 'blackwing-original';
+  if (p.upgrades!.includes(KEY)) return;
+  p.upgrades!.push(KEY);
+  if (!p.claimedStarters.includes('blackwing')) return;
+  const now = STARTER_DECKS.find((s) => s.id === 'blackwing')!.deck;
+  const oldCount = countIds([...BLACKWING_STARTER_V1.main, ...BLACKWING_STARTER_V1.extra]);
+  for (const [id, n] of countIds([...now.main, ...now.extra])) {
+    const add = n - (oldCount.get(id) ?? 0);
+    if (add > 0) p.collection[id] = (p.collection[id] ?? 0) + add;
+  }
+  const same = (a: number[], b: number[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+  for (const d of p.decks) {
+    if (d.name === '疾風黑羽' && same(d.main, BLACKWING_STARTER_V1.main) && same(d.extra, BLACKWING_STARTER_V1.extra)) {
+      d.main = [...now.main];
+      d.extra = [...now.extra];
+    }
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -145,6 +170,7 @@ export function createProfile(playerName: string, starterId: string): Profile {
     stats: { wins: 0, losses: 0, draws: 0, packsOpened: 0, beaten: {} },
     settings: { speed: 1, autoPass: true, cardStyle: 'real' },
     claimedStarters: [starter.id],
+    upgrades: ['blackwing-original'],
   };
   persist();
   emit();

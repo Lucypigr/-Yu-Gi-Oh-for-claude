@@ -54,6 +54,18 @@ const MANUAL = [
     race: 0x1000,
     attribute: 0x10,
   },
+  {
+    id: 44330099,
+    name: '冥府之使者 凱恩衍生物',
+    nameEn: 'Emissary of Darkness Token',
+    desc: '「冥府之使者 格斯」的效果特殊召喚的衍生物。攻擊力・守備力和受到的戰鬥傷害相同。',
+    type: 0x4011,
+    atk: 0,
+    def: 0,
+    level: 7,
+    race: 0x4,
+    attribute: 0x10,
+  },
 ];
 
 async function loadDb() {

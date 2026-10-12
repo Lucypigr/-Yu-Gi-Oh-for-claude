@@ -164,6 +164,8 @@ export interface CardViewProps {
   dim?: boolean;
   /** 不要長按顯示資訊（資訊視窗裡的卡面） */
   noInfo?: boolean;
+  /** 不顯示攻守（當作永續魔法的寶玉獸等） */
+  hideStats?: boolean;
 }
 
 function Stars({ data }: { data: CardData }) {
@@ -214,6 +216,7 @@ export const CardView = memo(function CardView({
   onMouseEnter,
   dim,
   noInfo,
+  hideStats,
 }: CardViewProps) {
   const style = useCardStyle();
   const [, rerender] = useReducer((x: number) => x + 1, 0);
@@ -234,7 +237,7 @@ export const CardView = memo(function CardView({
 
   // 實卡卡面：整張卡的圖片，場上再加上目前的攻守
   if (style === 'real' && !faceFailed.has(data.id)) {
-    const showStats = monster && (size === 'xs' || atkCls !== '' || defCls !== '');
+    const showStats = monster && !hideStats && (size === 'xs' || atkCls !== '' || defCls !== '');
     return (
       <div
         className={`card card-${size} card-real ${showRarity ? foil : ''} ${dim ? 'dim' : ''} ${className}`}

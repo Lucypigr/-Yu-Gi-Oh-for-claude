@@ -830,3 +830,76 @@
 81426505  # Six Strike - Triple Impact
 41458579  # Musakani Magatama
 21007444  # Double-Edged Sword Technique
+
+# ---- 黑羽牌組補完（第六彈）----
+72714392  # Blackwing - Vayu the Emblem of Honor
+14536035  # Dark Grepher
+44330098  # Gorz the Emissary of Darkness
+65192027  # Dark Armed Dragon
+93016201  # Royal Oppression
+64697231  # Trap Dustshoot
+43385557  # Magical Android
+
+# ---- GX 命運英雄（第六彈）----
+13093792  # Destiny HERO - Diamond Dude
+56570271  # Destiny HERO - Disk Commander
+9411399  # Destiny HERO - Malicious
+81866673  # Destiny HERO - Dasher
+54749427  # Destiny HERO - Defender
+93431862  # Destiny HERO - Dunker
+17132130  # Destiny HERO - Dogma
+83965310  # Destiny HERO - Plasma
+28355718  # Destiny HERO - Double Dude
+63362460  # Destiny HERO - Celestial
+30757127  # Destiny HERO - Dangerous
+60461804  # Destiny HERO - Destroyer Phoenix Enforcer
+90579153  # Destiny HERO - Dystopia
+45809008  # Destiny Draw
+72204747  # Over Destiny
+89899996  # D - Spirit
+35464895  # Destiny Signal
+62868900  # D - Shield
+99075257  # D - Time
+
+# ---- GX 卡通（第六彈）----
+15259703  # Toon World
+42386471  # Toon Gemini Elf
+16392422  # Toon Masked Sorcerer
+79875176  # Toon Cannon Soldier
+15270885  # Toon Goblin Attack Force
+65458948  # Toon Mermaid
+91842653  # Toon Summoned Skull
+53183600  # Blue-Eyes Toon Dragon
+90960358  # Toon Dark Magician Girl
+38369349  # Manga Ryu-Ran
+21296502  # Toon Dark Magician
+31733941  # Red-Eyes Toon Dragon
+83629030  # Toon Cyber Dragon
+7171149  # Toon Ancient Gear Golem
+28112535  # Toon Barrel Dragon
+64116319  # Toon Harpie Lady
+59383041  # Toon Alligator
+89997728  # Toon Table of Contents
+6958551  # Shadow Toon
+79447365  # Toon Mask
+43509019  # Toon Defense
+33453260  # Comic Hand
+
+# ---- GX 寶玉獸（第六彈）----
+32710364  # Crystal Beast Ruby Carbuncle
+32933942  # Crystal Beast Amethyst Cat
+68215963  # Crystal Beast Emerald Tortoise
+95600067  # Crystal Beast Topaz Tiger
+69937550  # Crystal Beast Amber Mammoth
+21698716  # Crystal Beast Cobalt Eagle
+7093411  # Crystal Beast Sapphire Pegasus
+79856792  # Rainbow Dragon
+95326659  # Crystal Beacon
+35486099  # Crystal Blessing
+8275702  # Crystal Promise
+96331676  # Crystal Raigeki
+47121070  # Crystal Pair
+10004783  # Crystal Release
+47408488  # Crystal Tree
+34487429  # Ancient City - Rainbow Ruins
+60876124  # Rare Value
