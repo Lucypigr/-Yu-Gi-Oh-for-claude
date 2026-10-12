@@ -1026,3 +1026,148 @@
 75347539  # Valkyrion the Magna Warrior
 39256679  # Beta The Magnet Warrior
 11549357  # Gamma The Magnet Warrior
+
+# ---- ARC-V 四天龍（第十彈）----
+# 幻影騎士團
+36426778  # The Phantom Knights of Silent Boots
+63821877  # The Phantom Knights of Ragged Gloves
+90432163  # The Phantom Knights of Ancient Cloak
+99315585  # The Phantom Knights of Cloven Helm
+36704180  # The Phantom Knights of Fragile Armor
+88544390  # The Phantom Knights of Stained Greaves
+25538345  # The Phantom Knights of Torn Scales
+25542642  # Phantom Knights' Fog Blade
+3298689  # The Phantom Knights' Rank-Up-Magic Launch
+62709239  # The Phantom Knights of Break Sword
+12219047  # The Phantom Knights of Cursed Javelin
+16195942  # Dark Rebellion Xyz Dragon
+1621413  # Dark Requiem Xyz Dragon
+# 急襲猛禽
+53251824  # Raidraptor - Vanishing Lanius
+60950180  # Raidraptor - Sharp Lanius
+96345188  # Raidraptor - Mimicry Lanius
+83236601  # Raidraptor - Tribute Lanius
+5929801  # Raidraptor - Fuzzy Lanius
+45184165  # Raidraptor - Skull Eagle
+31314549  # Raidraptor - Singing Lanius
+50692511  # Raidraptor - Call
+8559793  # Raidraptor - Nest
+73347079  # Raidraptor - Force Strix
+73887236  # Raidraptor - Rise Falcon
+45533023  # Raidraptor - Blaze Falcon
+81927732  # Raidraptor - Revolution Falcon
+# 疾行機人
+81275020  # Speedroid Terrortop
+53932291  # Speedroid Taketomborg
+53054833  # Speedroid Double Yoyo
+16725505  # Speedroid Red-Eyed Dice
+27660735  # Speedroid Tri-Eyed Dice
+80559548  # Speedroid Razorang
+16947147  # Speedroid Menko
+42110604  # Hi-Speedroid Chanbara
+97007933  # Hi-Speedroid Kendama
+82044279  # Clear Wing Synchro Dragon
+50954680  # Crystal Wing Synchro Dragon
+# 捕食植物
+35272499  # Predaplant Ophrys Scorpio
+61677004  # Predaplant Darlingtonia Cobra
+89181134  # Predaplant Chlamydosundew
+52792430  # Predaplant Spinodionaea
+96622984  # Predaplant Flytrap
+41209827  # Starving Venom Fusion Dragon
+51570882  # Greedy Venom Fusion Dragon
+25586143  # Predaplant Chimerafflesia
+69946549  # Predaplant Dragostapelia
+# 幻影騎士團的陷阱怪獸・急襲猛禽之力
+77462146  # The Phantom Knights of Shadow Veil
+98827725  # The Phantom Knights of Shade Brigandine
+24212820  # The Phantom Knights of Dark Gauntlets
+9336190  # The Phantom Knights of Mist Claws
+85257384  # The Phantom Knights of Umbrage Veil
+36247316  # The Phantom Knights of Lost Vambrace
+38044854  # Rise Rank-Up-Magic Raidraptor's Force
+23603403  # Raidraptor - Satellite Cannon Falcon
+
+# ---- VRAINS（第十一彈）----
+# 轉生炎獸
+26889158  # Salamangreat Gazelle
+52277807  # Salamangreat Spinny
+94620082  # Salamangreat Foxy
+20618081  # Salamangreat Falco
+56003780  # Salamangreat Jack Jaguar
+89662401  # Salamangreat Fowl
+52155219  # Salamangreat Circle
+1295111  # Salamangreat Sanctuary
+14934922  # Salamangreat Rage
+51339637  # Salamangreat Roar
+87871125  # Salamangreat Sunlight Wolf
+41463181  # Salamangreat Heatleo
+14812471  # Salamangreat Balelynx
+60303245  # Salamangreat Almiraj
+16313112  # Salamangreat Emerald Eagle
+38784726  # Rise of the Salamangreat
+37261776  # Salamangreat Violet Chimera
+25800447  # Fusion of Fire
+87327776  # Salamangreat Miragestallio
+# 淘氣仙星
+61283655  # Trickstar Candina
+35199656  # Trickstar Lycoris
+98700941  # Trickstar Lilybell
+91505214  # Trickstar Narkissus
+22219822  # Trickstar Mandrake
+35371948  # Trickstar Light Stage
+21076084  # Trickstar Reincarnation
+32448765  # Trickstar Holly Angel
+94626871  # Trickstar Black Catbat
+51011872  # Trickstar Crimson Heart
+22159429  # Trickstar Magical Laurel
+# 彈丸龍・槍管龍
+80250185  # Autorokket Dragon
+26655293  # Magnarokket Dragon
+5087128  # Shelrokket Dragon
+53266486  # Anesthrokket Dragon
+32472237  # Metalrokket Dragon
+32476603  # Silverrokket Dragon
+68464358  # Rokket Tracer
+5969957  # Rokket Recharger
+31833038  # Borreload Dragon
+85289965  # Borrelsword Dragon
+68987122  # Borrelguard Dragon
+# 防火龍・碼語者
+5043010  # Firewall Dragon
+46947713  # Transcode Talker
+6622715  # Encode Talker
+645087  # Cyberse Gadget
+57160136  # Cynet Mining
+36033786  # Cyberse Wizard
+
+# ---- VRAINS @火靈天星（第十二彈）----
+15808381  # Achichi @Ignister
+16020923  # Pikari @Ignister
+42429678  # Bururu @Ignister
+88413677  # Doyon @Ignister
+41306080  # Hiyari @Ignister
+78751195  # Doshin @Ignister
+14146794  # Donyoribo @Ignister
+55762976  # Gussari @Ignister
+82257671  # Gatchiri @Ignister
+66192538  # Danmari @Ignister
+3723262  # Wizard @Ignister
+30118811  # Backup @Ignister
+66102515  # Kurikurinku @Ignister
+37061511  # Water Leviathan @Ignister
+62111090  # Earth Golem @Ignister
+98506199  # Wind Pegasus @Ignister
+61399402  # Light Dragon @Ignister
+97383507  # Dark Templar @Ignister
+24882256  # Fire Phoenix @Ignister
+11738489  # The Arrival Cyberse @Ignister
+74567889  # Dark Infant @Ignister
+39138610  # Allied Code Talker @Ignister
+59054773  # Ignister A.I.Land
+86449372  # TA.I. Strike
+22933016  # A.I.dle Reborn
+59332125  # A.I. Love Fusion
+85327820  # A.I.'s Ritual
+77421977  # A.I. Shadow
+69381150  # A.I.Q

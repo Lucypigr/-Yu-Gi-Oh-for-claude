@@ -31,6 +31,30 @@ const tc = (s) => FIXUPS.reduce((acc, [a, b]) => acc.split(a).join(b), convert(s
 // 衍生物等資料庫沒有的卡片，手動定義
 const MANUAL = [
   {
+    id: 11738490,
+    name: '@火靈天星衍生物',
+    nameEn: '@Ignister Token',
+    desc: '「電子界到臨者@火靈天星」的效果特殊召喚的衍生物。',
+    type: 0x4011,
+    atk: 0,
+    def: 0,
+    level: 1,
+    race: 0x1000000,
+    attribute: 0x20,
+  },
+  {
+    id: 645088,
+    name: '工具衍生物',
+    nameEn: 'Gadget Token',
+    desc: '「電子界工具」的效果特殊召喚的衍生物。',
+    type: 0x4011,
+    atk: 0,
+    def: 0,
+    level: 2,
+    race: 0x1000000,
+    attribute: 0x10,
+  },
+  {
     id: 73915052,
     name: '羊衍生物',
     nameEn: 'Sheep Token',

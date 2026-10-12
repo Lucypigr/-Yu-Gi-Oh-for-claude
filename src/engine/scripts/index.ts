@@ -13,6 +13,9 @@ import './gx';
 import './dm';
 import './gods';
 import './classic';
+import './arcv';
+import './vrains';
+import './ignister';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

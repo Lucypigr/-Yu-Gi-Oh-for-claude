@@ -355,6 +355,14 @@ const THEME_NAMES: Record<string, string> = {
   pharaoh: '三幻神',
   pegasus: '千眼納祭神',
   chaos: '混沌禁卡',
+  phantom: '幻影騎士團',
+  raidraptor: '急襲猛禽',
+  speedroid: '疾行機人',
+  predaplant: '捕食植物',
+  salamangreat: '轉生炎獸',
+  trickstar: '淘氣仙星',
+  rokket: '彈丸龍・槍管龍',
+  ignister: '@火靈天星',
 };
 
 function themeDecks(): ThemeDeck[] {

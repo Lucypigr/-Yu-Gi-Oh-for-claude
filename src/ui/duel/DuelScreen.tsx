@@ -82,6 +82,10 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
   /** 窄螢幕沒有側邊詳細欄，用對話框顯示 */
   const [popupDetail, setPopupDetail] = useState<Card | null>(null);
   const narrow = () => typeof window !== 'undefined' && window.innerWidth <= 1100;
+  /** 暫時收起對話框查看場地（記錄是哪一次請求，換下一個請求時自動恢復） */
+  const [peekSeq, setPeekSeq] = useState(-1);
+  /** 選擇卡片的對話框：已選的卡（也可以直接點場上的卡） */
+  const [selState, setSelState] = useState<{ seq: number; cards: Card[] }>({ seq: -1, cards: [] });
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,6 +159,22 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
     return m;
   }, [req]);
 
+  const seq = human?.seq ?? 0;
+  const peeking = !!req && req.kind !== 'main' && req.kind !== 'battle' && peekSeq === seq;
+  const peek = { on: peeking, toggle: () => setPeekSeq(peeking ? -1 : seq) };
+  const selectReq = req?.kind === 'select' ? req : null;
+  const sel = selectReq && selState.seq === seq ? selState.cards : [];
+  const toggleSel = (c: Card) => {
+    if (!selectReq || !selectReq.prompt.cards.includes(c)) return;
+    const { max } = selectReq.prompt;
+    let next: Card[];
+    if (sel.includes(c)) next = sel.filter((x) => x !== c);
+    else if (max === 1) next = [c];
+    else if (sel.length < max) next = [...sel, c];
+    else return;
+    setSelState({ seq, cards: next });
+  };
+
   const attackOptions = req?.kind === 'battle' ? req.options : [];
   const attackerOpt = attacker ? attackOptions.find((o) => o.attacker === attacker) : undefined;
 
@@ -162,6 +182,11 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
 
   const me = duel.p(ME);
   const opp = duel.p(OPP);
+  // 連鎖上的卡與它們的對象
+  const chainNo = new Map<Card, number>();
+  duel.chain.forEach((l, i) => chainNo.set(l.card, i + 1));
+  const targeted = new Set<Card>(duel.chain.flatMap((l) => duel.targetsOf(l.ctx)));
+  const activating = duel.activating;
 
   const doMain = (a: MainAction) => {
     if (req?.kind === 'main') {
@@ -174,7 +199,10 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
     const visible = c.faceUp || (c.controller === ME && c.location !== 'deck');
     if (visible) setDetail(c);
     let handled = false;
-    if (req?.kind === 'main') {
+    if (selectReq && selectReq.prompt.cards.includes(c)) {
+      toggleSel(c);
+      handled = true;
+    } else if (req?.kind === 'main') {
       if (actionsByCard.has(c)) {
         setMenuCard(menuCard === c ? null : c);
         handled = true;
@@ -212,6 +240,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
     const inChain = duel.chain.some((l) => l.card === c);
     const resolving = duel.resolvingLink?.card === c;
     const battling = duel.battle && (duel.battle.attacker === c || duel.battle.target === c);
+    const pickable = !!selectReq && selectReq.prompt.cards.includes(c);
     const cls = [
       'zone',
       zoneClass,
@@ -223,6 +252,10 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
       inChain ? 'in-chain' : '',
       resolving ? 'resolving' : '',
       battling ? 'battling' : '',
+      activating?.card === c ? 'activating' : '',
+      targeted.has(c) ? 'chain-target' : '',
+      pickable ? 'pickable' : '',
+      sel.includes(c) ? 'picked' : '',
     ].join(' ');
     const showFace = c.faceUp || mine;
     return (
@@ -245,6 +278,9 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         )}
         {c.counters > 0 && c.location === 'mzone' && <span className="badge counter-badge">● {c.counters}</span>}
         {c.equipTarget && <span className="badge equip-badge">裝備</span>}
+        {inChain && <span className="badge chain-badge">連鎖 {chainNo.get(c)}</span>}
+        {targeted.has(c) && <span className="badge target-badge">🎯 對象</span>}
+        {sel.includes(c) && <span className="chosen-mark">{sel.indexOf(c) + 1}</span>}
         {menuCard === c && actionable && (
           <div className="action-menu" onClick={(e) => e.stopPropagation()}>
             {actionsByCard.get(c)!.map((a, i) => (
@@ -352,6 +388,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
               {duel.equipsOf(detail).length > 0 && <div>裝備：{duel.equipsOf(detail).map((e) => e.name).join('、')}</div>}
               {detail.equipTarget && <div>裝備對象：{detail.equipTarget.name}</div>}
               {detail.negated && <div className="warn">效果無效中</div>}
+              {detail.location === 'mzone' && duel.hasFlag(detail, 'predator') && <div className="warn">有捕食指示物（2 星以上的等級變成 1 星）</div>}
               {duel.isNegated(detail) && !detail.negated && <div className="warn">效果直到回合結束時無效</div>}
             </div>
           </CardDetail>
@@ -453,14 +490,16 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         <div className="my-hand">
           {me.hand.map((c) => {
             const actionable = req?.kind === 'main' && actionsByCard.has(c);
+            const pickable = !!selectReq && selectReq.prompt.cards.includes(c);
             return (
               <div
                 key={c.uid}
-                className={`hand-card ${actionable ? 'actionable' : ''} ${menuCard === c ? 'selected' : ''}`}
+                className={`hand-card ${actionable ? 'actionable' : ''} ${menuCard === c ? 'selected' : ''} ${pickable ? 'pickable' : ''} ${sel.includes(c) ? 'picked' : ''} ${activating?.card === c ? 'activating' : ''}`}
                 onClick={() => clickCard(c)}
                 onMouseEnter={() => setDetail(c)}
               >
                 <CardView data={c.data} size="sm" />
+                {sel.includes(c) && <span className="chosen-mark">{sel.indexOf(c) + 1}</span>}
                 {menuCard === c && actionable && (
                   <div className="action-menu up" onClick={(e) => e.stopPropagation()}>
                     {actionsByCard.get(c)!.map((a, i) => (
@@ -484,8 +523,27 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
                 <span className="chain-no">連鎖 {i + 1}</span>
                 <span>{l.card.name}</span>
                 <span className="chain-owner">{l.player === ME ? '你' : '對方'}</span>
+                {duel.targetsOf(l.ctx).length > 0 && (
+                  <span className="chain-targets">
+                    → {duel.targetsOf(l.ctx).map((t) => (t.faceUp || t.location !== 'mzone' ? t.name : '裡側怪獸')).join('、')}
+                  </span>
+                )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 發動演出：讓玩家清楚看到誰發動了哪張卡 */}
+        {activating && (
+          <div key={`${activating.card.uid}-${duel.logs.length}`} className={`activate-banner ${activating.player === ME ? 'me' : 'opp'}`}>
+            <CardView data={activating.card.data} size="md" />
+            <div className="activate-text">
+              <div className="activate-who">{activating.player === ME ? '你' : opp.name}</div>
+              <div className="activate-what">發動{activating.isCardActivation ? '' : '效果'}！</div>
+              <div className="activate-name">「{activating.card.name}」</div>
+              {!activating.isCardActivation && activating.label && <div className="activate-label">{activating.label}</div>}
+              {duel.chain.length > 0 && <div className="activate-chain">連鎖 {duel.chain.length + 1}</div>}
+            </div>
           </div>
         )}
       </main>
@@ -493,7 +551,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
       {/* 右側：記錄 */}
       <aside className="duel-log" ref={logRef}>
         {duel.logs.slice(-120).map((l, i) => (
-          <div key={i} className={`log-line ${l.player === ME ? 'me' : l.player === OPP ? 'opp' : ''}`}>
+          <div key={i} className={`log-line ${l.player === ME ? 'me' : l.player === OPP ? 'opp' : ''} ${l.text.includes(' 發動「') ? 'activate' : ''}`}>
             {l.text}
           </div>
         ))}
@@ -501,7 +559,8 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
 
       {/* ---- 對話框 ---- */}
       {req?.kind === 'response' && (
-        <Modal title={responseTitle(duel, req)}>
+        <Modal title={responseTitle(duel, req)} peek={peek}>
+          <ResponseContext duel={duel} onHover={setDetail} />
           <div className="option-cards">
             {req.options.map((o, i) => (
               <div key={i} className="option-card" onMouseEnter={() => setDetail(o.card)}>
@@ -520,10 +579,10 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         </Modal>
       )}
 
-      {req?.kind === 'select' && <SelectModal key={human?.seq} req={req} onHover={setDetail} />}
+      {req?.kind === 'select' && <SelectModal req={req} sel={sel} toggle={toggleSel} onHover={setDetail} peek={peek} />}
 
       {req?.kind === 'option' && (
-        <Modal title={req.prompt.title}>
+        <Modal title={req.prompt.title} peek={peek}>
           {req.prompt.card && (
             <div className="modal-card">
               <CardView data={req.prompt.card.data} size="sm" />
@@ -540,7 +599,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
       )}
 
       {req?.kind === 'confirm' && (
-        <Modal title={req.prompt.title}>
+        <Modal title={req.prompt.title} peek={peek}>
           {req.prompt.card && (
             <div className="modal-card">
               <CardView data={req.prompt.card.data} size="md" />
@@ -681,12 +740,46 @@ function responseTitle(duel: Duel, req: Extract<HumanRequest, { kind: 'response'
   }
 }
 
-export function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose?: () => void }) {
+interface Peek {
+  on: boolean;
+  toggle: () => void;
+}
+
+export function Modal({
+  title,
+  children,
+  onClose,
+  peek,
+  peekExtra,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose?: () => void;
+  /** 可以暫時收起對話框查看場地 */
+  peek?: Peek;
+  /** 收起時顯示在浮動列上的內容 */
+  peekExtra?: React.ReactNode;
+}) {
+  if (peek?.on)
+    return (
+      <div className="peek-bar">
+        <span className="peek-title">{title}</span>
+        {peekExtra}
+        <button className="btn primary small" onClick={peek.toggle}>
+          返回選擇
+        </button>
+      </div>
+    );
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">
           <span>{title}</span>
+          {peek && (
+            <button className="peek-btn" onClick={peek.toggle} title="收起視窗，查看場上狀況">
+              👁 查看場地
+            </button>
+          )}
           {onClose && (
             <button className="close-btn" onClick={onClose}>
               ✕
@@ -699,18 +792,41 @@ export function Modal({ title, children, onClose }: { title: string; children: R
   );
 }
 
-function SelectModal({ req, onHover }: { req: Extract<HumanRequest, { kind: 'select' }>; onHover: (c: Card) => void }) {
+function SelectModal({
+  req,
+  sel,
+  toggle,
+  onHover,
+  peek,
+}: {
+  req: Extract<HumanRequest, { kind: 'select' }>;
+  sel: Card[];
+  toggle: (c: Card) => void;
+  onHover: (c: Card) => void;
+  peek: Peek;
+}) {
   const { prompt } = req;
-  const [sel, setSel] = useState<Card[]>([]);
   const valid = sel.length >= prompt.min && sel.length <= prompt.max && (!prompt.validate || prompt.validate(sel));
-  const toggle = (c: Card) => {
-    if (sel.includes(c)) setSel(sel.filter((x) => x !== c));
-    else if (prompt.max === 1) setSel([c]);
-    else if (sel.length < prompt.max) setSel([...sel, c]);
-  };
   const range = prompt.min === prompt.max ? `${prompt.min}` : `${prompt.min}～${prompt.max}`;
+  const confirm = (
+    <button className="btn primary" disabled={!valid} onClick={() => req.resolve(sel)}>
+      確定
+    </button>
+  );
+  const onField = prompt.cards.some((c) => c.onField || c.location === 'hand');
   return (
-    <Modal title={`${prompt.title}（選 ${range} 張）`}>
+    <Modal
+      title={`${prompt.title}（選 ${range} 張）`}
+      peek={peek}
+      peekExtra={
+        <>
+          <span className="hint">
+            {onField ? '可以直接點場上發光的卡來選擇' : ''} 已選 {sel.length} 張
+          </span>
+          {confirm}
+        </>
+      }
+    >
       <div className="pile-grid select-grid">
         {prompt.cards.map((c) => {
           const hidden = c.onField && !c.faceUp && c.controller !== ME;
@@ -731,11 +847,41 @@ function SelectModal({ req, onHover }: { req: Extract<HumanRequest, { kind: 'sel
       </div>
       <div className="modal-actions">
         <span className="hint">已選 {sel.length} 張</span>
-        <button className="btn primary" disabled={!valid} onClick={() => req.resolve(sel)}>
-          確定
-        </button>
+        {confirm}
       </div>
     </Modal>
   );
 }
 
+/** 連鎖回應時顯示目前的連鎖與對象，方便判斷要不要連鎖 */
+function ResponseContext({ duel, onHover }: { duel: Duel; onHover: (c: Card) => void }) {
+  if (!duel.chain.length) return null;
+  return (
+    <div className="response-context">
+      {[...duel.chain].reverse().map((l, i) => {
+        const targets = duel.targetsOf(l.ctx);
+        return (
+          <div key={i} className={`response-link ${l.player === ME ? 'me' : 'opp'}`} onMouseEnter={() => onHover(l.card)}>
+            <CardView data={l.card.data} size="xs" />
+            <div>
+              <div>
+                <b>連鎖 {duel.chain.length - i}</b>：{l.player === ME ? '你' : '對方'}發動「{l.card.name}」
+              </div>
+              {targets.length > 0 && (
+                <div className="hint">
+                  對象：
+                  {targets
+                    .map(
+                      (t) =>
+                        `${(t.onField ? t.controller : t.owner) === ME ? '你的' : '對方的'}「${t.faceUp || t.location !== 'mzone' ? t.name : '裡側怪獸'}」`,
+                    )
+                    .join('、')}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

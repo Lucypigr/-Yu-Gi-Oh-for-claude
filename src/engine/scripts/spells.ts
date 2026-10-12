@@ -309,7 +309,7 @@ def(24094653, {
         const f = await d.selectOne({ player: ctx.player, title: '選擇要融合召喚的融合怪獸', cards: cands, hint: 'benefit' });
         if (!f) return;
         const conds = getScript(f.id).fusion!;
-        const usable = pool.filter((c) => conds.some((cond) => cond(c.data)));
+        const usable = pool.filter((c) => conds.some((cond) => cond(c.data, c)));
         let mats = await d.select({
           player: ctx.player,
           title: `選擇「${f.name}」的融合素材`,
@@ -325,7 +325,13 @@ def(24094653, {
         for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
         const pos = await d.choosePosition(ctx.player, f);
-        d.specialSummon(f, ctx.player, { position: pos, summonType: 'fusion', by: ctx.card });
+        // 召喚成功時的誘發效果會看素材與「轉生」，要在特殊召喚之前記錄
+        f.summonMaterials = mats;
+        f.reincarnated = mats.some((m) => m.id === f.id);
+        if (!d.specialSummon(f, ctx.player, { position: pos, summonType: 'fusion', by: ctx.card })) {
+          f.summonMaterials = [];
+          f.reincarnated = false;
+        }
       },
       ai: (ctx) => {
         const d = ctx.duel;

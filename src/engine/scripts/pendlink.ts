@@ -731,7 +731,8 @@ link(59859086, { min: 2, max: 2, filter: isCyberse }, [
       await chooseTargets(ctx, ctx.duel.p(ctx.player).grave.filter((c) => isCyberse(c) && !isExtraDeckCard(c.data)), {
         title: '選擇電子界族怪獸',
         hint: 'benefit',
-      });
+      });      // 這個效果的發動後，直到回合結束時自己不是電子界族怪獸不能特殊召喚
+      ctx.duel.addSummonLock(ctx.player, { kinds: ['special'], allow: isCyberse });
     },
     operation: async (ctx) => {
       const t = tgt(ctx);

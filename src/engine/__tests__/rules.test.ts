@@ -962,3 +962,435 @@ describe('第九彈：初代經典補完', () => {
     expect(duel.monsters(1).length).toBe(0);
   });
 });
+
+describe('第十彈：ARC-V 四天龍', () => {
+  /** 給超量怪獸加上超量素材 */
+  const attach = (duel: Duel, xyz: Card, ids: number[]) => {
+    for (const id of ids) {
+      const m = new Card(getCard(id), xyz.controller);
+      m.location = 'overlay';
+      xyz.overlays.push(m);
+    }
+    duel.update();
+  };
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const acts = duel.getActivatable(p).filter((x) => x.card === card);
+    const act = acts[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('暗叛逆超量龍：取除 2 個素材，對方怪獸攻擊力減半並吸收', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dr = put(duel, 0, 16195942, 'mzone');
+    attach(duel, dr, [FILLER, FILLER]);
+    const bewd = put(duel, 1, 89631139, 'mzone');
+    await activateMain(duel, 0, dr);
+    expect(duel.getAtk(bewd)).toBe(1500);
+    expect(duel.getAtk(dr)).toBe(4000);
+    expect(dr.overlays.length).toBe(0);
+  });
+
+  it('升階魔法－幻影騎士團的出擊：沒有素材的暗叛逆升階成暗鎮魂，並取得無效效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dr = put(duel, 0, 16195942, 'mzone');
+    const req = put(duel, 0, 1621413, 'extra');
+    const launch = put(duel, 0, 3298689, 'hand');
+    await activateMain(duel, 0, launch);
+    expect(req.location).toBe('mzone');
+    expect(req.summonType).toBe('xyz');
+    expect(req.overlays).toContain(dr);
+    expect(req.overlays).toContain(launch);
+    // 有「暗叛逆超量龍」作為素材：可以發動攻擊力變成 0 的效果
+    put(duel, 1, 89631139, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === req)).toBe(true);
+  });
+
+  it('幻透翼同調龍：無效 5 星以上怪獸的效果並破壞，攻擊力上升那個原本攻擊力', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [82044279];
+    const cw = put(duel, 0, 82044279, 'mzone');
+    const chimera = put(duel, 1, 25586143, 'mzone'); // 7 星
+    await activateMain(duel, 1, chimera);
+    expect(chimera.location).toBe('grave');
+    expect(cw.location).toBe('mzone');
+    expect(duel.getAtk(cw)).toBe(2500 + 2500);
+  });
+
+  it('凶飢毒融合龍：只能用場上的暗屬性怪獸作為融合素材', () => {
+    const { duel } = setup();
+    put(duel, 0, 41209827, 'extra');
+    const poly = put(duel, 0, 24094653, 'hand');
+    put(duel, 0, 36426778, 'hand');
+    put(duel, 0, 63821877, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === poly)).toBe(false);
+    put(duel, 0, 99315585, 'mzone');
+    put(duel, 0, 36704180, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === poly)).toBe(true);
+  });
+
+  it('捕食植物 蒼蠅地獄草：放置捕食指示物後，對方 2 星以上的怪獸等級變成 1 星', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const fly = put(duel, 0, 96622984, 'mzone');
+    const bewd = put(duel, 1, 89631139, 'mzone');
+    expect(duel.getLevel(bewd)).toBe(8);
+    await activateMain(duel, 0, fly);
+    expect(duel.getLevel(bewd)).toBe(1);
+  });
+
+  it('幻影騎士團 破洞鱗甲：墓地的「幻影騎士團」被除外時特殊召喚，離場時除外', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const scales = put(duel, 0, 25538345, 'grave');
+    const boots = put(duel, 0, 36426778, 'grave');
+    const blade = put(duel, 0, 25542642, 'deck');
+    await activateMain(duel, 0, boots); // 除外無聲靴：把「幻影」魔法・陷阱加入手牌
+    expect(boots.location).toBe('banished');
+    expect(blade.location).toBe('hand');
+    expect(scales.location).toBe('mzone');
+    duel.destroy([scales], 'effect');
+    expect(scales.location).toBe('banished');
+  });
+
+  it('幻影霧劍：對象怪獸效果無效、不能攻擊；對象離場時霧劍破壞', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const fog = put(duel, 0, 25542642, 'szone', { faceUp: false });
+    const foe = put(duel, 1, 16195942, 'mzone');
+    await activateMain(duel, 0, fog);
+    expect(fog.location).toBe('szone');
+    expect(duel.isNegated(foe)).toBe(true);
+    expect(duel.has(foe, 'cannotAttack')).toBe(true);
+    duel.destroy([foe], 'effect');
+    expect(fog.location).toBe('grave');
+  });
+});
+
+describe('第十彈：和原卡一致的規則', () => {
+  const attach = (duel: Duel, xyz: Card, ids: number[]) => {
+    for (const id of ids) {
+      const m = new Card(getCard(id), xyz.controller);
+      m.location = 'overlay';
+      xyz.overlays.push(m);
+    }
+  };
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('竹蜻蜓電子人：發動後只能特殊召喚風屬性怪獸，自己 1 回合只能特殊召喚 1 次', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const take = put(duel, 0, 53932291, 'mzone');
+    take.summonType = 'special';
+    duel.p(0).summonedThisTurn.push({ card: take, kind: 'special' });
+    put(duel, 0, 16725505, 'deck'); // 赤目骰子（風・調整）
+    await activateMain(duel, 0, take);
+    const dark = put(duel, 0, 16195942, 'extra');
+    expect(duel.specialSummon(dark, 0, { summonType: 'xyz' })).toBe(false);
+    const take2 = put(duel, 0, 53932291, 'grave');
+    expect(duel.specialSummon(take2, 0)).toBe(false);
+  });
+
+  it('模糊伯勞：這回合特殊召喚過「急襲猛禽」以外的怪獸時不能發動', () => {
+    const { duel } = setup();
+    put(duel, 0, 53251824, 'mzone');
+    const fuzzy = put(duel, 0, 5929801, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === fuzzy)).toBe(true);
+    const other = put(duel, 0, 82044279, 'extra');
+    duel.specialSummon(other, 0, { summonType: 'synchro' });
+    expect(duel.getActivatable(0).some((x) => x.card === fuzzy)).toBe(false);
+  });
+
+  it('起翼獵鷹：可以向對方特殊召喚的怪獸全部各攻擊 1 次', async () => {
+    const { duel } = setup();
+    const rise = put(duel, 0, 73887236, 'mzone');
+    const m1 = put(duel, 1, FILLER, 'mzone');
+    const m2 = put(duel, 1, FILLER, 'mzone');
+    const m3 = put(duel, 1, FILLER, 'mzone');
+    m1.summonType = 'special';
+    m2.summonType = 'special';
+    m3.summonType = 'normal';
+    duel.addMod(rise, { atk: 3000, until: 'permanent' });
+    await duel.performAttack(rise, m1);
+    let opt = duel.getAttackOptions(0).find((o) => o.attacker === rise);
+    expect(opt?.targets).toEqual([m2]);
+    await duel.performAttack(rise, m2);
+    opt = duel.getAttackOptions(0).find((o) => o.attacker === rise);
+    expect(opt).toBeUndefined();
+  });
+
+  it('凶飢毒融合龍：直到結束階段得到對方 5 星以上怪獸的卡名和效果（超量怪獸沒有等級，不能選）', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const sv = put(duel, 0, 41209827, 'mzone');
+    put(duel, 1, 16195942, 'mzone'); // 暗叛逆（階級 4）
+    expect(duel.getActivatable(0).some((x) => x.card === sv)).toBe(false);
+    put(duel, 1, 25586143, 'mzone'); // 奇美拉大花草（7 星）
+    await activateMain(duel, 0, sv);
+    expect(sv.name).toBe(getCard(25586143).name);
+    // 得到「除外等級在這張卡以下的怪獸」的效果
+    expect(duel.effectsOf(sv)!.length).toBe(3 + 3); // 自己的 3 個效果＋奇美拉大花草的 3 個效果
+  });
+
+  it('陰暗布面甲：墓地沒有陷阱卡時蓋放的回合也能發動，變成怪獸；離場時變回陷阱卡', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const sb = put(duel, 0, 98827725, 'szone', { faceUp: false });
+    sb.turnPlaced = duel.turn;
+    await activateMain(duel, 0, sb);
+    expect(sb.location).toBe('mzone');
+    expect(sb.position).toBe('def');
+    expect(duel.getDef(sb)).toBe(300);
+    duel.destroy([sb], 'effect');
+    expect(sb.location).toBe('grave');
+    expect(sb.data.type & 0x4).toBeTruthy();
+  });
+
+  it('暗影焰劍蒼騎：對方直接攻擊時從墓地變成怪獸守備表示特殊召喚', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [77462146];
+    const veil = put(duel, 0, 77462146, 'grave');
+    const atk = put(duel, 1, 89631139, 'mzone');
+    await safe(() => duel.performAttack(atk, null));
+    expect(veil.location).toBe('mzone');
+    expect(duel.p(0).lp).toBe(8000);
+  });
+
+  it('沾塵袍：①②的效果同 1 回合各能使用 1 次', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const cloak = put(duel, 0, 90432163, 'mzone');
+    put(duel, 0, 36426778, 'deck');
+    const cloak2 = put(duel, 0, 90432163, 'grave');
+    await activateMain(duel, 0, cloak);
+    expect(cloak.position).toBe('def');
+    expect(duel.getActivatable(0).some((x) => x.card === cloak2)).toBe(true);
+  });
+
+  it('起翼升階魔法－急襲猛禽之力：用場上和墓地的「急襲猛禽」超量怪獸超量召喚階級合計的怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const rise = put(duel, 0, 73887236, 'mzone');
+    attach(duel, rise, [FILLER]);
+    const strix = put(duel, 0, 73347079, 'grave');
+    const cannon = put(duel, 0, 23603403, 'extra');
+    const force = put(duel, 0, 38044854, 'hand');
+    await activateMain(duel, 0, force);
+    expect(cannon.location).toBe('mzone');
+    expect(cannon.overlays).toContain(rise);
+    expect(cannon.overlays).toContain(strix);
+    expect(cannon.overlays.length).toBe(3);
+  });
+
+  it('衛星炮獵鷹：用「急襲猛禽」超量召喚時破壞對方全部魔法・陷阱，對方不能對應', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [44095762];
+    const s1 = put(duel, 1, 44095762, 'szone', { faceUp: false }); // 神聖防護罩
+    const s2 = put(duel, 1, 5318639, 'szone', { faceUp: false });
+    const rise = put(duel, 0, 73887236, 'mzone');
+    const strix = put(duel, 0, 73347079, 'grave');
+    put(duel, 0, 23603403, 'extra');
+    const force = put(duel, 0, 38044854, 'hand');
+    await activateMain(duel, 0, force);
+    expect(s1.location).toBe('grave');
+    expect(s2.location).toBe('grave');
+    expect(rise.location).toBe('overlay');
+    expect(strix.location).toBe('overlay');
+  });
+});
+
+describe('第十一彈：VRAINS', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('轉生炎獸的聖域：只用 1 隻同名連結怪獸轉生連結召喚，觸發「轉生」的效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 1295111, 'szone'); // 聖域（放到場地區）
+    const sanctuary = duel.p(0).szone.find((c) => c?.id === 1295111)!;
+    duel.moveTo(sanctuary, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const wolf = put(duel, 0, 87871125, 'mzone');
+    duel.p(0).mzone[wolf.zone] = null;
+    duel.p(0).mzone[5] = wolf;
+    wolf.zone = 5;
+    const wolf2 = put(duel, 0, 87871125, 'extra');
+    const circle = put(duel, 0, 52155219, 'grave');
+    const act = duel.getMainActions(0).find((a) => a.type === 'link' && a.card === wolf2);
+    expect(act, '可以轉生連結召喚').toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(wolf2.location).toBe('mzone');
+    expect(wolf2.reincarnated).toBe(true);
+    expect(circle.location).toBe('hand'); // 日光狼②：把墓地的「轉生炎獸」魔法・陷阱加入手牌
+    // 聖域的轉生連結 1 回合 1 次
+    const wolf3 = put(duel, 0, 87871125, 'extra');
+    expect(duel.getMainActions(0).some((a) => a.type === 'link' && a.card === wolf3)).toBe(false);
+  });
+
+  it('轉生炎獸的咆哮：有「轉生炎獸」連結怪獸時，無效怪獸效果的發動並破壞', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [51339637];
+    put(duel, 0, 41463181, 'mzone'); // 熾熱多頭獅
+    const roar = put(duel, 0, 51339637, 'szone', { faceUp: false });
+    const dr = put(duel, 1, 16195942, 'mzone');
+    for (let i = 0; i < 2; i++) {
+      const m = new Card(getCard(FILLER), 1);
+      m.location = 'overlay';
+      dr.overlays.push(m);
+    }
+    put(duel, 0, FILLER, 'mzone');
+    await activateMain(duel, 1, dr);
+    expect(roar.location).toBe('grave');
+    expect(dr.location).toBe('grave');
+  });
+
+  it('淘氣仙星・坎迪娜與曼珠詩華：對方發動魔法・陷阱、抽卡時給予傷害', async () => {
+    const { duel } = setup();
+    const pot = put(duel, 1, 55144522, 'hand');
+    put(duel, 0, 61283655, 'mzone');
+    put(duel, 0, 35199656, 'mzone');
+    duel.draw(1, 2);
+    expect(duel.p(1).lp).toBe(8000 - 400);
+    duel.turnPlayer = 1;
+    await activateMain(duel, 1, pot);
+    // 坎迪娜 200 ＋ 抽 2 張 400
+    expect(duel.p(1).lp).toBe(8000 - 400 - 200 - 400);
+  });
+
+  it('馬格努姆彈丸龍：成為連結怪獸效果的對象時破壞自己，把場上 1 隻怪獸送去墓地', async () => {
+    const { duel, b } = setup();
+    duel.turnPlayer = 1;
+    b.respondWith = [];
+    const { a } = { a: (duel as any).controllers[0] as TestAI };
+    a.respondWith = [26655293];
+    const magna = put(duel, 0, 26655293, 'mzone');
+    const heat = put(duel, 1, 41463181, 'mzone');
+    heat.reincarnated = true;
+    put(duel, 1, FILLER, 'grave');
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await activateMain(duel, 1, heat);
+    expect(magna.location).toBe('grave');
+    expect(foe.location).toBe('grave');
+  });
+
+  it('轉生炎獸 獨角兔：解放讓怪獸這回合不會被對方的效果破壞', () => {
+    const { duel } = setup();
+    const m = put(duel, 0, 89631139, 'mzone');
+    duel.setFlag(m, 'oppEffectIndestructible');
+    const raigeki = put(duel, 1, 12580477, 'grave');
+    expect(duel.destroy([m], 'effect', raigeki).length).toBe(0);
+    expect(duel.destroy([m], 'effect', m).length).toBe(1);
+  });
+
+  it('轉生炎獸 蜃景雄馬：發動後這回合不能發動炎屬性以外的怪獸效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const mirage = put(duel, 0, 87327776, 'mzone');
+    const m = new Card(getCard(FILLER), 0);
+    m.location = 'overlay';
+    mirage.overlays.push(m);
+    put(duel, 0, 26889158, 'deck');
+    const dr = put(duel, 0, 16195942, 'mzone');
+    const m2 = new Card(getCard(FILLER), 0);
+    m2.location = 'overlay';
+    dr.overlays.push(m2, new Card(getCard(FILLER), 0));
+    put(duel, 1, 89631139, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === dr)).toBe(true);
+    await activateMain(duel, 0, mirage);
+    expect(duel.getActivatable(0).some((x) => x.card === dr)).toBe(false);
+  });
+
+  it('裝彈槍管龍：攻擊時得到對方怪獸的控制權，下個回合的結束階段送去墓地', async () => {
+    const { duel } = setup();
+    const bl = put(duel, 0, 31833038, 'mzone');
+    duel.p(0).mzone[bl.zone] = null;
+    duel.p(0).mzone[5] = bl;
+    bl.zone = 5;
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await safe(() => duel.performAttack(bl, foe));
+    expect(foe.controller).toBe(0);
+    expect(duel.delayed.length).toBe(1);
+    expect(duel.delayed[0].turn).toBe(duel.turn + 1);
+  });
+});
+
+describe('第十二彈：@火靈天星', () => {
+
+  it('傷害計算時的誘發效果會發動（水海龍@火靈天星：對方怪獸攻擊力只在傷害計算時變成一半）', async () => {
+    const { duel } = setup();
+    const lev = put(duel, 0, 37061511, 'mzone'); // 2300
+    const bewd = put(duel, 1, 89631139, 'mzone'); // 3000 → 1500
+    await safe(() => duel.performAttack(lev, bewd));
+    expect(bewd.location).toBe('grave');
+    expect(duel.p(1).lp).toBe(8000 - 800);
+  });
+
+  it('牢牢妖@火靈天星：自己的電子界族怪獸 1 回合各 1 次不會被效果破壞', () => {
+    const { duel } = setup();
+    put(duel, 0, 82257671, 'mzone');
+    const m = put(duel, 0, 15808381, 'mzone');
+    expect(duel.destroy([m], 'effect').length).toBe(0);
+    expect(m.location).toBe('mzone');
+    expect(duel.destroy([m], 'effect').length).toBe(1);
+  });
+
+  it('電子界到臨者@火靈天星：原本攻擊力是素材數量×1000，不受其他卡的效果影響', async () => {
+    const { duel } = setup();
+    // 連結 6：日光狼（炎・連結 2）＋轉碼語者（地・連結 3）＋連接栗子球（暗・連結 1）
+    for (const id of [87871125, 46947713, 41999284]) put(duel, 0, id, 'mzone');
+    const arrival = put(duel, 0, 11738489, 'extra');
+    const act = duel.getMainActions(0).find((a) => a.type === 'link' && a.card === arrival);
+    expect(act).toBeTruthy();
+    await safe(() => duel.performMainAction(0, act!));
+    expect(arrival.location).toBe('mzone');
+    expect(duel.getAtk(arrival)).toBe(3000);
+    expect(arrival.data.atk).toBe(3000);
+    const raigeki = put(duel, 1, 12580477, 'grave');
+    expect(duel.destroy([arrival], 'effect', raigeki).length).toBe(0);
+    // 離場時原本攻擊力還原
+    duel.destroy([arrival], 'rule' as any);
+    expect(arrival.data.atk).toBe(0);
+  });
+
+  it('「艾」思考-I·Q：雙方 1 回合只能有 1 次連結召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 69381150, 'szone', { faceUp: true });
+    put(duel, 0, 15808381, 'mzone');
+    put(duel, 0, 16020923, 'mzone');
+    put(duel, 0, 77637979, 'extra'); // LAN喙嘴龍（怪獸 2 隻）
+    expect(duel.getMainActions(0).some((a) => a.type === 'link')).toBe(true);
+    duel.p(0).turnFlags.linkSummoned = true;
+    expect(duel.getMainActions(0).some((a) => a.type === 'link')).toBe(false);
+  });
+
+  it('光龍王@火靈天星：自己的怪獸被效果破壞時取除超量素材代替', () => {
+    const { duel } = setup();
+    const ld = put(duel, 0, 61399402, 'mzone');
+    const m = new Card(getCard(FILLER), 0);
+    m.location = 'overlay';
+    ld.overlays.push(m);
+    const mon = put(duel, 0, 89631139, 'mzone');
+    expect(duel.destroy([mon], 'effect').length).toBe(0);
+    expect(mon.location).toBe('mzone');
+    expect(ld.overlays.length).toBe(0);
+  });
+
+  it('陰雲栗仔球@火靈天星：效果給予對方的傷害變成 2 倍', () => {
+    const { duel } = setup();
+    const src = put(duel, 0, 24882256, 'mzone');
+    duel.doubleDamageFrom.push(src);
+    duel.damage(1, 1000, 'effect', src);
+    expect(duel.p(1).lp).toBe(6000);
+  });
+});

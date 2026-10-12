@@ -56,6 +56,7 @@ export type EventType =
   | 'endPhase'
   | 'battlePhaseEnd'
   | 'activated'
+  | 'drawn' // 抽卡（cards：抽到的卡）
   | 'placedAsSpell'; // 怪獸卡當作永續魔法放到魔法・陷阱區域
 
 export interface GameEvent {
@@ -66,6 +67,8 @@ export interface GameEvent {
   reason?: Reason;
   /** 移動前所在位置 */
   from?: Loc;
+  /** 移動前所在的格子（怪獸區・魔陷區） */
+  fromZone?: number;
   /** 移動前的控制者 */
   prevController?: PlayerId;
   /** 移動前是否表側 */
@@ -127,6 +130,13 @@ export type Query =
   | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
+  | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象
+  | 'untargetableByOpp' // 對方不能作為效果的對象
+  | 'immuneMonsters' // 不受自身以外的怪獸的效果影響
+  | 'oppEffectIndestructible' // 不會被對方的效果破壞
+  | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
+  | 'immuneOpp' // 不受對方的效果影響
+  | 'oneLinkSummonPerTurn' // 1 回合只能有 1 次連結召喚（全域，player 為被限制方）
   | 'immuneAll'; // 不受其他卡的效果影響
 
 export interface StatMod {
@@ -155,8 +165,13 @@ export interface EffectDef {
   event?: EventType | EventType[];
   /** 必發的誘發效果 */
   mandatory?: boolean;
-  /** 1 回合 1 次：'turn' = 這張卡；'name' = 同名卡共用 */
-  once?: 'turn' | 'name';
+  /**
+   * 1 回合 1 次：'turn' = 這張卡；'name' = 同名卡共用（每個效果分開計算，「①②的效果1回合各能使用1次」）；
+   * 'nameShared' = 同名卡的多個效果共用 1 次（「①②的效果1回合只能有1次使用其中任意1個」）
+   */
+  once?: 'turn' | 'name' | 'nameShared';
+  /** 陷阱卡在蓋放的回合也能發動的條件 */
+  setTurnActivation?: (duel: Duel, card: Card, p: PlayerId) => boolean;
   /** 可在傷害步驟發動 */
   damageStep?: boolean;
   categories?: Category[];
@@ -165,6 +180,8 @@ export interface EffectDef {
   target?: (ctx: EffectContext) => Promise<void>;
   operation?: (ctx: EffectContext) => Promise<void>;
   // ---- 永續效果 ----
+  /** 永續效果：每次發生事件時處理（「每次…給予對方 200 傷害」，不用發動） */
+  onEvent?: (duel: Duel, self: Card, ev: GameEvent) => void;
   statMod?: (duel: Duel, self: Card, target: Card) => { atk?: number; def?: number } | null | undefined;
   query?: (duel: Duel, self: Card, q: Query, target: Card | null, player: PlayerId | null) => boolean;
   /** 永續效果在哪些位置有效（預設：怪獸在怪獸區表側、魔陷在魔陷/場地區表側） */
@@ -177,8 +194,8 @@ export interface EffectDef {
 /** 卡片腳本：一張卡的所有效果與特殊召喚條件 */
 export interface CardScript {
   effects?: EffectDef[];
-  /** 融合素材：每個條件需要 1 張不同的卡 */
-  fusion?: Array<(d: CardData) => boolean>;
+  /** 融合素材：每個條件需要 1 張不同的卡（c 是實際的卡，可以用來限定「場上的」素材） */
+  fusion?: Array<(d: CardData, c?: Card) => boolean>;
   /** 同步素材額外條件 */
   synchro?: {
     tuner?: (c: Card, duel: Duel) => boolean;
@@ -221,6 +238,18 @@ export interface CardScript {
   tributes?: number;
   /** 三幻神：召喚不會被無效，召喚成功時雙方不能發動效果 */
   divineSummon?: boolean;
+  /** 可以向符合條件的對方怪獸全部各作 1 次攻擊（急襲猛禽－起翼獵鷹等） */
+  attackEach?: (duel: Duel, self: Card, target: Card) => boolean;
+  /** 場地魔法等：可以只用 1 隻同名連結怪獸作為素材連結召喚（轉生炎獸的聖域） */
+  sameNameLink?: (duel: Duel, self: Card, p: PlayerId, link: Card) => boolean;
+  /** 在場上的這張卡：自己場上的其他卡被破壞時可以代替（光龍王@火靈天星取除素材），回傳是否代替 */
+  fieldSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  /** 「○○在自己場上只能有 1 隻表側表示存在」 */
+  uniqueOnField?: boolean;
+  /** 在墓地的這張卡：自己場上的卡被破壞時可以除外代替（轉生炎獸 烽火猞猁），回傳是否代替 */
+  graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
+  ssOncePerTurn?: boolean;
   /** 不能特殊召喚（無視召喚條件時除外） */
   cannotSpecialSummon?: (duel: Duel, card: Card) => boolean;
   /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
@@ -265,6 +294,8 @@ export interface ChainLink {
   negated: boolean;
   /** 是魔法・陷阱「卡」的發動（不是效果的發動） */
   isCardActivation: boolean;
+  /** 發動時卡片所在的位置 */
+  activatedFrom?: Loc;
   index: number;
 }
 

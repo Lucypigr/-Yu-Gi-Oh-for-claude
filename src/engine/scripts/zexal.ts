@@ -736,11 +736,17 @@ def(60222582, {
 });
 
 // 光子聖域：特殊召喚 2 隻光子衍生物
+const isLightMonster = (c: Card) => !!(c.data.attribute & ATTR.LIGHT);
 def(17418744, {
   effects: [
     activate({
       categories: ['summon'],
-      condition: (ctx) => ctx.duel.freeMZones(ctx.player) >= 2,
+      // 這張卡發動的回合，自己不是光屬性怪獸不能召喚・反轉召喚・特殊召喚
+      condition: (ctx) =>
+        ctx.duel.freeMZones(ctx.player) >= 2 && !ctx.duel.summonedOtherThan(ctx.player, isLightMonster, ['normal', 'flip', 'special']),
+      cost: async (ctx) => {
+        ctx.duel.addSummonLock(ctx.player, { kinds: ['normal', 'flip', 'special'], allow: isLightMonster });
+      },
       operation: async (ctx) => {
         const d = ctx.duel;
         if (d.freeMZones(ctx.player) < 2) return;
@@ -1295,7 +1301,7 @@ def(82633039, {
   effects: [
     detach(1, {
       label: '取除 1 個素材：表側怪獸變成裡側守備表示',
-      once: 'name',
+      once: 'nameShared',
       categories: ['position'],
       condition: (ctx) => ctx.duel.faceUpMonsters().some((c) => c !== ctx.card),
       target: async (ctx) => {
@@ -1312,7 +1318,7 @@ def(82633039, {
     }),
     detach(2, {
       label: '取除 2 個素材：場上 1 張表側的卡回到牌組',
-      once: 'name',
+      once: 'nameShared',
       categories: ['toDeck'],
       condition: (ctx) => ctx.duel.fieldCards().some((c) => c !== ctx.card && c.faceUp),
       target: async (ctx) => {
