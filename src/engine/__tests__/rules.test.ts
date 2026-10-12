@@ -910,3 +910,55 @@ describe('第八彈：三幻神', () => {
     expect(duel.tributable(0)).toContain(theirs);
   });
 });
+
+describe('第九彈：初代經典補完', () => {
+  it('通靈盤＋4 種死之信息在場上齊集時勝利', async () => {
+    const { duel } = setup();
+    put(duel, 0, 94212438, 'szone', { faceUp: true });
+    for (const id of [31893528, 67287533, 94772232]) put(duel, 0, id, 'szone', { faceUp: true });
+    expect(duel.ended).toBe(false);
+    await safe(async () => {
+      put(duel, 0, 30170981, 'szone', { faceUp: true });
+      duel.checkState();
+    });
+    expect(duel.ended).toBe(true);
+    expect(duel.winner).toBe(0);
+  });
+
+  it('千眼納祭神：吸收對方怪獸得到攻守，其他怪獸不能攻擊，戰鬥破壞時改為破壞裝備的怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ter = put(duel, 0, 63519819, 'mzone');
+    const bewd = put(duel, 1, 89631139, 'mzone');
+    const act = duel.getActivatable(0).find((x) => x.card === ter)!;
+    await duel.performMainAction(0, { type: 'activate', card: ter, effect: act.effect, effectIndex: act.effectIndex });
+    expect(bewd.location).toBe('szone');
+    expect(duel.getAtk(ter)).toBe(3000);
+    const other = put(duel, 1, 76184692, 'mzone');
+    expect(duel.has(other, 'cannotAttack')).toBe(true);
+    duel.destroy([ter], 'effect');
+    expect(ter.location).toBe('grave'); // 效果破壞不能代替
+  });
+
+  it('門之守護神：解放三魔神特殊召喚', async () => {
+    const { duel } = setup();
+    for (const id of [25955164, 62340868, 98434877]) put(duel, 0, id, 'mzone');
+    const gg = put(duel, 0, 25833572, 'hand');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === gg)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act);
+    expect(gg.location).toBe('mzone');
+    expect(duel.monsters(0).length).toBe(1);
+  });
+
+  it('閃電之戰士 吉爾福德：解放 3 隻召喚時破壞對方全部怪獸', async () => {
+    const { duel } = setup();
+    for (let i = 0; i < 3; i++) put(duel, 0, FILLER, 'mzone');
+    put(duel, 1, 89631139, 'mzone');
+    put(duel, 1, 46986414, 'mzone');
+    const g = put(duel, 0, 36354007, 'hand');
+    await duel.performMainAction(0, { type: 'summon', card: g });
+    expect(g.location).toBe('mzone');
+    expect(duel.monsters(1).length).toBe(0);
+  });
+});

@@ -215,6 +215,8 @@ export interface CardScript {
   };
   /** AI 評估召喚這張卡的價值（攻擊力會變動的怪獸用） */
   aiSummonValue?: (duel: Duel, card: Card) => number;
+  /** 也可以用更多的解放召喚（閃電之戰士 吉爾福德：3 隻） */
+  optionalTributes?: number;
   /** 通常召喚需要的解放數（三幻神：3 隻） */
   tributes?: number;
   /** 三幻神：召喚不會被無效，召喚成功時雙方不能發動效果 */

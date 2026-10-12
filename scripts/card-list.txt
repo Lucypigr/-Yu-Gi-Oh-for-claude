@@ -986,3 +986,43 @@
 7373632  # Divine Evolution
 68005187  # Soul Exchange
 29843091  # Ojama Trio
+
+# ---- 初代 艾克佐迪亞・門之守護神・千年（第九彈）----
+33244944  # Contract with Exodia
+12600382  # Exodia Necross
+13893596  # Exodius the Ultimate Forbidden Lord
+64043465  # Obliterate!!!
+70791313  # Royal Magical Library
+36280194  # Backup Soldier
+25833572  # Gate Guardian
+25955164  # Sanga of the Thunder
+62340868  # Kazejin
+98434877  # Suijin
+97783338  # Gate Guardian of Water and Thunder
+64631466  # Relinquished
+27125110  # Thousand-Eyes Idol
+63519819  # Thousand-Eyes Restrict
+41426869  # Black Illusion Ritual
+47986555  # Millennium Golem
+82482194  # Millennium Scorpion
+73616671  # Illusion Magic
+
+# ---- 初代 經典補完（第九彈）----
+82301904  # Chaos Emperor Dragon - Envoy of the End
+31829185  # Dark Necrofear
+94212438  # Destiny Board
+31893528  # Spirit Message "I"
+67287533  # Spirit Message "N"
+94772232  # Spirit Message "A"
+30170981  # Spirit Message "L"
+36354007  # Gilford the Lightning
+22359980  # Mirror Wall
+69015963  # Cyber-Stein
+53982768  # Dark Ruler Ha Des
+78706415  # Fiber Jar
+43586926  # Twin-Headed Behemoth
+53839837  # Vampire Lord
+2851070  # Reflect Bounder
+75347539  # Valkyrion the Magna Warrior
+39256679  # Beta The Magnet Warrior
+11549357  # Gamma The Magnet Warrior

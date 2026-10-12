@@ -12,6 +12,7 @@ import './fived';
 import './gx';
 import './dm';
 import './gods';
+import './classic';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

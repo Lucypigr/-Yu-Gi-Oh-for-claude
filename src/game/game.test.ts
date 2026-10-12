@@ -65,8 +65,9 @@ describe('存檔', () => {
     expect(r.firstWin).toBe(true);
     expect(r.coins).toBe(240);
     expect(recordDuel('rookie', 'win').coins).toBe(120);
-    // 牌組中使用的卡不能分解
-    expect(sellCards(89631139, 1)).toBe(0);
+    // 牌組中使用的卡不能分解（卡包可能抽到第 2 張青眼白龍，那張可以分解）
+    const owned = getProfile()!.collection[89631139];
+    expect(sellCards(89631139, owned)).toBe((owned - 1) * 100);
   });
   it('領取另一套起始牌組（只能 1 次）', () => {
     setStorage(memoryStorage());

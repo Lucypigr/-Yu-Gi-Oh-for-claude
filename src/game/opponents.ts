@@ -321,6 +321,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.pharaoh,
   },
   {
+    id: 'pegasus',
+    name: '千年眼的支配者',
+    title: '卡通世界的創造者',
+    avatar: '👁️',
+    desc: '卡通怪獸與納祭之魔！千眼納祭神會吸收你的怪獸，還讓場上的怪獸都不能攻擊。',
+    level: 3,
+    reward: 260,
+    randomness: 0.15,
+    requires: 'toon',
+    deck: OPPONENT_DECKS.pegasus,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

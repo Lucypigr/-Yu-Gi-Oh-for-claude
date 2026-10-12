@@ -112,6 +112,10 @@ class DuelEnd extends Error {}
 
 /** 被封印的艾克佐迪亞＋四肢 */
 const EXODIA = [33396948, 8124921, 44519536, 70903634, 7902349];
+/** 通靈盤與死之信息「E」「A」「T」「H」 */
+const DESTINY_BOARD = 94212438;
+const SPIRIT_MESSAGES = [31893528, 67287533, 94772232, 30170981];
+const EXODIUS = 13893596;
 
 export type DuelResult = { winner: PlayerId | null; reason: string; turns: number };
 
@@ -1456,6 +1460,15 @@ export class Duel {
   // 狀態檢查
   // =====================================================================
 
+  /** 特殊勝利 */
+  specialWin(p: PlayerId, reason: string) {
+    this.winner = p;
+    this.winReason = reason;
+    this.ended = true;
+    this.log(`決鬥結束：${reason}`);
+    throw new DuelEnd(reason);
+  }
+
   checkState() {
     if (this.ended) throw new DuelEnd(this.winReason);
     // 艾克佐迪亞：5 張齊集手牌就勝利
@@ -1466,6 +1479,15 @@ export class Duel {
         this.ended = true;
         this.log(`決鬥結束：${this.winReason}`);
         throw new DuelEnd(this.winReason);
+      }
+      // 通靈盤＋4 種死之信息在場上齊集
+      const board = ps.szone.filter((c): c is Card => !!c && c.faceUp);
+      if (board.some((c) => c.id === DESTINY_BOARD) && SPIRIT_MESSAGES.every((id) => board.some((c) => c.id === id))) {
+        this.specialWin(ps.id, `${ps.name} 的通靈盤拼出了「FINAL」！`);
+      }
+      // 艾克佐迪奧斯：場上表側表示時，墓地齊集 5 種「被封印」
+      if (ps.mzone.some((c) => c?.id === EXODIUS && c.faceUp) && EXODIA.every((id) => ps.grave.some((c) => c.id === id))) {
+        this.specialWin(ps.id, `${ps.name} 的究極封印神 艾克佐迪奧斯集齊了被封印的五部分！`);
       }
     }
     // 等級限制B地區等：強制變成守備表示
@@ -1658,6 +1680,13 @@ export class Duel {
       if (noTribute && this.freeMZones(p) <= 0) noTribute = false;
       if (noTribute) need = 0;
     }
+    // 閃電之戰士 吉爾福德：也可以解放 3 隻召喚
+    const optional = getScript(card.id).optionalTributes;
+    let usedOptional = false;
+    if (need > 0 && optional && optional > need && this.tributable(p).length >= optional) {
+      usedOptional = await this.confirm({ player: p, title: `要解放 ${optional} 隻怪獸召喚「${card.name}」嗎？`, card, ai: this.monsters(other(p)).length >= 2 });
+      if (usedOptional) need = optional;
+    }
     if (need > 0) {
       tributes = await this.select({
         player: p,
@@ -1682,6 +1711,7 @@ export class Duel {
     }
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk' });
     card.summonType = need > 0 ? 'tribute' : 'normal';
+    if (usedOptional) this.setFlag(card, `tributed${need}`, true);
     if (noTribute) {
       this.setFlag(card, 'noTributeSummon', true);
       getScript(card.id).noTribute?.apply?.(this, card);
