@@ -1,9 +1,10 @@
 // 主選單
 import type { Profile } from '../../game/profile';
 
-export type Screen = 'menu' | 'duelSelect' | 'shop' | 'deck' | 'collection' | 'settings';
+export type Screen = 'menu' | 'ladder' | 'duelSelect' | 'shop' | 'deck' | 'collection' | 'settings';
 
 const TILES: { screen: Screen; icon: string; name: string; desc: string }[] = [
+  { screen: 'ladder', icon: '🏆', name: '天梯對戰', desc: '線上配對，爬上決鬥王段位' },
   { screen: 'duelSelect', icon: '⚔️', name: '決鬥', desc: '挑戰電腦對手，贏得金幣' },
   { screen: 'shop', icon: '🛒', name: '商店', desc: '用金幣購買卡包' },
   { screen: 'deck', icon: '🃏', name: '牌組編輯', desc: '自由組合你的牌組' },

@@ -1,4 +1,5 @@
 // 電腦對手
+import type { AIOptions } from '../engine/ai';
 import type { DeckList } from '../engine/duel';
 import { OPPONENT_DECKS } from './decks';
 
@@ -18,6 +19,10 @@ export interface Opponent {
   /** 需要先打贏的對手 */
   requires?: string;
   deck: DeckList;
+  /** 額外的 AI 設定（天梯對手用） */
+  ai?: AIOptions;
+  /** 名字旁邊顯示的標籤（天梯段位） */
+  badge?: string;
 }
 
 export const OPPONENTS: Opponent[] = [

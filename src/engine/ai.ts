@@ -21,6 +21,12 @@ import { other } from './types';
 export interface AIOptions {
   /** 0~1，越高越常做出次佳選擇（簡單難度用） */
   randomness?: number;
+  /** 0~1，像真人一樣失誤的機率：忘記發動陷阱、亂打、提早結束回合 */
+  blunder?: number;
+  /** 做決定前「思考」的時間（毫秒），讓電腦看起來像真人玩家 */
+  think?: { min: number; max: number };
+  /** 思考時用的等待函式（決鬥畫面傳入，會套用遊戲速度） */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export class AIController implements Controller {
@@ -31,10 +37,30 @@ export class AIController implements Controller {
     return r > 0 ? (duel.rng() - 0.5) * 40 * r : 0;
   }
 
+  /** 這次要不要失誤（chance 是相對於 blunder 的倍率） */
+  private blunders(duel: Duel, chance = 1) {
+    const b = this.opts.blunder ?? 0;
+    return b > 0 && duel.rng() < b * chance;
+  }
+
+  /** 想一下再出牌（重要的決定想比較久） */
+  private async ponder(duel: Duel, weight = 1) {
+    const { think, sleep } = this.opts;
+    if (!think || !sleep) return;
+    await sleep((think.min + (think.max - think.min) * duel.rng()) * weight);
+  }
+
   // ---------------------------------------------------------------------
   async chooseMainAction(duel: Duel, p: PlayerId, actions: MainAction[]): Promise<MainAction> {
+    const choice = this.pickMainAction(duel, p, actions);
+    if (choice.type !== 'endTurn') await this.ponder(duel, choice.type === 'toBattle' ? 0.5 : 1);
+    return choice;
+  }
+
+  private pickMainAction(duel: Duel, p: PlayerId, actions: MainAction[]): MainAction {
     let best: MainAction | null = null;
     let bestScore = 0;
+    const scored: { a: MainAction; s: number }[] = [];
     const opp = other(p);
     const oppMax = Math.max(0, ...duel.monsters(opp).map((c) => (c.faceUp ? duel.getAtk(c) : 1500)));
     const summonDone = duel.p(p).normalSummons <= 0;
@@ -108,10 +134,19 @@ export class AIController implements Controller {
           break;
       }
       if (s > 0) s += this.jitter(duel);
+      if (s > 0) scored.push({ a, s });
       if (s > bestScore) {
         bestScore = s;
         best = a;
       }
+    }
+    if (best && this.blunders(duel, 0.5)) {
+      // 失誤：有時忘了展開直接進戰鬥／結束回合，有時用錯順序
+      if (duel.rng() < 0.35) {
+        const skip = actions.find((a) => a.type === 'toBattle') ?? actions.find((a) => a.type === 'endTurn');
+        if (skip) return skip;
+      }
+      return scored[Math.floor(duel.rng() * scored.length)].a;
     }
     if (best) return best;
     const toBattle = actions.find((a) => a.type === 'toBattle');
@@ -180,6 +215,19 @@ export class AIController implements Controller {
 
   // ---------------------------------------------------------------------
   async chooseBattleAction(duel: Duel, p: PlayerId, options: AttackOption[]): Promise<BattleAction> {
+    const action = this.pickBattleAction(duel, p, options);
+    await this.ponder(duel, 0.6);
+    return action;
+  }
+
+  private pickBattleAction(duel: Duel, p: PlayerId, options: AttackOption[]): BattleAction {
+    if (options.length && this.blunders(duel, 0.4)) {
+      // 失誤：怕陷阱不敢攻擊，或是衝動地亂打一隻
+      if (duel.rng() < 0.5) return { type: 'endBattle' };
+      const o = options[Math.floor(duel.rng() * options.length)];
+      if (o.canDirect) return { type: 'attack', attacker: o.attacker, target: null };
+      if (o.targets.length) return { type: 'attack', attacker: o.attacker, target: o.targets[Math.floor(duel.rng() * o.targets.length)] };
+    }
     const sorted = [...options].sort((a, b) => duel.getAtk(b.attacker) - duel.getAtk(a.attacker));
     for (const o of sorted) {
       const atk = duel.getAtk(o.attacker);
@@ -211,6 +259,14 @@ export class AIController implements Controller {
 
   // ---------------------------------------------------------------------
   async chooseResponse(duel: Duel, p: PlayerId, options: Activation[], win: WindowInfo): Promise<Activation | null> {
+    const choice = this.pickResponse(duel, p, options, win);
+    // 失誤：沒注意到可以連鎖
+    if (choice && this.blunders(duel, 0.6)) return null;
+    if (choice) await this.ponder(duel, 0.8);
+    return choice;
+  }
+
+  private pickResponse(duel: Duel, p: PlayerId, options: Activation[], win: WindowInfo): Activation | null {
     let best: Activation | null = null;
     let bestScore = 0;
     for (const o of options) {
@@ -236,6 +292,7 @@ export class AIController implements Controller {
 
   // ---------------------------------------------------------------------
   async selectCards(duel: Duel, prompt: SelectPrompt): Promise<Card[]> {
+    if (prompt.cards.length > prompt.min) await this.ponder(duel, 0.4);
     const p = prompt.player;
     const mine = (c: Card) => (c.onField ? c.controller : c.owner) === p;
     const score = (c: Card): number => {

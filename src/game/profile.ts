@@ -2,6 +2,7 @@
 import { hasCard } from '../engine/cardDb';
 import { BLACKWING_STARTER_V1, STARTER_DECKS } from './decks';
 import { type DeckData, countIds } from './deckRules';
+import { type DeckStyle, type LadderOpponent, START_RATING, ladderCoins, ratingDelta } from './ladder';
 import { getOpponent } from './opponents';
 import { getPack, openPack } from './packs';
 import { SELL_PRICE, rarityOf } from './rarity';
@@ -16,6 +17,35 @@ export interface Settings {
   autoPass: boolean;
   /** 卡面樣式：real = 整張實卡圖片；drawn = 自繪的繁體中文卡面 */
   cardStyle: 'real' | 'drawn';
+}
+
+export interface LadderMatch {
+  at: number;
+  name: string;
+  avatar: string;
+  oppRating: number;
+  result: 'win' | 'loss' | 'draw';
+  delta: number;
+  deckName: string;
+  deckStyle: DeckStyle;
+}
+
+export interface LadderState {
+  rating: number;
+  peak: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  /** 正數為連勝、負數為連敗 */
+  streak: number;
+  /** 最近的對戰（新的在前面） */
+  history: LadderMatch[];
+}
+
+const LADDER_HISTORY = 20;
+
+export function newLadder(): LadderState {
+  return { rating: START_RATING, peak: START_RATING, wins: 0, losses: 0, draws: 0, streak: 0, history: [] };
 }
 
 export interface Profile {
@@ -40,6 +70,7 @@ export interface Profile {
   claimedStarters: string[];
   /** 已經套用過的存檔升級 */
   upgrades?: string[];
+  ladder: LadderState;
 }
 
 export const START_COINS = 500;
@@ -127,6 +158,7 @@ function migrate(raw: any): Profile {
   // 舊存檔：從一開始的牌組名稱推斷已領取的起始牌組
   p.claimedStarters ??= STARTER_DECKS.filter((s) => p.decks.some((d) => d.id === 'starter' && d.name === s.name)).map((s) => s.id);
   p.upgrades ??= [];
+  p.ladder = { ...newLadder(), ...(raw.ladder ?? {}) };
   upgradeBlackwingStarter(p);
   return p;
 }
@@ -171,6 +203,7 @@ export function createProfile(playerName: string, starterId: string): Profile {
     settings: { speed: 1, autoPass: true, cardStyle: 'real' },
     claimedStarters: [starter.id],
     upgrades: ['blackwing-original'],
+    ladder: newLadder(),
   };
   persist();
   emit();
@@ -301,6 +334,60 @@ export function recordDuel(opponentId: string, result: 'win' | 'loss' | 'draw'):
     else q.stats.draws++;
   });
   return { coins, firstWin };
+}
+
+export interface LadderResult {
+  coins: number;
+  delta: number;
+  before: number;
+  after: number;
+  streak: number;
+}
+
+/** 記錄天梯對戰：更新積分並發放金幣（天梯的勝負也算進總戰績） */
+export function recordLadderDuel(opp: LadderOpponent, result: 'win' | 'loss' | 'draw'): LadderResult {
+  const p = getProfile();
+  if (!p) return { coins: 0, delta: 0, before: 0, after: 0, streak: 0 };
+  const before = p.ladder.rating;
+  const winStreak = Math.max(0, p.ladder.streak);
+  const delta = ratingDelta(before, opp.rating, result, winStreak);
+  const coins = ladderCoins(before, result);
+  const after = before + delta;
+  let streak = p.ladder.streak;
+  if (result === 'win') streak = streak > 0 ? streak + 1 : 1;
+  else if (result === 'loss') streak = streak < 0 ? streak - 1 : -1;
+  else streak = 0;
+  update((q) => {
+    q.coins += coins;
+    const l = q.ladder;
+    l.rating = after;
+    l.peak = Math.max(l.peak, after);
+    l.streak = streak;
+    if (result === 'win') {
+      l.wins++;
+      q.stats.wins++;
+    } else if (result === 'loss') {
+      l.losses++;
+      q.stats.losses++;
+    } else {
+      l.draws++;
+      q.stats.draws++;
+    }
+    l.history = [
+      {
+        at: Date.now(),
+        name: opp.name,
+        avatar: opp.avatar,
+        oppRating: opp.rating,
+        result,
+        delta,
+        deckName: opp.deckName,
+        deckStyle: opp.deckStyle,
+      },
+      ...l.history,
+    ].slice(0, LADDER_HISTORY);
+  });
+  return { coins, delta, before, after, streak };
 }
 
 export function isOpponentUnlocked(p: Profile, opponentId: string): boolean {

@@ -96,10 +96,15 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
       });
     };
     const speed = Math.max(0.25, settings.speed || 1);
+    const ai = new AIController({
+      randomness: opponent.randomness,
+      ...opponent.ai,
+      sleep: (ms) => (alive ? new Promise((r) => setTimeout(r, ms / speed)) : Promise.resolve()),
+    });
     const duel = new Duel(
       [
         { name: playerName, deck: { main: deck.main, extra: deck.extra }, controller: human },
-        { name: opponent.name, deck: opponent.deck, controller: new AIController({ randomness: opponent.randomness }) },
+        { name: opponent.name, deck: opponent.deck, controller: ai },
       ],
       {
         sleep: (ms) => new Promise((r) => setTimeout(r, ms / speed)),
@@ -360,6 +365,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
         <div className="player-bar opp-bar">
           <span className="avatar">{opponent.avatar}</span>
           <span className="pname">{opp.name}</span>
+          {opponent.badge && <span className="rank-badge small">{opponent.badge}</span>}
           <span className={`lp ${opp.lp <= 2000 ? 'low' : ''}`}>LP {opp.lp}</span>
           <div className="opp-hand">
             {opp.hand.map((c) => (
