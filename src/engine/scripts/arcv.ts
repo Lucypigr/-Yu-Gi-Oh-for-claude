@@ -4,9 +4,20 @@ import { type CardData, ATTR, RACE, isFusion, isMonster, isSpell, isSynchro, isT
 import type { Duel } from '../duel';
 import type { CardScript, EffectContext, EffectDef, PlayerId } from '../types';
 import { def, getScript } from './registry';
-import { activate, cardValue, chooseTargets, deckFilter, graveFilter, searchDeck, simulateBattle, ssFromDeck, summonedSelf, tgt, tgts } from './lib';
+import {
+  activate,
+  cardValue,
+  chooseTargets,
+  deckFilter,
+  graveFilter,
+  searchDeck,
+  simulateBattle,
+  ssFromDeck,
+  summonedSelf,
+  tgt,
+  tgts,
+} from './lib';
 
-const other = (p: PlayerId): PlayerId => (p === 0 ? 1 : 0);
 const isDark = (d: CardData) => (d.attribute & ATTR.DARK) !== 0;
 const isWind = (d: CardData) => (d.attribute & ATTR.WIND) !== 0;
 /** 「幻影騎士團」卡或「幻影」魔法・陷阱卡 */
@@ -22,12 +33,18 @@ const isRankUpQuick = (d: CardData) => isSpell(d) && spellKind(d) === 'quickplay
 const isFusionSpell = (d: CardData) => isSpell(d) && (d.nameEn.includes('Polymerization') || d.nameEn.includes('Fusion'));
 
 const DARK_REBELLION = 16195942;
+/** 有等級的怪獸（超量怪獸是階級、連結怪獸沒有等級） */
+const hasLevel = (c: Card) => !isXyz(c.data) && (c.data.type & 0x4000000) === 0;
 const isMainPhase = (d: Duel) => d.phase === 'main1' || d.phase === 'main2';
 /** 用效果特殊召喚的怪獸（不是通常召喚・上級召喚・反轉召喚） */
 const isSpecialSummoned = (c: Card) => !!c.summonType && !['normal', 'tribute', 'flip'].includes(c.summonType);
 /** 這張卡在這個回合召喚・特殊召喚 */
 const summonedThisTurn = (ctx: EffectContext) => ctx.card.isFaceUpMonster && !!ctx.card.summonType && ctx.card.turnPlaced === ctx.duel.turn;
 const controls = (duel: Duel, p: PlayerId, f: (c: Card) => boolean) => duel.faceUpMonsters(p).some(f);
+
+/** 「這個效果的發動後，直到回合結束時自己不是○○怪獸不能特殊召喚」 */
+const lockSS = (ctx: EffectContext, allow: (c: Card) => boolean) => ctx.duel.addSummonLock(ctx.player, { kinds: ['special'], allow });
+const rrOnly = (c: Card) => isRRMonster(c.data);
 
 /** 1 回合 1 次的「可以從手牌特殊召喚」 */
 function handSpSummon(key: string, label: string, cond: (duel: Duel, card: Card) => boolean): CardScript['spSummon'] {
@@ -67,7 +84,12 @@ function detach(n: number, e: Omit<EffectDef, 'kind' | 'cost'> & { kind?: 'ignit
 }
 
 /** 從手牌特殊召喚 */
-async function ssFromHand(ctx: EffectContext, f: (d: CardData, c: Card) => boolean, title = '選擇要從手牌特殊召喚的怪獸', position: 'atk' | 'def' = 'atk') {
+async function ssFromHand(
+  ctx: EffectContext,
+  f: (d: CardData, c: Card) => boolean,
+  title = '選擇要從手牌特殊召喚的怪獸',
+  position: 'atk' | 'def' = 'atk',
+) {
   const d = ctx.duel;
   if (d.freeMZones(ctx.player) <= 0) return null;
   const cands = d.p(ctx.player).hand.filter((c) => isMonster(c.data) && f(c.data, c));
@@ -80,7 +102,12 @@ async function ssFromHand(ctx: EffectContext, f: (d: CardData, c: Card) => boole
 /** 可以選擇讓怪獸的等級上升 1 星 */
 async function maybeLevelUp(ctx: EffectContext, c: Card) {
   if (!c.isFaceUpMonster) return;
-  const yes = await ctx.duel.confirm({ player: ctx.player, title: `要讓「${c.name}」的等級上升 1 星嗎？`, card: c, ai: ctx.duel.getLevel(c) === 3 });
+  const yes = await ctx.duel.confirm({
+    player: ctx.player,
+    title: `要讓「${c.name}」的等級上升 1 星嗎？`,
+    card: c,
+    ai: ctx.duel.getLevel(c) === 3,
+  });
   if (yes) {
     ctx.duel.addMod(c, { level: 1, until: 'permanent' });
     ctx.duel.log(`「${c.name}」的等級上升 1 星`);
@@ -111,7 +138,13 @@ function negateAndDestroy(ctx: EffectContext): Card | null {
 async function rankUpOnto(ctx: EffectContext, base: Card, cands: Card[], attachSelf: boolean): Promise<Card | null> {
   const d = ctx.duel;
   if (!base.isFaceUpMonster || base.controller !== ctx.player || !cands.length) return null;
-  const x = await d.selectOne({ player: ctx.player, title: '選擇要超量召喚的超量怪獸', cards: cands, hint: 'benefit', aiValue: (c) => c.data.atk });
+  const x = await d.selectOne({
+    player: ctx.player,
+    title: '選擇要超量召喚的超量怪獸',
+    cards: cands,
+    hint: 'benefit',
+    aiValue: (c) => c.data.atk,
+  });
   if (!x) return null;
   const mats = base.overlays.splice(0);
   d.moveTo(base, 'overlay', { reason: 'material' });
@@ -144,10 +177,14 @@ const predatorEffect = (label: string, extra: Partial<EffectDef> = {}): EffectDe
   categories: ['stat'],
   condition: (ctx) => ctx.duel.faceUpMonsters(ctx.opp).some((c) => !hasPredator(ctx.duel, c)),
   target: async (ctx) => {
-    await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp).filter((c) => !hasPredator(ctx.duel, c)), {
-      title: '選擇要放置捕食指示物的怪獸',
-      aiValue: (c) => ctx.duel.getLevel(c),
-    });
+    await chooseTargets(
+      ctx,
+      ctx.duel.faceUpMonsters(ctx.opp).filter((c) => !hasPredator(ctx.duel, c)),
+      {
+        title: '選擇要放置捕食指示物的怪獸',
+        aiValue: (c) => ctx.duel.getLevel(c),
+      },
+    );
   },
   operation: async (ctx) => {
     const t = tgt(ctx);
@@ -192,7 +229,12 @@ def(63821877, {
       condition: (ctx) => deckFilter(ctx, isPhantom).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
-        const c = await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的卡', cards: deckFilter(ctx, isPhantom), hint: 'benefit' });
+        const c = await d.selectOne({
+          player: ctx.player,
+          title: '選擇要送去墓地的卡',
+          cards: deckFilter(ctx, isPhantom),
+          hint: 'benefit',
+        });
         if (c) d.sendToGrave([c], 'effect', ctx.card);
       },
       ai: () => 30,
@@ -210,11 +252,15 @@ def(90432163, {
       categories: ['stat'],
       condition: (ctx) => ctx.card.position === 'atk' && ctx.duel.faceUpMonsters().some((c) => isDark(c.data)),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters().filter((c) => isDark(c.data)), {
-          title: '選擇暗屬性怪獸',
-          hint: 'benefit',
-          aiValue: (c) => (c.controller === ctx.player ? 1000 + ctx.duel.getAtk(c) : -1000),
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters().filter((c) => isDark(c.data)),
+          {
+            title: '選擇暗屬性怪獸',
+            hint: 'benefit',
+            aiValue: (c) => (c.controller === ctx.player ? 1000 + ctx.duel.getAtk(c) : -1000),
+          },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -222,7 +268,8 @@ def(90432163, {
         const t = tgt(ctx);
         if (t?.isFaceUpMonster) d.addMod(t, { atk: 800, def: 800, until: 'endOppTurn' }, ctx.card);
       },
-      ai: (ctx) => (ctx.duel.phase === 'main1' && ctx.duel.faceUpMonsters(ctx.player).some((c) => c !== ctx.card && isDark(c.data)) ? 30 : 0),
+      ai: (ctx) =>
+        ctx.duel.phase === 'main1' && ctx.duel.faceUpMonsters(ctx.player).some((c) => c !== ctx.card && isDark(c.data)) ? 30 : 0,
     },
     fromGrave({
       label: '除外：把「幻影騎士團」卡加入手牌',
@@ -272,7 +319,9 @@ def(99315585, {
         const d = ctx.duel;
         d.p(ctx.player).turnFlags[clovenHelmKey(ctx.card)] = false;
         const cands = graveFilter(d, ctx.player, isPhantom);
-        const c = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇要加入手牌的卡', cards: cands, hint: 'benefit' }) : null;
+        const c = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要加入手牌的卡', cards: cands, hint: 'benefit' })
+          : null;
         if (c) d.returnToHand([c], 'effect', ctx.card);
       },
     },
@@ -312,7 +361,12 @@ def(36704180, {
       condition: (ctx) => ctx.duel.p(ctx.player).hand.some((c) => isPhantom(c.data)),
       cost: async (ctx) => {
         const d = ctx.duel;
-        const c = await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的手牌', cards: d.p(ctx.player).hand.filter((c) => isPhantom(c.data)), hint: 'cost' });
+        const c = await d.selectOne({
+          player: ctx.player,
+          title: '選擇要送去墓地的手牌',
+          cards: d.p(ctx.player).hand.filter((c) => isPhantom(c.data)),
+          hint: 'cost',
+        });
         if (c) d.sendToGrave([c], 'cost', ctx.card);
       },
       operation: async (ctx) => {
@@ -372,7 +426,8 @@ def(25538345, {
       label: '丟棄 1 張手牌：把「幻影騎士團」卡送去墓地',
       once: 'name',
       condition: (ctx) =>
-        ctx.duel.p(ctx.player).hand.length > 0 && deckFilter(ctx, (d) => (isPKMonster(d) || isPhantomST(d)) && d.id !== 25538345).length > 0,
+        ctx.duel.p(ctx.player).hand.length > 0 &&
+        deckFilter(ctx, (d) => (isPKMonster(d) || isPhantomST(d)) && d.id !== 25538345).length > 0,
       cost: async (ctx) => {
         const d = ctx.duel;
         const c = await d.selectOne({ player: ctx.player, title: '選擇要丟棄的手牌', cards: d.p(ctx.player).hand, hint: 'cost' });
@@ -381,7 +436,9 @@ def(25538345, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const cands = deckFilter(ctx, (x) => (isPKMonster(x) || isPhantomST(x)) && x.id !== 25538345);
-        const c = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的卡', cards: cands, hint: 'benefit' }) : null;
+        const c = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的卡', cards: cands, hint: 'benefit' })
+          : null;
         if (c) d.sendToGrave([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.p(ctx.player).hand.length >= 4 ? 25 : 0),
@@ -435,10 +492,14 @@ def(25542642, {
       categories: ['negate'],
       condition: (ctx) => ctx.duel.faceUpMonsters().some((c) => (c.data.type & 0x20) !== 0),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters().filter((c) => (c.data.type & 0x20) !== 0), {
-          title: '選擇效果怪獸',
-          aiValue: (c) => (c.controller === ctx.opp ? cardValue(ctx.duel, c, ctx.player) : -9999),
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters().filter((c) => (c.data.type & 0x20) !== 0),
+          {
+            title: '選擇效果怪獸',
+            aiValue: (c) => (c.controller === ctx.opp ? cardValue(ctx.duel, c, ctx.player) : -9999),
+          },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -465,12 +526,17 @@ def(25542642, {
       categories: ['summon'],
       condition: (ctx) => ctx.duel.freeMZones(ctx.player) > 0 && graveFilter(ctx.duel, ctx.player, (d) => isPKMonster(d)).length > 0,
       target: async (ctx) => {
-        await chooseTargets(ctx, graveFilter(ctx.duel, ctx.player, (d) => isPKMonster(d)), { title: '選擇要特殊召喚的怪獸', hint: 'benefit' });
+        await chooseTargets(
+          ctx,
+          graveFilter(ctx.duel, ctx.player, (d) => isPKMonster(d)),
+          { title: '選擇要特殊召喚的怪獸', hint: 'benefit' },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t?.location === 'grave' && d.specialSummon(t, ctx.player, { position: 'atk', by: ctx.card })) d.setFlag(t, 'banishOnLeave', true);
+        if (t?.location === 'grave' && d.specialSummon(t, ctx.player, { position: 'atk', by: ctx.card }))
+          d.setFlag(t, 'banishOnLeave', true);
       },
       ai: () => 45,
     }),
@@ -479,13 +545,15 @@ def(25542642, {
 
 // 升階魔法－幻影騎士團的出擊
 const launchBases = (duel: Duel, p: PlayerId) =>
-  duel.faceUpMonsters(p).filter(
-    (c) =>
-      isXyz(c.data) &&
-      isDark(c.data) &&
-      c.overlays.length === 0 &&
-      duel.p(p).extra.some((x) => isXyz(x.data) && isDark(x.data) && x.data.level === c.data.level + 1),
-  );
+  duel
+    .faceUpMonsters(p)
+    .filter(
+      (c) =>
+        isXyz(c.data) &&
+        isDark(c.data) &&
+        c.overlays.length === 0 &&
+        duel.p(p).extra.some((x) => isXyz(x.data) && isDark(x.data) && x.data.level === c.data.level + 1),
+    );
 def(3298689, {
   effects: [
     activate({
@@ -509,15 +577,20 @@ def(3298689, {
       label: '除外：把手牌的「幻影騎士團」怪獸作為超量素材',
       range: ['grave'],
       condition: (ctx) =>
-        ctx.duel.faceUpMonsters(ctx.player).some((c) => isXyz(c.data) && isDark(c.data)) && ctx.duel.p(ctx.player).hand.some((c) => isPKMonster(c.data)),
+        ctx.duel.faceUpMonsters(ctx.player).some((c) => isXyz(c.data) && isDark(c.data)) &&
+        ctx.duel.p(ctx.player).hand.some((c) => isPKMonster(c.data)),
       cost: async (ctx) => {
         ctx.duel.banish([ctx.card], 'cost', ctx.card);
       },
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player).filter((c) => isXyz(c.data) && isDark(c.data)), {
-          title: '選擇暗屬性超量怪獸',
-          hint: 'benefit',
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters(ctx.player).filter((c) => isXyz(c.data) && isDark(c.data)),
+          {
+            title: '選擇暗屬性超量怪獸',
+            hint: 'benefit',
+          },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -551,7 +624,14 @@ def(62709239, {
           hint: 'cost',
           aiValue: (c) => (c === ctx.card ? -500 : -cardValue(d, c, ctx.player)),
         });
-        const theirs = await d.select({ player: ctx.player, title: '選擇對方場上要破壞的卡', cards: d.fieldCards(ctx.opp), min: 1, max: 1, hint: 'harm' });
+        const theirs = await d.select({
+          player: ctx.player,
+          title: '選擇對方場上要破壞的卡',
+          cards: d.fieldCards(ctx.opp),
+          min: 1,
+          max: 1,
+          hint: 'harm',
+        });
         d.setTargets(ctx, [...mine, ...theirs]);
       },
       operation: async (ctx) => {
@@ -591,6 +671,7 @@ def(62709239, {
           const mate = pk.find((c) => c !== ts[0] && c.data.level === ts[0].data.level);
           d.setTargets(ctx, mate ? [ts[0], mate] : []);
         }
+        lockSS(ctx, (c) => isDark(c.data));
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -672,7 +753,10 @@ def(1621413, {
       categories: ['stat'],
       condition: (ctx) => hasRebellionMaterial(ctx.card) && ctx.duel.faceUpMonsters(ctx.opp).length > 0,
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp), { title: '選擇對方的怪獸', aiValue: (c) => c.data.atk + ctx.duel.getAtk(c) });
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp), {
+          title: '選擇對方的怪獸',
+          aiValue: (c) => c.data.atk + ctx.duel.getAtk(c),
+        });
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -697,7 +781,13 @@ def(1621413, {
         const xyzs = graveFilter(d, ctx.player, (x) => isXyz(x));
         if (!xyzs.length || d.freeMZones(ctx.player) <= 0) return;
         if (!(await d.confirm({ player: ctx.player, title: '要從墓地特殊召喚 1 隻超量怪獸嗎？', ai: true }))) return;
-        const c = await d.selectOne({ player: ctx.player, title: '選擇要特殊召喚的超量怪獸', cards: xyzs, hint: 'benefit', aiValue: (x) => x.data.atk });
+        const c = await d.selectOne({
+          player: ctx.player,
+          title: '選擇要特殊召喚的超量怪獸',
+          cards: xyzs,
+          hint: 'benefit',
+          aiValue: (x) => x.data.atk,
+        });
         if (c) d.specialSummon(c, ctx.player, { position: 'atk', by: ctx.card });
       },
       ai: () => 75,
@@ -739,17 +829,24 @@ def(60950180, {
       categories: ['position'],
       condition: (ctx) => summonedThisTurn(ctx) && ctx.duel.faceUpMonsters().some((c) => c.position === 'atk'),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters().filter((c) => c.position === 'atk'), {
-          title: '選擇攻擊表示的怪獸',
-          aiValue: (c) => (c.controller === ctx.opp ? ctx.duel.getAtk(c) - ctx.duel.getDef(c) : -9999),
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters().filter((c) => c.position === 'atk'),
+          {
+            title: '選擇攻擊表示的怪獸',
+            aiValue: (c) => (c.controller === ctx.opp ? ctx.duel.getAtk(c) - ctx.duel.getDef(c) : -9999),
+          },
+        );
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
         if (t?.isFaceUpMonster && t.position === 'atk') ctx.duel.changePosition(t, 'def', true, ctx.card);
       },
       ai: (ctx) =>
-        ctx.duel.phase === 'main1' && ctx.duel.faceUpMonsters(ctx.opp).some((c) => c.position === 'atk' && ctx.duel.getAtk(c) > ctx.duel.getDef(c)) ? 40 : 0,
+        ctx.duel.phase === 'main1' &&
+        ctx.duel.faceUpMonsters(ctx.opp).some((c) => c.position === 'atk' && ctx.duel.getAtk(c) > ctx.duel.getDef(c))
+          ? 40
+          : 0,
     },
     {
       kind: 'ignition',
@@ -818,7 +915,13 @@ def(83236601, {
         const d = ctx.duel;
         const cands = deckFilter(ctx, isRR);
         const c = cands.length
-          ? await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的卡', cards: cands, hint: 'benefit', aiValue: (x) => (x.data.id === 96345188 || x.data.id === 5929801 ? 1000 : 0) })
+          ? await d.selectOne({
+              player: ctx.player,
+              title: '選擇要送去墓地的卡',
+              cards: cands,
+              hint: 'benefit',
+              aiValue: (x) => (x.data.id === 96345188 || x.data.id === 5929801 ? 1000 : 0),
+            })
           : null;
         if (c) d.sendToGrave([c], 'effect', ctx.card);
       },
@@ -829,7 +932,9 @@ def(83236601, {
       label: '把「升階魔法」速攻魔法卡加入手牌',
       once: 'name',
       categories: ['search'],
-      condition: (ctx) => ctx.duel.phase === 'main2' && ctx.duel.hasFlag(ctx.card, 'battleKill') && deckFilter(ctx, isRankUpQuick).length > 0,
+      condition: (ctx) =>
+        ctx.duel.phase === 'main2' && ctx.duel.hasFlag(ctx.card, 'battleKill') && deckFilter(ctx, isRankUpQuick).length > 0,
+      cost: async (ctx) => lockSS(ctx, rrOnly),
       operation: async (ctx) => {
         await searchDeck(ctx, isRankUpQuick);
       },
@@ -848,7 +953,10 @@ def(5929801, {
       once: 'name',
       categories: ['summon'],
       condition: (ctx) =>
-        ctx.duel.freeMZones(ctx.player) > 0 && controls(ctx.duel, ctx.player, (c) => isRRMonster(c.data) && c.id !== 5929801),
+        ctx.duel.freeMZones(ctx.player) > 0 &&
+        !ctx.duel.summonedOtherThan(ctx.player, rrOnly) &&
+        controls(ctx.duel, ctx.player, (c) => isRRMonster(c.data) && c.id !== 5929801),
+      cost: async (ctx) => lockSS(ctx, rrOnly),
       operation: async (ctx) => {
         if (ctx.card.location === 'hand') ctx.duel.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card });
       },
@@ -859,7 +967,12 @@ def(5929801, {
       label: '把「急襲猛禽－模糊伯勞」加入手牌',
       event: 'toGrave',
       categories: ['search'],
-      condition: (ctx) => ctx.event?.card === ctx.card && deckFilter(ctx, (d) => d.id === 5929801).length > 0,
+      once: 'name',
+      condition: (ctx) =>
+        ctx.event?.card === ctx.card &&
+        !ctx.duel.summonedOtherThan(ctx.player, rrOnly) &&
+        deckFilter(ctx, (d) => d.id === 5929801).length > 0,
+      cost: async (ctx) => lockSS(ctx, rrOnly),
       operation: async (ctx) => {
         await searchDeck(ctx, (d) => d.id === 5929801);
       },
@@ -888,7 +1001,11 @@ def(45184165, {
         ctx.duel.banish([ctx.card], 'cost', ctx.card);
       },
       target: async (ctx) => {
-        await chooseTargets(ctx, graveFilter(ctx.duel, ctx.player, (d, c) => isRR(d) && c !== ctx.card), { title: '選擇要加入手牌的卡', hint: 'benefit' });
+        await chooseTargets(
+          ctx,
+          graveFilter(ctx.duel, ctx.player, (d, c) => isRR(d) && c !== ctx.card),
+          { title: '選擇要加入手牌的卡', hint: 'benefit' },
+        );
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
@@ -900,7 +1017,9 @@ def(45184165, {
 
 // 急襲猛禽－鳴囀伯勞
 def(31314549, {
-  spSummon: handSpSummon('ss_singingLanius', '自己場上有超量怪獸時特殊召喚', (duel, card) => controls(duel, card.owner, (c) => isXyz(c.data))),
+  spSummon: handSpSummon('ss_singingLanius', '自己場上有超量怪獸時特殊召喚', (duel, card) =>
+    controls(duel, card.owner, (c) => isXyz(c.data)),
+  ),
 });
 
 // 急襲猛禽－呼喚
@@ -912,23 +1031,29 @@ def(50692511, {
       categories: ['summon'],
       condition: (ctx) =>
         ctx.duel.freeMZones(ctx.player) > 0 &&
-        ctx.duel.faceUpMonsters(ctx.player).some(
-          (c) => isRRMonster(c.data) && [...ctx.duel.p(ctx.player).hand, ...ctx.duel.p(ctx.player).deck].some((x) => x.id === c.id),
-        ),
+        !ctx.duel.summonedOtherThan(ctx.player, rrOnly) &&
+        ctx.duel
+          .faceUpMonsters(ctx.player)
+          .some((c) => isRRMonster(c.data) && [...ctx.duel.p(ctx.player).hand, ...ctx.duel.p(ctx.player).deck].some((x) => x.id === c.id)),
       target: async (ctx) => {
         const d = ctx.duel;
         await chooseTargets(
           ctx,
-          d.faceUpMonsters(ctx.player).filter((c) => isRRMonster(c.data) && [...d.p(ctx.player).hand, ...d.p(ctx.player).deck].some((x) => x.id === c.id)),
+          d
+            .faceUpMonsters(ctx.player)
+            .filter((c) => isRRMonster(c.data) && [...d.p(ctx.player).hand, ...d.p(ctx.player).deck].some((x) => x.id === c.id)),
           { title: '選擇「急襲猛禽」怪獸', hint: 'benefit' },
         );
+        lockSS(ctx, rrOnly);
       },
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
         if (!t || d.freeMZones(ctx.player) <= 0) return;
         const cands = [...d.p(ctx.player).hand, ...d.p(ctx.player).deck].filter((x) => x.id === t.id);
-        const c = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇要特殊召喚的怪獸', cards: cands, hint: 'benefit' }) : null;
+        const c = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要特殊召喚的怪獸', cards: cands, hint: 'benefit' })
+          : null;
         if (!c) return;
         const fromDeck = c.location === 'deck';
         d.specialSummon(c, ctx.player, { position: 'def', by: ctx.card });
@@ -956,7 +1081,9 @@ def(8559793, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const cands = [...deckFilter(ctx, isRRMonster), ...graveFilter(d, ctx.player, isRRMonster)];
-        const c = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇要加入手牌的怪獸', cards: cands, hint: 'benefit' }) : null;
+        const c = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要加入手牌的怪獸', cards: cands, hint: 'benefit' })
+          : null;
         if (!c) return;
         if (c.location === 'deck') d.addToHandFromDeck(c, ctx.card);
         else d.returnToHand([c], 'effect', ctx.card);
@@ -993,19 +1120,19 @@ def(73347079, {
 // 急襲猛禽－起翼獵鷹
 def(73887236, {
   xyz: { count: 3, filter: (c) => isWingedBeast(c.data) },
+  // 可以向特殊召喚的對方怪獸全部各作 1 次攻擊
+  attackEach: (_duel, _self, t) => t.faceUp && isSpecialSummoned(t),
   effects: [
-    {
-      kind: 'continuous',
-      // 簡化：對方有 2 隻以上特殊召喚的怪獸時，可以攻擊 2 次
-      query: (duel, self, q, t) => q === 'doubleAttack' && t === self && duel.faceUpMonsters(other(self.controller)).filter(isSpecialSummoned).length >= 2,
-    },
     detach(1, {
       label: '攻擊力上升對方特殊召喚的怪獸的攻擊力',
       once: 'turn',
       categories: ['stat'],
       condition: (ctx) => ctx.duel.faceUpMonsters(ctx.opp).some(isSpecialSummoned),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp).filter(isSpecialSummoned), { title: '選擇對方特殊召喚的怪獸', aiValue: (c) => ctx.duel.getAtk(c) });
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp).filter(isSpecialSummoned), {
+          title: '選擇對方特殊召喚的怪獸',
+          aiValue: (c) => ctx.duel.getAtk(c),
+        });
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
@@ -1050,16 +1177,59 @@ def(45533023, {
   ],
 });
 
+// 急襲猛禽－衛星炮獵鷹
+def(23603403, {
+  xyz: { count: 2, filter: (c) => isWingedBeast(c.data) },
+  effects: [
+    {
+      kind: 'trigger',
+      label: '破壞對方全部魔法・陷阱卡',
+      event: 'summoned',
+      categories: ['destroy'],
+      condition: (ctx) =>
+        summonedSelf(ctx, ['xyz']) && ctx.card.overlays.some((o) => isRRMonster(o.data)) && ctx.duel.spellTraps(ctx.opp).length > 0,
+      // 對方不能對應這個效果的發動把魔法・陷阱・怪獸的效果發動
+      target: async (ctx) => {
+        ctx.data.noResponse = true;
+      },
+      operation: async (ctx) => {
+        ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
+      },
+    },
+    detach(1, {
+      kind: 'quick',
+      label: '對方怪獸攻擊力下降墓地「急襲猛禽」數量×800',
+      categories: ['stat'],
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.opp).length > 0 && graveFilter(ctx.duel, ctx.player, isRRMonster).length > 0,
+      target: async (ctx) => {
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.opp), { title: '選擇對方的怪獸', aiValue: (c) => ctx.duel.getAtk(c) });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        const n = graveFilter(ctx.duel, ctx.player, isRRMonster).length;
+        if (t?.isFaceUpMonster) ctx.duel.addMod(t, { atk: -800 * n, until: 'permanent' }, ctx.card);
+      },
+      ai: (ctx) => {
+        const d = ctx.duel;
+        const b = d.battle;
+        if (b?.attacker.controller === ctx.opp && b.target?.controller === ctx.player) return 55;
+        return d.turnPlayer === ctx.player && d.phase === 'main1' && d.faceUpMonsters(ctx.opp).some((c) => d.getAtk(c) >= 2500) ? 45 : 0;
+      },
+    }),
+  ],
+});
+
 // 急襲猛禽－革命獵鷹
 def(81927732, {
   xyz: { count: 3, filter: (c) => isWingedBeast(c.data) },
+  attackEach: (duel, self) => duel.hasFlag(self, 'attackAll'),
   effects: [
     detach(1, {
       label: '這個回合可以向對方怪獸全部各攻擊 1 次',
       once: 'turn',
       condition: (ctx) => ctx.duel.phase === 'main1' && ctx.duel.monsters(ctx.opp).length >= 2,
       operation: async (ctx) => {
-        if (ctx.card.isFaceUpMonster) ctx.card.extraAttacks = Math.max(0, ctx.duel.monsters(ctx.opp).length - 1);
+        if (ctx.card.isFaceUpMonster) ctx.duel.setFlag(ctx.card, 'attackAll');
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).length >= 2 ? 45 : 0),
     }),
@@ -1126,7 +1296,8 @@ def(81275020, {
 
 // 疾行機人 竹蜻蜓電子人
 def(53932291, {
-  spSummon: handSpSummon('ss_taketomborg', '自己場上有風屬性怪獸時特殊召喚', (duel, card) => controls(duel, card.owner, (c) => isWind(c.data))),
+  ssOncePerTurn: true,
+  spSummon: { label: '自己場上有風屬性怪獸時特殊召喚', condition: (duel, card) => controls(duel, card.owner, (c) => isWind(c.data)) },
   effects: [
     {
       kind: 'ignition',
@@ -1136,6 +1307,7 @@ def(53932291, {
       cost: async (ctx) => {
         ctx.duel.moveTo(ctx.card, 'grave', { reason: 'tribute' });
         ctx.duel.log(`解放「${ctx.card.name}」`);
+        lockSS(ctx, (c) => isWind(c.data));
       },
       operation: async (ctx) => {
         await ssFromDeck(ctx, (d) => isSpeedroid(d) && isTuner(d));
@@ -1158,11 +1330,15 @@ def(53054833, {
         ctx.duel.freeMZones(ctx.player) > 0 &&
         graveFilter(ctx.duel, ctx.player, (d) => isMonster(d) && isSpeedroid(d) && d.level <= 3).length > 0,
       target: async (ctx) => {
-        await chooseTargets(ctx, graveFilter(ctx.duel, ctx.player, (d) => isMonster(d) && isSpeedroid(d) && d.level <= 3), {
-          title: '選擇要特殊召喚的怪獸',
-          hint: 'benefit',
-          aiValue: (c) => (isTuner(c.data) ? 1000 : 0),
-        });
+        await chooseTargets(
+          ctx,
+          graveFilter(ctx.duel, ctx.player, (d) => isMonster(d) && isSpeedroid(d) && d.level <= 3),
+          {
+            title: '選擇要特殊召喚的怪獸',
+            hint: 'benefit',
+            aiValue: (c) => (isTuner(c.data) ? 1000 : 0),
+          },
+        );
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
@@ -1182,17 +1358,24 @@ def(16725505, {
       categories: ['stat'],
       condition: (ctx) => summonedSelf(ctx) && ctx.duel.faceUpMonsters(ctx.player).some((c) => c.id !== 16725505 && isSpeedroid(c.data)),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player).filter((c) => c.id !== 16725505 && isSpeedroid(c.data)), {
-          title: '選擇「疾行機人」怪獸',
-          hint: 'benefit',
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters(ctx.player).filter((c) => c.id !== 16725505 && isSpeedroid(c.data)),
+          {
+            title: '選擇「疾行機人」怪獸',
+            hint: 'benefit',
+          },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
         if (!t?.isFaceUpMonster) return;
         // AI：讓同步召喚的等級合計剛好符合額外牌組裡的同步怪獸
-        const total = d.faceUpMonsters(ctx.player).filter((c) => c !== t).reduce((s, c) => s + d.getLevel(c), 0);
+        const total = d
+          .faceUpMonsters(ctx.player)
+          .filter((c) => c !== t)
+          .reduce((s, c) => s + d.getLevel(c), 0);
         const score = (lv: number) => (d.p(ctx.player).extra.some((x) => isSynchro(x.data) && x.data.level === total + lv) ? 10 + lv : 0);
         const i = await d.chooseOption({
           player: ctx.player,
@@ -1216,7 +1399,8 @@ def(27660735, {
       range: ['grave'],
       event: 'attackDeclared',
       categories: ['negate'],
-      condition: (ctx) => ctx.duel.turnPlayer === ctx.opp && !!ctx.duel.battle && ctx.duel.battle.attacker.controller === ctx.opp && !ctx.duel.battle.negated,
+      condition: (ctx) =>
+        ctx.duel.turnPlayer === ctx.opp && !!ctx.duel.battle && ctx.duel.battle.attacker.controller === ctx.opp && !ctx.duel.battle.negated,
       cost: async (ctx) => {
         ctx.duel.banish([ctx.card], 'cost', ctx.card);
       },
@@ -1288,6 +1472,7 @@ def(16947147, {
 
 // 高速疾行機人 比劍騎手
 def(42110604, {
+  ssOncePerTurn: true,
   effects: [
     { kind: 'continuous', query: (_d, self, q, t) => q === 'doubleAttack' && t === self },
     {
@@ -1307,7 +1492,11 @@ def(42110604, {
       categories: ['toHand'],
       condition: (ctx) => ctx.event?.card === ctx.card && ctx.duel.p(ctx.player).banished.some((c) => isSpeedroid(c.data)),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.p(ctx.player).banished.filter((c) => isSpeedroid(c.data)), { title: '選擇要加入手牌的卡', hint: 'benefit' });
+        await chooseTargets(
+          ctx,
+          ctx.duel.p(ctx.player).banished.filter((c) => isSpeedroid(c.data)),
+          { title: '選擇要加入手牌的卡', hint: 'benefit' },
+        );
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
@@ -1348,10 +1537,14 @@ def(97007933, {
       range: ['grave'],
       once: 'name',
       categories: ['summon'],
-      condition: (ctx) => ctx.duel.fieldCards(ctx.player).length === 0 && ctx.duel.freeMZones(ctx.player) > 0,
+      condition: (ctx) =>
+        ctx.duel.fieldCards(ctx.player).length === 0 && ctx.duel.freeMZones(ctx.player) > 0 && !ctx.duel.normalSummonedThisTurn(ctx.player),
+      // 這個效果發動的回合，自己不能通常召喚
+      cost: async (ctx) => {
+        ctx.duel.p(ctx.player).normalSummons = 0;
+      },
       operation: async (ctx) => {
-        const d = ctx.duel;
-        if (ctx.card.location === 'grave' && d.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card })) d.p(ctx.player).normalSummons = 0;
+        if (ctx.card.location === 'grave') ctx.duel.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card });
       },
       ai: () => 50,
     },
@@ -1375,7 +1568,7 @@ const wingNegate = (label: string, cond: (ctx: EffectContext) => boolean): Effec
   },
   ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 75 : 0),
 });
-const highLevelOnField = (ctx: EffectContext, c: Card) => c.isFaceUpMonster && ctx.duel.getLevel(c) >= 5;
+const highLevelOnField = (ctx: EffectContext, c: Card) => c.isFaceUpMonster && hasLevel(c) && ctx.duel.getLevel(c) >= 5;
 def(82044279, {
   effects: [
     wingNegate('無效 5 星以上怪獸的效果並破壞', (ctx) => {
@@ -1405,7 +1598,7 @@ def(50954680, {
         const b = ctx.duel.battle;
         if (!b || !b.target || (b.attacker !== ctx.card && b.target !== ctx.card)) return false;
         const foe = b.attacker === ctx.card ? b.target : b.attacker;
-        return foe.isFaceUpMonster && foe.controller === ctx.opp && ctx.duel.getLevel(foe) >= 5;
+        return foe.isFaceUpMonster && foe.controller === ctx.opp && hasLevel(foe) && ctx.duel.getLevel(foe) >= 5;
       },
       operation: async (ctx) => {
         const b = ctx.duel.battle;
@@ -1436,7 +1629,12 @@ def(35272499, {
         deckFilter(ctx, (d) => isPredaplant(d) && d.id !== 35272499).length > 0,
       cost: async (ctx) => {
         const d = ctx.duel;
-        const c = await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的怪獸', cards: d.p(ctx.player).hand.filter((c) => isMonster(c.data)), hint: 'cost' });
+        const c = await d.selectOne({
+          player: ctx.player,
+          title: '選擇要送去墓地的怪獸',
+          cards: d.p(ctx.player).hand.filter((c) => isMonster(c.data)),
+          hint: 'cost',
+        });
         if (c) d.sendToGrave([c], 'cost', ctx.card);
       },
       operation: async (ctx) => {
@@ -1487,7 +1685,14 @@ const sundewTargets = (ctx: EffectContext) => {
     if (!isDark(f.data)) return false;
     const conds = (getFusion(f) ?? []).slice();
     // 必須包含這張卡
-    return conds.some((cond, i) => cond(ctx.card.data, ctx.card) && !!d.findMaterialSet(conds.filter((_, j) => j !== i), pool.filter((c) => c !== ctx.card)));
+    return conds.some(
+      (cond, i) =>
+        cond(ctx.card.data, ctx.card) &&
+        !!d.findMaterialSet(
+          conds.filter((_, j) => j !== i),
+          pool.filter((c) => c !== ctx.card),
+        ),
+    );
   });
 };
 const getFusion = (f: Card) => getScript(f.id).fusion;
@@ -1503,7 +1708,15 @@ def(89181134, {
         const d = ctx.duel;
         if (!ctx.card.isFaceUpMonster) return;
         const cands = sundewTargets(ctx);
-        const f = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇要融合召喚的融合怪獸', cards: cands, hint: 'benefit', aiValue: (x) => x.data.atk }) : null;
+        const f = cands.length
+          ? await d.selectOne({
+              player: ctx.player,
+              title: '選擇要融合召喚的融合怪獸',
+              cards: cands,
+              hint: 'benefit',
+              aiValue: (x) => x.data.atk,
+            })
+          : null;
         if (!f) return;
         const conds = getFusion(f)!;
         const pool = sundewPool(ctx);
@@ -1519,7 +1732,10 @@ def(89181134, {
         });
         if (!mats.includes(ctx.card) || !d.matchMaterials(conds, mats)) {
           const i = conds.findIndex((cond) => cond(ctx.card.data, ctx.card));
-          const rest = d.findMaterialSet(conds.filter((_, j) => j !== i), pool.filter((c) => c !== ctx.card));
+          const rest = d.findMaterialSet(
+            conds.filter((_, j) => j !== i),
+            pool.filter((c) => c !== ctx.card),
+          );
           mats = rest ? [ctx.card, ...rest] : [];
         }
         if (!mats.length) return;
@@ -1554,6 +1770,7 @@ def(52792430, {
         if (!b || !b.target || (b.attacker !== ctx.card && b.target !== ctx.card)) return false;
         const foe = b.attacker === ctx.card ? b.target : b.attacker;
         return (
+          hasLevel(foe) &&
           d.getLevel(foe) <= d.getLevel(ctx.card) &&
           d.freeMZones(ctx.player) > 0 &&
           deckFilter(ctx, (x) => isPredaplant(x) && x.id !== 52792430).length > 0
@@ -1580,7 +1797,7 @@ def(96622984, {
         const b = d.battle;
         if (!b || !b.target || (b.attacker !== ctx.card && b.target !== ctx.card)) return false;
         const foe = b.attacker === ctx.card ? b.target : b.attacker;
-        return foe.faceUp && d.getLevel(foe) <= d.getLevel(ctx.card);
+        return foe.faceUp && hasLevel(foe) && d.getLevel(foe) <= d.getLevel(ctx.card);
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -1608,9 +1825,52 @@ def(41209827, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const cands = d.faceUpMonsters(ctx.opp).filter(isSpecialSummoned);
-        const c = cands.length ? await d.selectOne({ player: ctx.player, title: '選擇對方特殊召喚的怪獸', cards: cands, hint: 'harm', aiValue: (x) => d.getAtk(x) }) : null;
+        const c = cands.length
+          ? await d.selectOne({
+              player: ctx.player,
+              title: '選擇對方特殊召喚的怪獸',
+              cards: cands,
+              hint: 'harm',
+              aiValue: (x) => d.getAtk(x),
+            })
+          : null;
         if (c && ctx.card.isFaceUpMonster) d.addMod(ctx.card, { atk: d.getAtk(c), until: 'endTurn' });
       },
+    },
+    {
+      kind: 'ignition',
+      label: '得到對方 5 星以上怪獸的卡名・效果',
+      once: 'turn',
+      condition: (ctx) => !ctx.card.copied && ctx.duel.faceUpMonsters(ctx.opp).some((c) => hasLevel(c) && ctx.duel.getLevel(c) >= 5),
+      target: async (ctx) => {
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters(ctx.opp).filter((c) => hasLevel(c) && ctx.duel.getLevel(c) >= 5),
+          {
+            title: '選擇要複製的怪獸',
+            aiValue: (c) => (getScript(c.id).effects?.length ?? 0) * 100 + c.data.atk / 100,
+          },
+        );
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (!t?.isFaceUpMonster || !ctx.card.isFaceUpMonster) return;
+        // 原本的卡名・效果
+        ctx.card.copied = { id: t.data.id, name: t.data.name };
+        ctx.duel.log(`「${ctx.card.data.name}」直到結束階段得到「${t.data.name}」的卡名和效果`);
+      },
+      ai: (ctx) =>
+        ctx.duel.phase === 'main1' &&
+        ctx.duel
+          .faceUpMonsters(ctx.opp)
+          .some(
+            (c) =>
+              hasLevel(c) &&
+              ctx.duel.getLevel(c) >= 5 &&
+              (getScript(c.id).effects ?? []).some((e) => e.kind === 'ignition' || e.kind === 'continuous'),
+          )
+          ? 40
+          : 0,
     },
     {
       kind: 'trigger',
@@ -1643,10 +1903,14 @@ def(51570882, {
       categories: ['negate', 'stat'],
       condition: (ctx) => ctx.duel.faceUpMonsters().some((c) => c !== ctx.card),
       target: async (ctx) => {
-        await chooseTargets(ctx, ctx.duel.faceUpMonsters().filter((c) => c !== ctx.card), {
-          title: '選擇怪獸',
-          aiValue: (c) => (c.controller === ctx.opp ? ctx.duel.getAtk(c) : -9999),
-        });
+        await chooseTargets(
+          ctx,
+          ctx.duel.faceUpMonsters().filter((c) => c !== ctx.card),
+          {
+            title: '選擇怪獸',
+            aiValue: (c) => (c.controller === ctx.opp ? ctx.duel.getAtk(c) : -9999),
+          },
+        );
       },
       operation: async (ctx) => {
         const d = ctx.duel;
@@ -1669,9 +1933,18 @@ def(51570882, {
         d.destroy(d.monsters(), 'effect', ctx.card);
         const cost = graveFilter(d, ctx.player, (x, c) => c !== ctx.card && isMonster(x) && isDark(x) && x.level >= 8);
         if (!cost.length || ctx.card.location !== 'grave' || d.freeMZones(ctx.player) <= 0) return;
-        if (!(await d.confirm({ player: ctx.player, title: '要除外墓地 1 隻 8 星以上的暗屬性怪獸，把這張卡特殊召喚嗎？', card: ctx.card, ai: true }))) return;
+        if (
+          !(await d.confirm({
+            player: ctx.player,
+            title: '要除外墓地 1 隻 8 星以上的暗屬性怪獸，把這張卡特殊召喚嗎？',
+            card: ctx.card,
+            ai: true,
+          }))
+        )
+          return;
         const c = await d.selectOne({ player: ctx.player, title: '選擇要除外的怪獸', cards: cost, hint: 'cost' });
-        if (c && d.banish([c], 'cost', ctx.card).length) d.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card, ignoreConditions: true });
+        if (c && d.banish([c], 'cost', ctx.card).length)
+          d.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card, ignoreConditions: true });
       },
     },
   ],
@@ -1687,13 +1960,18 @@ def(25586143, {
       label: '除外等級在這張卡以下的怪獸',
       once: 'turn',
       categories: ['banish'],
-      condition: (ctx) => ctx.duel.faceUpMonsters().some((c) => c !== ctx.card && ctx.duel.getLevel(c) <= ctx.duel.getLevel(ctx.card) && !isLinkOrXyz(c)),
+      condition: (ctx) =>
+        ctx.duel.faceUpMonsters().some((c) => c !== ctx.card && ctx.duel.getLevel(c) <= ctx.duel.getLevel(ctx.card) && !isLinkOrXyz(c)),
       target: async (ctx) => {
         const d = ctx.duel;
-        await chooseTargets(ctx, d.faceUpMonsters().filter((c) => c !== ctx.card && d.getLevel(c) <= d.getLevel(ctx.card) && !isLinkOrXyz(c)), {
-          title: '選擇要除外的怪獸',
-          aiValue: (c) => (c.controller === ctx.opp ? cardValue(d, c, ctx.player) : -9999),
-        });
+        await chooseTargets(
+          ctx,
+          d.faceUpMonsters().filter((c) => c !== ctx.card && d.getLevel(c) <= d.getLevel(ctx.card) && !isLinkOrXyz(c)),
+          {
+            title: '選擇要除外的怪獸',
+            aiValue: (c) => (c.controller === ctx.opp ? cardValue(d, c, ctx.player) : -9999),
+          },
+        );
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
@@ -1727,7 +2005,8 @@ def(25586143, {
       event: 'standby',
       categories: ['search'],
       // 送去墓地的下一個準備階段
-      condition: (ctx) => ctx.card.location === 'grave' && ctx.duel.turn === ctx.card.movedTurn + 1 && deckFilter(ctx, isFusionSpell).length > 0,
+      condition: (ctx) =>
+        ctx.card.location === 'grave' && ctx.duel.turn === ctx.card.movedTurn + 1 && deckFilter(ctx, isFusionSpell).length > 0,
       operation: async (ctx) => {
         await searchDeck(ctx, isFusionSpell);
       },
@@ -1769,3 +2048,351 @@ def(69946549, {
   ],
 });
 
+// =====================================================================
+// 幻影騎士團的陷阱怪獸・急襲猛禽之力
+// =====================================================================
+
+/** 幻影騎士團的陷阱怪獸（戰士族・暗屬性） */
+const pkTrapMonster = (
+  ctx: EffectContext,
+  level: number,
+  atk: number,
+  def: number,
+  opts: { effect?: boolean; banishOnLeave?: boolean } = {},
+) =>
+  ctx.duel.summonTrapAsMonster(
+    ctx.card,
+    ctx.player,
+    { atk, def, level, race: RACE.WARRIOR, attribute: ATTR.DARK, effect: opts.effect },
+    { position: 'def', banishOnLeave: opts.banishOnLeave },
+  );
+/** 對方怪獸的直接攻擊宣言時 */
+const oppDirectAttack = (ctx: EffectContext) => {
+  const b = ctx.duel.battle;
+  return !!b && !b.negated && b.attacker.controller === ctx.opp && !b.target;
+};
+/** 對方直接攻擊時擋下的 AI 評分 */
+const blockDirectAi = (ctx: EffectContext) => {
+  const a = ctx.duel.battle?.attacker;
+  return a && ctx.duel.getAtk(a) >= 1000 ? 60 : 30;
+};
+
+// 幻影騎士團 暗影焰劍蒼騎
+def(77462146, {
+  effects: [
+    activate({
+      label: '攻擊力・守備力上升 300',
+      categories: ['stat'],
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).length > 0,
+      target: async (ctx) => {
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player), {
+          title: '選擇自己的怪獸',
+          hint: 'benefit',
+          aiValue: (c) => ctx.duel.getAtk(c),
+        });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.isFaceUpMonster) ctx.duel.addMod(t, { atk: 300, def: 300, until: 'permanent' }, ctx.card);
+      },
+      // 自己的怪獸被攻擊時強化
+      ai: (ctx) => (ctx.duel.battle?.target?.controller === ctx.player ? 40 : 0),
+    }),
+    {
+      kind: 'quick',
+      label: '對方直接攻擊時，變成怪獸守備表示特殊召喚',
+      range: ['grave'],
+      event: 'attackDeclared',
+      categories: ['summon'],
+      condition: (ctx) => ctx.card.location === 'grave' && oppDirectAttack(ctx) && ctx.duel.freeMZones(ctx.player) > 0,
+      operation: async (ctx) => {
+        if (ctx.card.location === 'grave') pkTrapMonster(ctx, 4, 0, 300, { banishOnLeave: true });
+      },
+      ai: blockDirectAi,
+    },
+  ],
+});
+
+// 幻影騎士團 陰暗布面甲：自己墓地沒有陷阱卡時，蓋放的回合也能發動
+def(98827725, {
+  effects: [
+    activate({
+      label: '變成怪獸守備表示特殊召喚',
+      once: 'name',
+      categories: ['summon'],
+      setTurnActivation: (duel, _card, p) => !duel.p(p).grave.some((c) => isTrap(c.data)),
+      condition: (ctx) => ctx.duel.freeMZones(ctx.player) > 0,
+      operation: async (ctx) => {
+        if (ctx.card.onField) pkTrapMonster(ctx, 4, 0, 300);
+      },
+      ai: (ctx) => {
+        const d = ctx.duel;
+        // 對方攻擊時當作壁，或自己的回合湊超量素材
+        if (d.turnPlayer === ctx.opp) return d.battle ? 45 : 0;
+        return d.phase === 'main1' && d.faceUpMonsters(ctx.player).some((c) => d.getLevel(c) === 4) ? 35 : 0;
+      },
+    }),
+  ],
+});
+
+// 幻影騎士團 暗黑手甲
+def(24212820, {
+  effects: [
+    activate({
+      label: '把「幻影」魔法・陷阱卡送去墓地',
+      condition: (ctx) => deckFilter(ctx, isPhantomST).length > 0,
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const cands = deckFilter(ctx, isPhantomST);
+        const c = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要送去墓地的卡', cards: cands, hint: 'benefit' })
+          : null;
+        if (c) d.sendToGrave([c], 'effect', ctx.card);
+      },
+      ai: () => 30,
+    }),
+    {
+      kind: 'quick',
+      label: '自己場上沒有卡時，對方直接攻擊時變成怪獸特殊召喚',
+      range: ['grave'],
+      event: 'attackDeclared',
+      categories: ['summon'],
+      condition: (ctx) => ctx.card.location === 'grave' && oppDirectAttack(ctx) && ctx.duel.fieldCards(ctx.player).length === 0,
+      operation: async (ctx) => {
+        if (ctx.card.location === 'grave') pkTrapMonster(ctx, 4, 300, 600, { effect: true, banishOnLeave: true });
+      },
+      ai: blockDirectAi,
+    },
+    {
+      kind: 'continuous',
+      statMod: (duel, self, t) =>
+        t === self && self.trapData ? { def: 300 * duel.p(self.controller).grave.filter((c) => isPhantomST(c.data)).length } : null,
+    },
+  ],
+});
+
+// 幻影騎士團 霧鴉爪
+def(9336190, {
+  effects: [
+    activate({
+      label: '把除外的「幻影騎士團」怪獸加入手牌',
+      categories: ['toHand'],
+      condition: (ctx) => ctx.duel.p(ctx.player).banished.some((c) => isPKMonster(c.data)),
+      target: async (ctx) => {
+        await chooseTargets(
+          ctx,
+          ctx.duel.p(ctx.player).banished.filter((c) => isPKMonster(c.data)),
+          { title: '選擇要加入手牌的怪獸', hint: 'benefit' },
+        );
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.location === 'banished') ctx.duel.returnToHand([t], 'effect', ctx.card);
+      },
+      ai: () => 35,
+    }),
+    {
+      kind: 'quick',
+      label: '對方直接攻擊時，特殊召喚墓地的「幻影騎士團」，這張卡也變成怪獸',
+      range: ['grave'],
+      event: 'attackDeclared',
+      categories: ['summon'],
+      condition: (ctx) =>
+        ctx.card.location === 'grave' &&
+        oppDirectAttack(ctx) &&
+        ctx.duel.freeMZones(ctx.player) > 0 &&
+        graveFilter(ctx.duel, ctx.player, (d) => isPKMonster(d) && d.level <= 4).length > 0,
+      target: async (ctx) => {
+        await chooseTargets(
+          ctx,
+          graveFilter(ctx.duel, ctx.player, (d) => isPKMonster(d) && d.level <= 4),
+          {
+            title: '選擇要特殊召喚的怪獸',
+            hint: 'benefit',
+            aiValue: (c) => c.data.def,
+          },
+        );
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const t = tgt(ctx);
+        if (!t || t.location !== 'grave' || !d.specialSummon(t, ctx.player, { position: 'def', by: ctx.card })) return;
+        if (ctx.card.location === 'grave') pkTrapMonster(ctx, t.data.level, 0, 0, { banishOnLeave: true });
+      },
+      ai: blockDirectAi,
+    },
+  ],
+});
+
+// 幻影騎士團 本影烈焰劍蒼騎：自己的場上或墓地有「幻影騎士團」怪獸時，蓋放的回合也能發動
+const darkXyzSummonable = (duel: Duel, p: PlayerId) =>
+  duel
+    .p(p)
+    .extra.filter((x) => isXyz(x.data) && isDark(x.data) && duel.summonAllowed(p, x, 'special') && duel.xyzMaterialSets(p, x).length > 0);
+def(85257384, {
+  effects: [
+    activate({
+      label: '變成怪獸守備表示特殊召喚',
+      once: 'name',
+      categories: ['summon', 'position'],
+      setTurnActivation: (duel, _card, p) =>
+        duel.faceUpMonsters(p).some((c) => isPKMonster(c.data)) || duel.p(p).grave.some((c) => isPKMonster(c.data)),
+      condition: (ctx) => ctx.duel.freeMZones(ctx.player) > 0,
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        if (!ctx.card.onField || !pkTrapMonster(ctx, 3, 0, 300)) return;
+        const atk = d.faceUpMonsters(ctx.opp).filter((c) => c.position === 'atk');
+        if (!atk.length || !(await d.confirm({ player: ctx.player, title: '要把對方 1 隻攻擊表示怪獸變成守備表示嗎？', ai: true }))) return;
+        const c = await d.selectOne({
+          player: ctx.player,
+          title: '選擇要變成守備表示的怪獸',
+          cards: atk,
+          hint: 'harm',
+          aiValue: (x) => d.getAtk(x),
+        });
+        if (c?.isFaceUpMonster) d.changePosition(c, 'def', true, ctx.card);
+      },
+      ai: (ctx) => {
+        const d = ctx.duel;
+        if (d.turnPlayer === ctx.opp) return d.battle ? 45 : 0;
+        return d.phase === 'main1' && d.faceUpMonsters(ctx.player).some((c) => d.getLevel(c) === 3) ? 35 : 0;
+      },
+    }),
+    fromGrave({
+      label: '除外：進行暗屬性超量怪獸的超量召喚',
+      categories: ['summon'],
+      condition: (ctx) => darkXyzSummonable(ctx.duel, ctx.player).length > 0,
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const cands = darkXyzSummonable(d, ctx.player);
+        const x = cands.length
+          ? await d.selectOne({
+              player: ctx.player,
+              title: '選擇要超量召喚的怪獸',
+              cards: cands,
+              hint: 'benefit',
+              aiValue: (c) => c.data.atk,
+            })
+          : null;
+        if (x) await d.xyzSummonByEffect(ctx.player, x);
+      },
+      ai: () => 55,
+    }),
+  ],
+});
+
+// 幻影騎士團 失落護臂甲
+def(36247316, {
+  effects: [
+    activate({
+      label: '怪獸攻擊力下降 600、變成 2 星，這張卡變成怪獸特殊召喚',
+      categories: ['stat', 'summon'],
+      condition: (ctx) => ctx.duel.faceUpMonsters().length > 0,
+      target: async (ctx) => {
+        const d = ctx.duel;
+        await chooseTargets(ctx, d.faceUpMonsters(), {
+          title: '選擇怪獸',
+          // 自己的怪獸：變成 2 星湊超量；對方的怪獸：攻擊力下降
+          aiValue: (c) => (c.controller === ctx.opp ? d.getAtk(c) : d.getLevel(c) !== 2 ? 500 : -1),
+        });
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const t = tgt(ctx);
+        if (t?.isFaceUpMonster) {
+          d.addMod(t, { atk: -600, level: 2 - d.getLevel(t), until: 'endTurn' }, ctx.card);
+          d.log(`「${t.name}」的攻擊力下降 600，等級變成 2 星`);
+        }
+        // 直到回合結束時，自己的「幻影騎士團」怪獸不會被戰鬥破壞
+        const me = ctx.player;
+        d.lingering.push({ turn: d.turn, query: (c, q) => q === 'battleIndestructible' && c.controller === me && isPKMonster(c.data) });
+        if (ctx.card.onField) pkTrapMonster(ctx, 2, 600, 0);
+      },
+      ai: (ctx) => {
+        const d = ctx.duel;
+        if (d.turnPlayer === ctx.opp) return d.battle ? 45 : 0;
+        return 0;
+      },
+    }),
+  ],
+});
+
+// 起翼升階魔法－急襲猛禽之力
+const rrXyzOnField = (duel: Duel, p: PlayerId) => duel.faceUpMonsters(p).filter((c) => isXyz(c.data) && isRR(c.data));
+const rrXyzInGrave = (duel: Duel, p: PlayerId) => duel.p(p).grave.filter((c) => isXyz(c.data) && isRR(c.data));
+/** 階級合計和額外牌組的「急襲猛禽」超量怪獸相同的組合 */
+const forceRanks = (duel: Duel, p: PlayerId) =>
+  new Set(
+    duel
+      .p(p)
+      .extra.filter((x) => isXyz(x.data) && isRR(x.data) && duel.summonAllowed(p, x, 'special'))
+      .map((x) => x.data.level),
+  );
+function forceSetOk(duel: Duel, p: PlayerId, sel: Card[]) {
+  if (sel.length < 2 || !sel.some((c) => c.location === 'mzone')) return false;
+  return forceRanks(duel, p).has(sel.reduce((s, c) => s + c.data.level, 0));
+}
+function forcePossible(duel: Duel, p: PlayerId) {
+  const field = rrXyzOnField(duel, p);
+  const pool = [...field, ...rrXyzInGrave(duel, p)];
+  if (!field.length || pool.length < 2 || pool.length > 12) return pool.length >= 2 && field.length > 0;
+  for (let mask = 3; mask < 1 << pool.length; mask++) {
+    const sel = pool.filter((_, i) => mask & (1 << i));
+    if (forceSetOk(duel, p, sel)) return true;
+  }
+  return false;
+}
+def(38044854, {
+  effects: [
+    activate({
+      label: '用場上・墓地的「急襲猛禽」超量怪獸超量召喚',
+      once: 'name',
+      categories: ['summon'],
+      condition: (ctx) => {
+        const d = ctx.duel;
+        const timing = isMainPhase(d) || (d.phase === 'battle' && d.turnPlayer === ctx.opp);
+        return timing && forcePossible(d, ctx.player);
+      },
+      target: async (ctx) => {
+        const d = ctx.duel;
+        const pool = [...rrXyzOnField(d, ctx.player), ...rrXyzInGrave(d, ctx.player)];
+        await chooseTargets(ctx, pool, {
+          title: '選擇 2 隻以上的「急襲猛禽」超量怪獸（包含場上的怪獸，階級合計和要超量召喚的怪獸相同）',
+          min: 2,
+          max: pool.length,
+          hint: 'benefit',
+          aiValue: (c) => (c.location === 'mzone' ? 1000 : 0) + c.data.level,
+        });
+        if (!forceSetOk(d, ctx.player, tgts(ctx))) {
+          // AI 選的組合不合法時，找第一個合法的組合
+          for (let mask = 3; mask < 1 << Math.min(pool.length, 12); mask++) {
+            const sel = pool.filter((_, i) => mask & (1 << i));
+            if (forceSetOk(d, ctx.player, sel)) {
+              d.setTargets(ctx, sel);
+              break;
+            }
+          }
+        }
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const mats = tgts(ctx).filter((c) => c.location === 'mzone' || c.location === 'grave');
+        if (!mats.some((c) => c.location === 'mzone')) return;
+        const rank = mats.reduce((s, c) => s + c.data.level, 0);
+        const cands = d.p(ctx.player).extra.filter((x) => isXyz(x.data) && isRR(x.data) && x.data.level === rank);
+        const x = cands.length
+          ? await d.selectOne({ player: ctx.player, title: '選擇要超量召喚的「急襲猛禽」超量怪獸', cards: cands, hint: 'benefit' })
+          : null;
+        if (!x) return;
+        const inherited = mats.flatMap((m) => m.overlays.splice(0));
+        for (const m of mats) d.moveTo(m, 'overlay', { reason: 'material' });
+        x.overlays.push(...inherited, ...mats);
+        d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 超量召喚「${x.name}」！`, ctx.player);
+        if (!d.specialSummon(x, ctx.player, { summonType: 'xyz', by: ctx.card, position: 'atk' })) {
+          for (const m of x.overlays.splice(0)) d.moveTo(m, 'grave', { reason: 'rule' });
+        }
+      },
+      ai: () => 70,
+    }),
+  ],
+});

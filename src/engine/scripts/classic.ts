@@ -140,7 +140,7 @@ def(64043465, {
       kind: 'quick',
       label: '把「被封印」卡送去墓地：場上 1 隻怪獸回到手牌',
       range: ['szone'],
-      once: 'name',
+      once: 'nameShared',
       categories: ['toHand'],
       condition: (ctx) =>
         ctx.card.faceUp &&
@@ -169,7 +169,7 @@ def(64043465, {
       kind: 'trigger',
       label: '墓地的「被封印」卡加入手牌',
       event: 'toGrave',
-      once: 'name',
+      once: 'nameShared',
       categories: ['toHand'],
       condition: (ctx) =>
         ctx.event?.card === ctx.card &&

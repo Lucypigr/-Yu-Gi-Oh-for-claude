@@ -33,6 +33,12 @@ export class Card {
   attacks = 0;
   /** 可以額外攻擊的次數 */
   extraAttacks = 0;
+  /** 陷阱怪獸：在怪獸區域時原本的陷阱卡資料（離場時還原） */
+  trapData: CardData | null = null;
+  /** 暫時得到的卡名・效果（凶飢毒融合龍），回合開始時清除 */
+  copied: { id: number; name: string } | null = null;
+  /** 這回合攻擊過的怪獸（「向對方怪獸全部各作 1 次攻擊」用） */
+  attackedTargets: Card[] = [];
   posChangedTurn = 0;
   counters = 0;
   equipTarget: Card | null = null;
@@ -62,7 +68,7 @@ export class Card {
   }
 
   get name() {
-    return this.data.name;
+    return this.copied ? this.copied.name : this.data.name;
   }
 
   get onField() {
@@ -79,6 +85,8 @@ export class Card {
     this.summonedBy = null;
     this.attacks = 0;
     this.extraAttacks = 0;
+    this.attackedTargets = [];
+    this.copied = null;
     this.posChangedTurn = 0;
     this.counters = 0;
     this.equipTarget = null;

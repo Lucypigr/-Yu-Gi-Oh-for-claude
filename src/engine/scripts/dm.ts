@@ -567,9 +567,12 @@ def(67300516, {
         ctx.card.location === 'grave' &&
         ctx.duel.turnPlayer === ctx.player &&
         ctx.duel.freeMZones(ctx.player) > 0 &&
-        ctx.duel.p(ctx.player).grave.some((c) => c !== ctx.card && isRE(c) && canRevive(c)),
+        ctx.duel.p(ctx.player).grave.some((c) => c !== ctx.card && isRE(c) && canRevive(c)) &&
+        // 這張卡的效果發動的回合，自己不能通常召喚
+        !ctx.duel.normalSummonedThisTurn(ctx.player),
       cost: async (ctx) => {
         ctx.duel.banish([ctx.card], 'cost', ctx.card);
+        ctx.duel.p(ctx.player).normalSummons = 0;
       },
       target: async (ctx) => {
         await chooseTargets(ctx, ctx.duel.p(ctx.player).grave.filter((c) => isRE(c) && canRevive(c)), {

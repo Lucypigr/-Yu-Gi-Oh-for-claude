@@ -1069,3 +1069,140 @@ describe('第十彈：ARC-V 四天龍', () => {
     expect(fog.location).toBe('grave');
   });
 });
+
+describe('第十彈：和原卡一致的規則', () => {
+  const attach = (duel: Duel, xyz: Card, ids: number[]) => {
+    for (const id of ids) {
+      const m = new Card(getCard(id), xyz.controller);
+      m.location = 'overlay';
+      xyz.overlays.push(m);
+    }
+  };
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('竹蜻蜓電子人：發動後只能特殊召喚風屬性怪獸，自己 1 回合只能特殊召喚 1 次', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const take = put(duel, 0, 53932291, 'mzone');
+    take.summonType = 'special';
+    duel.p(0).summonedThisTurn.push({ card: take, kind: 'special' });
+    put(duel, 0, 16725505, 'deck'); // 赤目骰子（風・調整）
+    await activateMain(duel, 0, take);
+    const dark = put(duel, 0, 16195942, 'extra');
+    expect(duel.specialSummon(dark, 0, { summonType: 'xyz' })).toBe(false);
+    const take2 = put(duel, 0, 53932291, 'grave');
+    expect(duel.specialSummon(take2, 0)).toBe(false);
+  });
+
+  it('模糊伯勞：這回合特殊召喚過「急襲猛禽」以外的怪獸時不能發動', () => {
+    const { duel } = setup();
+    put(duel, 0, 53251824, 'mzone');
+    const fuzzy = put(duel, 0, 5929801, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === fuzzy)).toBe(true);
+    const other = put(duel, 0, 82044279, 'extra');
+    duel.specialSummon(other, 0, { summonType: 'synchro' });
+    expect(duel.getActivatable(0).some((x) => x.card === fuzzy)).toBe(false);
+  });
+
+  it('起翼獵鷹：可以向對方特殊召喚的怪獸全部各攻擊 1 次', async () => {
+    const { duel } = setup();
+    const rise = put(duel, 0, 73887236, 'mzone');
+    const m1 = put(duel, 1, FILLER, 'mzone');
+    const m2 = put(duel, 1, FILLER, 'mzone');
+    const m3 = put(duel, 1, FILLER, 'mzone');
+    m1.summonType = 'special';
+    m2.summonType = 'special';
+    m3.summonType = 'normal';
+    duel.addMod(rise, { atk: 3000, until: 'permanent' });
+    await duel.performAttack(rise, m1);
+    let opt = duel.getAttackOptions(0).find((o) => o.attacker === rise);
+    expect(opt?.targets).toEqual([m2]);
+    await duel.performAttack(rise, m2);
+    opt = duel.getAttackOptions(0).find((o) => o.attacker === rise);
+    expect(opt).toBeUndefined();
+  });
+
+  it('凶飢毒融合龍：直到結束階段得到對方 5 星以上怪獸的卡名和效果（超量怪獸沒有等級，不能選）', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const sv = put(duel, 0, 41209827, 'mzone');
+    put(duel, 1, 16195942, 'mzone'); // 暗叛逆（階級 4）
+    expect(duel.getActivatable(0).some((x) => x.card === sv)).toBe(false);
+    put(duel, 1, 25586143, 'mzone'); // 奇美拉大花草（7 星）
+    await activateMain(duel, 0, sv);
+    expect(sv.name).toBe(getCard(25586143).name);
+    // 得到「除外等級在這張卡以下的怪獸」的效果
+    expect(duel.effectsOf(sv)!.length).toBe(3 + 3); // 自己的 3 個效果＋奇美拉大花草的 3 個效果
+  });
+
+  it('陰暗布面甲：墓地沒有陷阱卡時蓋放的回合也能發動，變成怪獸；離場時變回陷阱卡', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const sb = put(duel, 0, 98827725, 'szone', { faceUp: false });
+    sb.turnPlaced = duel.turn;
+    await activateMain(duel, 0, sb);
+    expect(sb.location).toBe('mzone');
+    expect(sb.position).toBe('def');
+    expect(duel.getDef(sb)).toBe(300);
+    duel.destroy([sb], 'effect');
+    expect(sb.location).toBe('grave');
+    expect(sb.data.type & 0x4).toBeTruthy();
+  });
+
+  it('暗影焰劍蒼騎：對方直接攻擊時從墓地變成怪獸守備表示特殊召喚', async () => {
+    const { duel, a } = setup();
+    duel.turnPlayer = 1;
+    a.respondWith = [77462146];
+    const veil = put(duel, 0, 77462146, 'grave');
+    const atk = put(duel, 1, 89631139, 'mzone');
+    await safe(() => duel.performAttack(atk, null));
+    expect(veil.location).toBe('mzone');
+    expect(duel.p(0).lp).toBe(8000);
+  });
+
+  it('沾塵袍：①②的效果同 1 回合各能使用 1 次', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const cloak = put(duel, 0, 90432163, 'mzone');
+    put(duel, 0, 36426778, 'deck');
+    const cloak2 = put(duel, 0, 90432163, 'grave');
+    await activateMain(duel, 0, cloak);
+    expect(cloak.position).toBe('def');
+    expect(duel.getActivatable(0).some((x) => x.card === cloak2)).toBe(true);
+  });
+
+  it('起翼升階魔法－急襲猛禽之力：用場上和墓地的「急襲猛禽」超量怪獸超量召喚階級合計的怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const rise = put(duel, 0, 73887236, 'mzone');
+    attach(duel, rise, [FILLER]);
+    const strix = put(duel, 0, 73347079, 'grave');
+    const cannon = put(duel, 0, 23603403, 'extra');
+    const force = put(duel, 0, 38044854, 'hand');
+    await activateMain(duel, 0, force);
+    expect(cannon.location).toBe('mzone');
+    expect(cannon.overlays).toContain(rise);
+    expect(cannon.overlays).toContain(strix);
+    expect(cannon.overlays.length).toBe(3);
+  });
+
+  it('衛星炮獵鷹：用「急襲猛禽」超量召喚時破壞對方全部魔法・陷阱，對方不能對應', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [44095762];
+    const s1 = put(duel, 1, 44095762, 'szone', { faceUp: false }); // 神聖防護罩
+    const s2 = put(duel, 1, 5318639, 'szone', { faceUp: false });
+    const rise = put(duel, 0, 73887236, 'mzone');
+    const strix = put(duel, 0, 73347079, 'grave');
+    put(duel, 0, 23603403, 'extra');
+    const force = put(duel, 0, 38044854, 'hand');
+    await activateMain(duel, 0, force);
+    expect(s1.location).toBe('grave');
+    expect(s2.location).toBe('grave');
+    expect(rise.location).toBe('overlay');
+    expect(strix.location).toBe('overlay');
+  });
+});

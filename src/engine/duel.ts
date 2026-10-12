@@ -2,6 +2,7 @@
 import { Card } from './card';
 import {
   type CardData,
+  TYPE,
   getCard,
   isExtraDeckCard,
   isMonster,
@@ -81,9 +82,27 @@ export interface PlayerState {
   normalSummons: number;
   /** 本回合有效的旗標（回合開始時清除） */
   turnFlags: Record<string, number | boolean>;
-  /** 卡名 1 回合 1 次的使用紀錄 */
-  usedNames: Record<number, number>;
+  /** 卡名 1 回合 1 次的使用紀錄（鍵：卡號，或「卡號:效果索引」） */
+  usedNames: Record<string, number>;
+  /** 本回合的召喚限制（「自己不是○○怪獸不能特殊召喚」等，回合開始時清除） */
+  summonLocks: SummonLock[];
+  /** 本回合召喚・特殊召喚成功的怪獸 */
+  summonedThisTurn: { card: Card; kind: SummonKind }[];
 }
+
+/** 召喚的種類：通常召喚（含上級召喚・蓋放）、反轉召喚、特殊召喚 */
+export type SummonKind = 'normal' | 'flip' | 'special';
+
+export interface SummonLock {
+  kinds: SummonKind[];
+  /** 允許召喚的怪獸 */
+  allow: (c: Card) => boolean;
+  /** 只限制從額外牌組特殊召喚 */
+  fromExtraOnly?: boolean;
+}
+
+export const summonKindOf = (t: SummonType | null | undefined): SummonKind =>
+  t === 'normal' || t === 'tribute' ? 'normal' : t === 'flip' ? 'flip' : 'special';
 
 export interface LogEntry {
   turn: number;
@@ -155,6 +174,8 @@ export class Duel {
   windowEvent: GameEvent | null = null;
   /** 目前正在處理的連鎖（UI 顯示用） */
   resolvingLink: ChainLink | null = null;
+  /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
+  lingering: { turn: number; query: (card: Card, q: Query) => boolean }[] = [];
   /** 正在發動的卡（UI 用來顯示發動演出） */
   activating: { card: Card; player: PlayerId; isCardActivation: boolean; label?: string } | null = null;
 
@@ -185,6 +206,8 @@ export class Duel {
         normalSummons: 1,
         turnFlags: {},
         usedNames: {},
+        summonLocks: [],
+        summonedThisTurn: [],
       };
       for (const code of s.deck.main) {
         const c = new Card(getCard(code), id);
@@ -414,8 +437,8 @@ export class Duel {
     const lo = Math.min(this.getScale(l), this.getScale(r));
     const hi = Math.max(this.getScale(l), this.getScale(r));
     const ok = (c: Card) => isMonster(c.data) && c.data.level > lo && c.data.level < hi;
-    const fromHand = this.p(p).hand.filter((c) => ok(c) && !cannotNormalSummon(c.data));
-    const fromExtra = this.p(p).extra.filter((c) => c.faceUp && isPendulum(c.data) && ok(c));
+    const fromHand = this.p(p).hand.filter((c) => ok(c) && !cannotNormalSummon(c.data) && this.summonAllowed(p, c, 'special'));
+    const fromExtra = this.p(p).extra.filter((c) => c.faceUp && isPendulum(c.data) && ok(c) && this.summonAllowed(p, c, 'special'));
     return [
       ...(this.freeMZones(p) > 0 ? fromHand : []),
       ...fromExtra.filter((c) => this.extraZones(p, c).length > 0),
@@ -437,12 +460,19 @@ export class Duel {
   // 數值與永續效果
   // =====================================================================
 
+  /** 卡片目前的效果：自己的效果，加上暫時得到的其他卡的效果 */
+  effectsOf(card: Card): EffectDef[] | undefined {
+    const own = getScript(card.id).effects;
+    if (!card.copied || card.location !== 'mzone') return own;
+    return [...(own ?? []), ...(getScript(card.copied.id).effects ?? [])];
+  }
+
   /** 目前有效的永續效果 */
   private *activeContinuous(): Generator<{ card: Card; effect: EffectDef }> {
     for (const card of this.fieldCards()) {
       if (!card.faceUp || this.isNegated(card)) continue;
       if (isTrap(card.data) && this.trapsNegated()) continue;
-      const effects = getScript(card.id).effects;
+      const effects = this.effectsOf(card);
       if (!effects) continue;
       for (const effect of effects) {
         if (effect.kind !== 'continuous') continue;
@@ -457,7 +487,7 @@ export class Duel {
   trapsNegated(): boolean {
     for (const c of this.monsters()) {
       if (!c.faceUp || this.isNegated(c)) continue;
-      const effects = getScript(c.id).effects;
+      const effects = this.effectsOf(c);
       if (effects?.some((e) => e.kind === 'continuous' && e.query?.(this, c, 'negateTrapsOnField', null, null))) return true;
     }
     return false;
@@ -469,7 +499,7 @@ export class Duel {
     const selfQuery = (q: Query) => {
       if (this.hasFlag(target, q)) return true;
       if (!target.onField || !target.faceUp || this.isNegated(target)) return false;
-      const effects = getScript(target.id).effects;
+      const effects = this.effectsOf(target);
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
     if (selfQuery('immuneAll')) return true;
@@ -504,6 +534,7 @@ export class Duel {
   /** 卡片是否具有某性質 */
   has(card: Card, q: Query): boolean {
     if (this.hasFlag(card, q)) return true;
+    for (const l of this.lingering) if (l.turn === this.turn && l.query(card, q)) return true;
     for (const { card: src, effect } of this.activeContinuous()) {
       if (!effect.query) continue;
       if (this.isImmune(card, src)) continue;
@@ -527,7 +558,7 @@ export class Duel {
     let lv = c.data.level;
     if (c.location === 'mzone' && c.faceUp) for (const m of c.mods) lv += m.level ?? 0;
     // 捕食指示物：2 星以上的怪獸等級變成 1 星
-    if (c.location === 'mzone' && this.hasFlag(c, 'predator') && lv >= 2) return 1;
+    if (c.location === 'mzone' && this.hasFlag(c, 'predator') && lv >= 2 && !isXyz(c.data)) return 1;
     return Math.max(1, lv);
   }
 
@@ -742,6 +773,11 @@ export class Duel {
       o.location = 'grave';
       o.faceUp = true;
       this.p(o.owner).grave.push(o);
+    }
+    // 陷阱怪獸離場時變回陷阱卡
+    if (card.trapData) {
+      card.data = card.trapData;
+      card.trapData = null;
     }
     // 卡片自己的離場處理（強奪的控制權等）
     if (card.faceUp) getScript(card.id).onLeaveField?.(this, card);
@@ -962,6 +998,10 @@ export class Duel {
     } = {},
   ): boolean {
     if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return false;
+    if (!this.summonAllowed(p, card, 'special')) {
+      this.log(`「${card.name}」因為召喚限制不能特殊召喚`);
+      return false;
+    }
     // 不能特殊召喚的卡（拉之翼神龍），ignoreConditions 時無視
     if (!opts.ignoreConditions && getScript(card.id).cannotSpecialSummon?.(this, card)) {
       this.log(`「${card.name}」不能特殊召喚`);
@@ -1113,9 +1153,14 @@ export class Duel {
   // =====================================================================
 
   raise(ev: GameEvent) {
+    if (ev.type === 'summoned') {
+      for (const c of ev.cards ?? (ev.card ? [ev.card] : [])) {
+        this.p(c.controller).summonedThisTurn.push({ card: c, kind: summonKindOf(ev.summonType ?? c.summonType) });
+      }
+    }
     for (const card of this.allCards()) {
       if (card.location === 'deck') continue;
-      const effects = getScript(card.id).effects;
+      const effects = this.effectsOf(card);
       if (!effects) continue;
       effects.forEach((effect, effectIndex) => {
         if (effect.kind !== 'trigger') return;
@@ -1149,13 +1194,15 @@ export class Duel {
 
   private onceOk(card: Card, effect: EffectDef, effectIndex: number, player: PlayerId): boolean {
     if (effect.once === 'turn' && card.usedTurn[effectIndex] === this.turn) return false;
-    if (effect.once === 'name' && this.p(player).usedNames[card.id] === this.turn) return false;
+    if (effect.once === 'name' && this.p(player).usedNames[`${card.id}:${effectIndex}`] === this.turn) return false;
+    if (effect.once === 'nameShared' && this.p(player).usedNames[card.id] === this.turn) return false;
     return true;
   }
 
   private markOnce(card: Card, effect: EffectDef, effectIndex: number, player: PlayerId) {
     if (effect.once === 'turn') card.usedTurn[effectIndex] = this.turn;
-    if (effect.once === 'name') this.p(player).usedNames[card.id] = this.turn;
+    if (effect.once === 'name') this.p(player).usedNames[`${card.id}:${effectIndex}`] = this.turn;
+    if (effect.once === 'nameShared') this.p(player).usedNames[card.id] = this.turn;
   }
 
   /** 把待處理的誘發效果放上連鎖（回合玩家先） */
@@ -1323,6 +1370,9 @@ export class Duel {
    */
   getActivatable(p: PlayerId, win?: WindowInfo): Activation[] {
     const out: Activation[] = [];
+    // 「對方不能對應這個效果的發動把卡的效果發動」
+    const topLink = this.chainTop;
+    if (topLink && topLink.player !== p && topLink.ctx.data.noResponse) return out;
     const isMainOpen =
       !win && this.turnPlayer === p && (this.phase === 'main1' || this.phase === 'main2') && !this.chain.length && !this.battle;
     const top = this.chainTop;
@@ -1338,7 +1388,7 @@ export class Duel {
     ];
 
     for (const card of candidates) {
-      const effects = getScript(card.id).effects;
+      const effects = this.effectsOf(card);
       if (!effects) continue;
       effects.forEach((effect, effectIndex) => {
         if (effect.kind === 'continuous' || effect.kind === 'trigger') return;
@@ -1400,7 +1450,8 @@ export class Duel {
       }
       if (isTrap(d)) {
         if (card.location !== 'szone' || card.faceUp || card.controller !== p) return false;
-        if (card.turnPlaced === this.turn) return false;
+        // 蓋放的回合不能發動（有些卡在條件下可以）
+        if (card.turnPlaced === this.turn && !effect.setTurnActivation?.(this, card, p)) return false;
         if (this.trapsNegated() || this.playerHas(p, 'cannotActivateTraps')) return false;
         return true;
       }
@@ -1549,10 +1600,40 @@ export class Duel {
     return !!nt && this.tributesNeeded(card) > 0 && nt.condition(this, card);
   }
 
+  /** 召喚限制下能不能召喚這張卡 */
+  summonAllowed(p: PlayerId, card: Card, kind: SummonKind): boolean {
+    const ps = this.p(p);
+    for (const lock of ps.summonLocks) {
+      if (!lock.kinds.includes(kind)) continue;
+      if (lock.fromExtraOnly && card.location !== 'extra') continue;
+      if (!lock.allow(card)) return false;
+    }
+    // 「自己對這張卡 1 回合只能有 1 次特殊召喚」
+    if (kind === 'special' && getScript(card.id).ssOncePerTurn && ps.summonedThisTurn.some((s) => s.kind === 'special' && s.card.id === card.id))
+      return false;
+    return true;
+  }
+
+  /** 加上本回合的召喚限制 */
+  addSummonLock(p: PlayerId, lock: SummonLock) {
+    this.p(p).summonLocks.push(lock);
+  }
+
+  /** 這回合已經召喚過不符合條件的怪獸（「這張卡發動的回合，自己不是○○不能特殊召喚」的發動條件） */
+  summonedOtherThan(p: PlayerId, allow: (c: Card) => boolean, kinds: SummonKind[] = ['special']): boolean {
+    return this.p(p).summonedThisTurn.some((s) => kinds.includes(s.kind) && !allow(s.card));
+  }
+
+  /** 這回合已經通常召喚・蓋放過 */
+  normalSummonedThisTurn(p: PlayerId): boolean {
+    return !!this.p(p).turnFlags.normalSummonDone;
+  }
+
   canNormalSummon(p: PlayerId, card: Card): boolean {
     const ps = this.p(p);
     if (card.location !== 'hand' || !isMonster(card.data) || cannotNormalSummon(card.data)) return false;
     if (ps.normalSummons <= 0 || ps.turnFlags.noSummon) return false;
+    if (!this.summonAllowed(p, card, 'normal')) return false;
     const need = this.tributesNeeded(card);
     if (need === 0 || this.canSummonWithoutTribute(card)) return this.freeMZones(p) > 0 || this.tributable(p).length >= need;
     return this.tributable(p).length >= need;
@@ -1568,7 +1649,15 @@ export class Duel {
           actions.push({ type: 'set', card });
         }
         const sp = getScript(card.id).spSummon;
-        if (sp && this.freeMZones(p) > 0 && !ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon') && sp.condition(this, card))
+        if (
+          sp &&
+          this.freeMZones(p) > 0 &&
+          !ps.turnFlags.noSummon &&
+          !ps.turnFlags.noSpecialSummon &&
+          !this.playerHas(p, 'cannotSpecialSummon') &&
+          this.summonAllowed(p, card, 'special') &&
+          sp.condition(this, card)
+        )
           actions.push({ type: 'spSummon', card });
       } else if (spellKind(card.data) !== 'field' || isTrap(card.data)) {
         if (this.freeSZones(p) > 0) actions.push({ type: 'setST', card });
@@ -1578,13 +1667,13 @@ export class Duel {
     if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon'))
       for (const card of ps.extra) {
         const sp = getScript(card.id).spSummon;
-        if (sp && !card.faceUp && sp.condition(this, card)) actions.push({ type: 'spSummon', card });
+        if (sp && !card.faceUp && this.summonAllowed(p, card, 'special') && sp.condition(this, card)) actions.push({ type: 'spSummon', card });
       }
     for (const card of ps.mzone) {
       if (!card) continue;
       if (card.turnPlaced === this.turn || card.posChangedTurn === this.turn) continue;
       if (!card.faceUp) {
-        if (!ps.turnFlags.noSummon) actions.push({ type: 'flipSummon', card });
+        if (!ps.turnFlags.noSummon && this.summonAllowed(p, card, 'flip')) actions.push({ type: 'flipSummon', card });
       } else if (card.attacks === 0 && !isLink(card.data) && !this.has(card, 'cannotChangePosition')) {
         actions.push({ type: 'changePos', card });
       }
@@ -1592,6 +1681,7 @@ export class Duel {
     for (const a of this.getActivatable(p)) actions.push({ type: 'activate', card: a.card, effect: a.effect, effectIndex: a.effectIndex });
     if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon')) {
       for (const card of ps.extra) {
+        if (!this.summonAllowed(p, card, 'special')) continue;
         if (card.data.type & 0x2000 && this.synchroMaterialSets(p, card).length) actions.push({ type: 'synchro', card });
         if (isXyz(card.data) && this.xyzMaterialSets(p, card).length) actions.push({ type: 'xyz', card });
         if (isLink(card.data) && this.linkMaterialSets(p, card).length) actions.push({ type: 'link', card });
@@ -1717,6 +1807,7 @@ export class Duel {
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     }
     ps.normalSummons--;
+    ps.turnFlags.normalSummonDone = true;
     if (set) {
       this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: false, position: 'def' });
       card.turnPlaced = this.turn;
@@ -2041,6 +2132,47 @@ export class Duel {
     return true;
   }
 
+  /**
+   * 陷阱怪獸：陷阱卡變成怪獸在怪獸區域特殊召喚（不當作陷阱卡使用）。
+   * 在怪獸區域的期間卡片資料換成怪獸，離場時還原成陷阱卡。
+   */
+  summonTrapAsMonster(
+    card: Card,
+    p: PlayerId,
+    stats: { atk: number; def: number; level: number; race: number; attribute: number; effect?: boolean },
+    opts: { position?: Position; banishOnLeave?: boolean; by?: Card } = {},
+  ): boolean {
+    if (this.freeMZones(p) <= 0 && card.location !== 'mzone') return false;
+    const orig = card.data;
+    card.data = {
+      ...orig,
+      type: TYPE.MONSTER | (stats.effect ? TYPE.EFFECT : TYPE.NORMAL),
+      atk: stats.atk,
+      def: stats.def,
+      level: stats.level,
+      race: stats.race,
+      attribute: stats.attribute,
+    };
+    card.trapData = orig;
+    // 從魔法・陷阱區域移動時，先清掉陷阱的場上狀態
+    if (card.location === 'szone') {
+      const zones = this.p(card.controller).szone;
+      const i = zones.indexOf(card);
+      if (i >= 0) zones[i] = null;
+      card.location = 'void';
+      card.resetFieldState();
+      card.trapData = orig;
+    }
+    if (!this.specialSummon(card, p, { position: opts.position ?? 'def', by: opts.by ?? card, ignoreConditions: true })) {
+      card.data = orig;
+      card.trapData = null;
+      if (card.location === 'void') this.moveTo(card, 'grave', { reason: 'rule' });
+      return false;
+    }
+    if (opts.banishOnLeave) this.setFlag(card, 'banishOnLeave', true);
+    return true;
+  }
+
   /** 把卡重叠在超量怪獸下面作為超量素材 */
   attachMaterial(xyz: Card, card: Card): boolean {
     if (!xyz.isFaceUpMonster || !isXyz(xyz.data) || card === xyz) return false;
@@ -2129,7 +2261,14 @@ export class Duel {
     const targets = oppMons.filter((t) => !this.has(t, 'cannotBeAttackTarget'));
     const out: AttackOption[] = [];
     for (const c of this.monsters(p)) {
-      if (!this.canAttack(c)) continue;
+      if (!this.canAttack(c)) {
+        // 「向對方怪獸全部各作 1 次攻擊」：還沒攻擊過的符合條件的怪獸
+        const each = getScript(c.id).attackEach;
+        if (!each || c.location !== 'mzone' || !c.faceUp || c.position !== 'atk' || this.has(c, 'cannotAttack') || this.isNegated(c)) continue;
+        const rest = targets.filter((t) => !c.attackedTargets.includes(t) && each(this, c, t));
+        if (rest.length) out.push({ attacker: c, targets: rest, canDirect: false });
+        continue;
+      }
       const canDirect = (oppMons.length === 0 || this.has(c, 'directAttack')) && !this.has(c, 'cannotDirectAttack');
       if (!targets.length && !canDirect) continue;
       out.push({ attacker: c, targets, canDirect });
@@ -2171,6 +2310,7 @@ export class Duel {
     const p = attacker.controller;
     const opp = other(p);
     attacker.attacks++;
+    if (target) attacker.attackedTargets.push(target);
     this.battle = {
       attacker,
       attackerStint: attacker.stint,
@@ -2399,12 +2539,19 @@ export class Duel {
     this.turnPlayer = other(this.turnPlayer);
     const tp = this.turnPlayer;
     const ps = this.p(tp);
-    for (const pl of this.players) pl.turnFlags = {};
+    for (const pl of this.players) {
+      pl.turnFlags = {};
+      pl.summonLocks = [];
+      pl.summonedThisTurn = [];
+    }
+    this.lingering = this.lingering.filter((l) => l.turn >= this.turn);
     ps.normalSummons = 1;
     for (const c of this.monsters()) {
       c.attacks = 0;
       c.extraAttacks = 0;
+      c.attackedTargets = [];
     }
+
     this.log(`第 ${this.turn} 回合：${ps.name}`, tp);
 
     // 抽牌階段
@@ -2437,6 +2584,8 @@ export class Duel {
 
     // 結束階段
     await this.setPhase('end');
+    // 「直到結束階段」得到的卡名・效果
+    for (const c of this.allCards()) c.copied = null;
     this.raise({ type: 'endPhase', player: tp });
     await this.settle({ kind: 'phase' });
     // 暫時控制權返還

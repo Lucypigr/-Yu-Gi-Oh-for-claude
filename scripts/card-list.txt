@@ -1078,3 +1078,12 @@
 51570882  # Greedy Venom Fusion Dragon
 25586143  # Predaplant Chimerafflesia
 69946549  # Predaplant Dragostapelia
+# 幻影騎士團的陷阱怪獸・急襲猛禽之力
+77462146  # The Phantom Knights of Shadow Veil
+98827725  # The Phantom Knights of Shade Brigandine
+24212820  # The Phantom Knights of Dark Gauntlets
+9336190  # The Phantom Knights of Mist Claws
+85257384  # The Phantom Knights of Umbrage Veil
+36247316  # The Phantom Knights of Lost Vambrace
+38044854  # Rise Rank-Up-Magic Raidraptor's Force
+23603403  # Raidraptor - Satellite Cannon Falcon

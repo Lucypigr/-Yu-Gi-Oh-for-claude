@@ -155,8 +155,13 @@ export interface EffectDef {
   event?: EventType | EventType[];
   /** 必發的誘發效果 */
   mandatory?: boolean;
-  /** 1 回合 1 次：'turn' = 這張卡；'name' = 同名卡共用 */
-  once?: 'turn' | 'name';
+  /**
+   * 1 回合 1 次：'turn' = 這張卡；'name' = 同名卡共用（每個效果分開計算，「①②的效果1回合各能使用1次」）；
+   * 'nameShared' = 同名卡的多個效果共用 1 次（「①②的效果1回合只能有1次使用其中任意1個」）
+   */
+  once?: 'turn' | 'name' | 'nameShared';
+  /** 陷阱卡在蓋放的回合也能發動的條件 */
+  setTurnActivation?: (duel: Duel, card: Card, p: PlayerId) => boolean;
   /** 可在傷害步驟發動 */
   damageStep?: boolean;
   categories?: Category[];
@@ -221,6 +226,10 @@ export interface CardScript {
   tributes?: number;
   /** 三幻神：召喚不會被無效，召喚成功時雙方不能發動效果 */
   divineSummon?: boolean;
+  /** 可以向符合條件的對方怪獸全部各作 1 次攻擊（急襲猛禽－起翼獵鷹等） */
+  attackEach?: (duel: Duel, self: Card, target: Card) => boolean;
+  /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
+  ssOncePerTurn?: boolean;
   /** 不能特殊召喚（無視召喚條件時除外） */
   cannotSpecialSummon?: (duel: Duel, card: Card) => boolean;
   /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
