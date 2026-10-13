@@ -198,11 +198,14 @@ export interface EffectDef {
   ai?: (ctx: EffectContext) => number;
 }
 
+/** 融合素材條件；validate 是整組素材的額外條件（例如：屬性不同） */
+export type FusionConds = Array<(d: CardData, c?: Card) => boolean> & { validate?: (cards: Card[]) => boolean };
+
 /** 卡片腳本：一張卡的所有效果與特殊召喚條件 */
 export interface CardScript {
   effects?: EffectDef[];
   /** 融合素材：每個條件需要 1 張不同的卡（c 是實際的卡，可以用來限定「場上的」素材） */
-  fusion?: Array<(d: CardData, c?: Card) => boolean>;
+  fusion?: FusionConds;
   /** 同步素材額外條件 */
   synchro?: {
     tuner?: (c: Card, duel: Duel) => boolean;
@@ -263,6 +266,8 @@ export interface CardScript {
   uniqueOnField?: boolean;
   /** 在墓地的這張卡：自己場上的卡被破壞時可以除外代替（轉生炎獸 烽火猞猁），回傳是否代替 */
   graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  /** 只要這張卡在怪獸區域存在，雙方 1 回合只能有 1 次把怪獸特殊召喚（神影依・米德拉什） */
+  oneSpecialSummonPerTurn?: boolean;
   /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
   ssOncePerTurn?: boolean;
   /** 「這張卡不能特殊召喚」（無視召喚條件時除外） */

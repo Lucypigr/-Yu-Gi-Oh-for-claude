@@ -2,7 +2,7 @@
 import { Card } from '../card';
 import { type CardData, ATTR, RACE, getCard, isFusion, isMonster, isSpell, isTrap, trapKind } from '../cardDb';
 import type { Duel } from '../duel';
-import type { CardScript, EffectContext, EffectDef, PlayerId } from '../types';
+import type { CardScript, EffectContext, EffectDef, FusionConds, PlayerId } from '../types';
 import { def, getScript } from './registry';
 import { activate, canRevive, cardValue, chooseTargets, deckFilter, equipSpell, equipStat, searchDeck, summonedSelf, tgt, tgts } from './lib';
 
@@ -56,7 +56,7 @@ async function ssIgnoring(ctx: EffectContext, cands: Card[], title: string, posi
 }
 
 /** 融合召喚（pool：可以作為素材的卡；banish：素材除外；validate：素材組合的額外條件） */
-async function fusionSummon(
+export async function fusionSummon(
   ctx: EffectContext,
   opts: { pool: Card[]; filter: (f: Card) => boolean; banish?: boolean; validate?: (mats: Card[]) => boolean },
 ): Promise<Card | null> {
@@ -80,8 +80,8 @@ async function fusionSummon(
   });
   if (!ok(mats)) mats = findSet(d, conds, opts.pool, opts.validate) ?? [];
   if (!mats.length) return null;
-  if (opts.banish) d.banish(mats, 'material');
-  else d.sendToGrave(mats, 'material');
+  if (opts.banish) d.banish(mats, 'material', ctx.card);
+  else d.sendToGrave(mats, 'material', ctx.card);
   for (const m of mats) m.fusionMaterial = true;
   if (mats.some((m) => m.location === 'deck')) d.shuffleDeck(ctx.player);
   d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
@@ -94,11 +94,11 @@ async function fusionSummon(
 }
 
 /** 符合額外條件的素材組合（找不到就回傳 null） */
-function findSet(d: Duel, conds: Array<(d: CardData, c?: Card) => boolean>, pool: Card[], validate?: (m: Card[]) => boolean): Card[] | null {
+function findSet(d: Duel, conds: FusionConds, pool: Card[], validate?: (m: Card[]) => boolean): Card[] | null {
   if (!validate) return d.findMaterialSet(conds, pool);
   const chosen: Card[] = [];
   const rec = (i: number): boolean => {
-    if (i === conds.length) return validate(chosen);
+    if (i === conds.length) return validate(chosen) && (!conds.validate || conds.validate(chosen));
     for (const c of pool) {
       if (chosen.includes(c) || !conds[i](c.data, c)) continue;
       chosen.push(c);
@@ -110,7 +110,7 @@ function findSet(d: Duel, conds: Array<(d: CardData, c?: Card) => boolean>, pool
   return rec(0) ? [...chosen] : null;
 }
 
-function fusionTargets(d: Duel, p: PlayerId, opts: { pool: Card[]; filter: (f: Card) => boolean; validate?: (mats: Card[]) => boolean }): Card[] {
+export function fusionTargets(d: Duel, p: PlayerId, opts: { pool: Card[]; filter: (f: Card) => boolean; validate?: (mats: Card[]) => boolean }): Card[] {
   if (d.p(p).turnFlags.noSpecialSummon || d.playerHas(p, 'cannotSpecialSummon')) return [];
   if (d.freeMZones(p) <= 0 && !opts.pool.some((c) => c.location === 'mzone' && c.controller === p)) return [];
   return d.p(p).extra.filter((f) => {

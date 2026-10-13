@@ -569,7 +569,7 @@ def(NEOS_FUSION, {
           });
           if (!d.matchMaterials(conds, mats)) mats = d.findMaterialSet(conds, pool) ?? [];
           if (mats.length) {
-            d.sendToGrave(mats, 'material');
+            d.sendToGrave(mats, 'material', ctx.card);
             d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 作為素材`);
             f.summonMaterials = mats;
             d.specialSummon(f, ctx.player, { position: 'atk', summonType: 'fusion', by: ctx.card, ignoreConditions: true });

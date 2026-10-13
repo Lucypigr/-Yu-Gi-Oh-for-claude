@@ -369,6 +369,8 @@ const THEME_NAMES: Record<string, string> = {
   yusei: '廢品同調',
   aki: '黑薔薇',
   jack: '紅蓮魔龍',
+  shaddoll: '影依',
+  skystriker: '閃刀姬',
 };
 
 function themeDecks(): ThemeDeck[] {

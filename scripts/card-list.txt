@@ -1317,3 +1317,44 @@
 63851864  # Break! Draw!
 79068663  # Junk Barrage
 1003840  # Starlight Junktion
+# ---- 影依（第十五彈）----
+37445295  # Shaddoll Falco
+4939890  # Shaddoll Hedgehog
+30328508  # Shaddoll Squamata
+77723643  # Shaddoll Dragon
+3717252  # Shaddoll Beast
+52551211  # Shaddoll Hound
+94977269  # El Shaddoll Winda
+20366274  # El Shaddoll Construct
+74822425  # El Shaddoll Shekhinaga
+48424886  # El Shaddoll Grysta
+74009824  # El Shaddoll Wendigo
+50907446  # El Shaddoll Apkallone
+86938484  # Shaddoll Construct
+44394295  # Shaddoll Fusion
+6417578  # El Shaddoll Fusion
+60226558  # Nephe Shaddoll Fusion
+4904633  # Shaddoll Core
+21011044  # Shaddoll Schism
+# ---- 閃刀姬（第十五彈）----
+26077387  # Sky Striker Ace - Raye
+37351133  # Sky Striker Ace - Roze
+63288573  # Sky Striker Ace - Kagari
+90673288  # Sky Striker Ace - Shizuku
+8491308  # Sky Striker Ace - Hayate
+12421694  # Sky Striker Ace - Kaina
+75147529  # Sky Striker Ace - Zeke
+98462037  # Sky Striker Ace - Azalea
+63166095  # Sky Striker Mobilize - Engage!
+99550630  # Sky Striker Maneuver - Afterburners!
+25955749  # Sky Striker Maneuver - Jamming Waves!
+21623008  # Sky Striker Maneuver - Vector Blast
+46271408  # Sky Striker Maneuver - Scissors Cross
+52340444  # Sky Striker Mecha - Hornet Drones
+98338152  # Sky Striker Mecha - Widow Anchor
+25733157  # Sky Striker Mecha - Eagle Booster
+51227866  # Sky Striker Mecha - Shark Cannon
+9726840  # Sky Striker Mobilize - Linkage!
+97616504  # Sky Striker Mecharmory - Hercules Base
+24010609  # Sky Striker Mecha Modules - Multirole
+50005218  # Sky Striker Airspace - Area Zero
