@@ -145,6 +145,10 @@ export type Query =
   | 'oppEffectIndestructible' // 不會被對方的效果破壞
   | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
   | 'immuneOpp' // 不受對方的效果影響
+  | 'swapBaseAtkDef' // 原本攻擊力和原本守備力交換（碼麗絲<王后>紅棋勒索）
+  | 'banishBattleKills' // 這張卡戰鬥破壞的怪獸不去墓地而除外
+  | 'noBattleDamageToController' // 這張卡的戰鬥發生的對控制者的戰鬥傷害變成 0
+  | 'cannotXyzSummon' // 不能超量召喚這隻怪獸（target 為額外牌組的超量怪獸，player 為召喚者）
   | 'oneLinkSummonPerTurn' // 1 回合只能有 1 次連結召喚（全域，player 為被限制方）
   | 'immuneAll'; // 不受其他卡的效果影響
 
@@ -255,6 +259,8 @@ export interface CardScript {
   /** 超量素材 */
   xyz?: {
     count: number;
+    /** 「…2 只以上」：素材數量上限 */
+    max?: number;
     filter?: (c: Card) => boolean;
     /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
     over?: (c: Card) => boolean;
@@ -300,6 +306,8 @@ export interface CardScript {
   /** 這張卡被破壞時的代替處理（動力工具龍：把裝備魔法送去墓地），回傳是否代替 */
   selfSubstitute?: (duel: Duel, self: Card, reason: Reason) => SubstituteApply;
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
+  /** 連鎖處理時，可以讓那個效果無效（雷火沸動交界機③）；回傳 true 表示無效 */
+  resolveNegate?: (duel: Duel, self: Card, link: ChainLink) => Promise<boolean>;
   asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
   /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */
   noTribute?: { condition: (duel: Duel, card: Card) => boolean; apply?: (duel: Duel, card: Card) => void };
@@ -308,6 +316,8 @@ export interface CardScript {
     label?: string;
     condition: (duel: Duel, card: Card) => boolean;
     cost?: (duel: Duel, card: Card) => Promise<void>;
+    /** AI 用這個方法特殊召喚的評分（預設 65＋攻擊力/100） */
+    ai?: (duel: Duel, card: Card) => number;
     /** 只能放在這些格子 */
     zones?: (duel: Duel, card: Card) => number[];
     /** 也可以從墓地特殊召喚（火山帝皇） */

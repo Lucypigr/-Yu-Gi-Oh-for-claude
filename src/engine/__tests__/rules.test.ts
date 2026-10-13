@@ -1902,3 +1902,131 @@ describe('第十八彈：蛇眼・刻魔', () => {
     expect(duel.p(0).turnFlags.halfBattleDamageTaken).toBe(true);
   });
 });
+
+describe('第十九彈：雷火沸動・碼麗絲', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+  const at = (duel: Duel, p: PlayerId, id: number, zone: number) => {
+    const c = new Card(getCard(id), p);
+    c.location = 'void';
+    duel.moveTo(c, 'mzone', { reason: 'rule', player: p, faceUp: true, position: 'atk', zone });
+    c.turnPlaced = 1;
+    return c;
+  };
+
+  it('內燃雷火沸動機：送 1 張卡去墓地從手牌特殊召喚，這回合只能從額外牌組特殊召喚 4 階超量怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ice = put(duel, 0, 8633261, 'hand');
+    const fodder = put(duel, 0, FILLER, 'hand');
+    const act = duel.getMainActions(0).find((a) => a.type === 'spSummon' && a.card === ice);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(ice.location).toBe('mzone');
+    expect(fodder.location).toBe('grave');
+    expect(duel.summonAllowed(0, put(duel, 0, 7511613, 'extra'), 'special')).toBe(true); // 4 階
+    expect(duel.summonAllowed(0, put(duel, 0, 44508094, 'extra'), 'special')).toBe(false); // 星塵龍
+    expect(duel.getMainActions(0).some((a) => a.type === 'spSummon' && a.card.id === 8633261)).toBe(false);
+  });
+
+  it('內燃雷火沸動機：通常召喚時從牌組特殊召喚其他雷火沸動', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ice = put(duel, 0, 8633261, 'mzone');
+    const sword = put(duel, 0, 35844557, 'deck');
+    ice.summonType = 'normal';
+    duel.raise({ type: 'summoned', card: ice, cards: [ice], player: 0, summonType: 'normal' });
+    await duel.settle();
+    expect(sword.location).toBe('mzone');
+  });
+
+  it('雷火沸動油電雙動機：4 星怪獸 2 隻以上超量召喚，攻擊力增減素材數量×100', () => {
+    const { duel } = setup();
+    const duo = put(duel, 0, 7511613, 'extra');
+    put(duel, 0, 8633261, 'mzone');
+    put(duel, 0, 35844557, 'mzone');
+    put(duel, 0, 72238166, 'mzone');
+    const sets = duel.xyzMaterialSets(0, duo);
+    expect(sets.some((s) => s.length === 3)).toBe(true);
+    expect(sets.some((s) => s.length === 2)).toBe(true);
+    const foe = put(duel, 1, 89631139, 'mzone');
+    const field = put(duel, 0, 7511613, 'extra');
+    duel.moveTo(field, 'mzone', { reason: 'rule', player: 0, faceUp: true });
+    field.overlays.push(put(duel, 0, FILLER, 'grave'), put(duel, 0, FILLER, 'grave'), put(duel, 0, FILLER, 'grave'));
+    expect(duel.getAtk(field)).toBe(2500 + 300);
+    expect(duel.getAtk(foe)).toBe(3000 - 300);
+  });
+
+  it('雷火沸動交界機：同名卡在自己場上的怪獸不能超量召喚；對方怪獸的效果處理時取除素材讓效果無效', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const cross = put(duel, 0, 6798031, 'szone');
+    duel.moveTo(cross, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const det = put(duel, 0, 34909328, 'extra');
+    duel.moveTo(det, 'mzone', { reason: 'rule', player: 0, faceUp: true });
+    det.overlays.push(put(duel, 0, FILLER, 'grave'));
+    put(duel, 0, 8633261, 'mzone');
+    put(duel, 0, 35844557, 'mzone');
+    expect(duel.xyzMaterialSets(0, put(duel, 0, 34909328, 'extra'))).toEqual([]);
+    expect(duel.xyzMaterialSets(0, put(duel, 0, 7511613, 'extra')).length).toBeGreaterThan(0);
+    // 對方發動睡鼠的效果
+    duel.turnPlayer = 1;
+    const dormouse = put(duel, 1, 32061192, 'mzone');
+    const target = put(duel, 1, 69272449, 'deck');
+    await activateMain(duel, 1, dormouse);
+    expect(target.location).toBe('deck');
+    expect(det.overlays.length).toBe(0);
+  });
+
+  it('碼麗絲<兵卒>白兔：被除外時支付 300 基本分特殊召喚，這回合只能從額外牌組特殊召喚連結怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const rabbit = put(duel, 0, 69272449, 'hand');
+    duel.banish([rabbit], 'effect', rabbit);
+    await duel.settle();
+    expect(rabbit.location).toBe('mzone');
+    expect(duel.p(0).lp).toBe(8000 - 300);
+    expect(duel.summonAllowed(0, put(duel, 0, 68059897, 'extra'), 'special')).toBe(true);
+    expect(duel.summonAllowed(0, put(duel, 0, 7511613, 'extra'), 'special')).toBe(false);
+  });
+
+  it('碼麗絲<王后>紅棋勒索：所連接區有怪獸時，對方效果怪獸的原本攻擊力和原本守備力交換', () => {
+    const { duel } = setup();
+    const ransom = at(duel, 0, 68059897, 2);
+    const foe = put(duel, 1, 77585513, 'mzone'); // 人造人 2400/1500
+    expect(duel.getAtk(foe)).toBe(2400);
+    at(duel, 0, FILLER, 1); // 連結箭頭指向左邊
+    expect(duel.pointedMonsters(ransom).length).toBe(1);
+    expect(duel.getAtk(foe)).toBe(1500);
+    expect(duel.getDef(foe)).toBe(2400);
+  });
+
+  it('碼麗絲<代碼>TB-11：把場上的碼麗絲怪獸除外，在蓋放的回合發動', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dormouse = put(duel, 0, 32061192, 'mzone');
+    const tb = put(duel, 0, 57111661, 'szone', { faceUp: false });
+    tb.turnPlaced = duel.turn;
+    const rabbit = put(duel, 0, 69272449, 'deck');
+    await activateMain(duel, 0, tb);
+    expect(dormouse.location === 'banished' || dormouse.location === 'mzone').toBe(true);
+    expect(rabbit.location).toBe('mzone');
+    expect(duel.hasFlag(rabbit, 'cannotAttack')).toBe(true);
+  });
+
+  it('碼麗絲夢遊地下界：自己場上有碼麗絲連結怪獸時，對方只能攻擊碼麗絲連結怪獸', () => {
+    const { duel } = setup();
+    const ug = put(duel, 0, 68337209, 'szone');
+    duel.moveTo(ug, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const pawn = put(duel, 0, 69272449, 'mzone');
+    expect(duel.has(pawn, 'cannotBeAttackTarget')).toBe(false);
+    const ransom = put(duel, 0, 68059897, 'extra');
+    duel.moveTo(ransom, 'mzone', { reason: 'rule', player: 0, faceUp: true });
+    expect(duel.has(pawn, 'cannotBeAttackTarget')).toBe(true);
+    expect(duel.has(ransom, 'cannotBeAttackTarget')).toBe(false);
+  });
+});

@@ -23,6 +23,7 @@ import './shaddollsky';
 import './maidrock';
 import './branded';
 import './snakeeye';
+import './ryzealmaliss';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

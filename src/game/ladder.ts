@@ -375,6 +375,8 @@ const THEME_NAMES: Record<string, string> = {
   adamancipator: '魔救',
   branded: '烙印',
   snakeeye: '蛇眼',
+  ryzeal: '雷火沸動',
+  maliss: '碼麗絲',
 };
 
 function themeDecks(): ThemeDeck[] {
