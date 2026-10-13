@@ -52,7 +52,7 @@ def(4206964, {
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t && t.isFaceUpMonster && ctx.duel.getAtk(t) >= 1000) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t && t.isFaceUpMonster && ctx.duel.getAtk(t) >= 1000) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
       ai: () => 80,
     }),
@@ -70,7 +70,7 @@ def(29401950, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const cards = ctx.event!.cards!.filter((c) => c.isFaceUpMonster && d.getAtk(c) >= 1500);
-        const destroyed = d.destroy(cards, 'effect', ctx.card);
+        const destroyed = (await d.destroy(cards, 'effect', ctx.card));
         d.banish(destroyed, 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.event!.cards!.some((c) => cardValue(ctx.duel, c, ctx.player) >= 1700) ? 80 : 0),
@@ -86,7 +86,7 @@ def(44095762, {
       categories: ['destroy'],
       condition: oppAttackDeclared,
       operation: async (ctx) => {
-        ctx.duel.destroy(
+        await ctx.duel.destroy(
           ctx.duel.monsters(ctx.opp).filter((c) => c.position === 'atk'),
           'effect',
           ctx.card,
@@ -131,7 +131,7 @@ def(56120475, {
         if (a) ctx.duel.setTargets(ctx, [a]);
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (cardValue(ctx.duel, attacker(ctx)!) >= 1400 ? 80 : 30),
     }),
@@ -186,7 +186,7 @@ def(53582587, {
       categories: ['destroy'],
       condition: (ctx) => ctx.event?.type === 'summoned',
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(), 'effect', ctx.card);
       },
       ai: (ctx) => (boardDiff(ctx.duel, ctx.player) >= 1000 ? 70 : 0),
     }),
@@ -332,7 +332,7 @@ def(60082869, {
       },
       operation: async (ctx) => {
         const d = ctx.duel;
-        d.destroy(tgts(ctx), 'effect', ctx.card);
+        await d.destroy(tgts(ctx), 'effect', ctx.card);
         const settable = d.p(ctx.player).hand.filter((c) => (isSpell(c.data) && spellKind(c.data) !== 'field') || isTrap(c.data));
         if (settable.length && d.freeSZones(ctx.player) > 1) {
           const c = await d.select({
@@ -375,7 +375,7 @@ def(4178474, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -408,7 +408,7 @@ def(83555666, {
         const t = tgt(ctx);
         if (!t || !t.isFaceUpMonster) return;
         const dmg = Math.max(0, t.data.atk);
-        if (!d.destroy([t], 'effect', ctx.card).length) return;
+        if (!(await d.destroy([t], 'effect', ctx.card)).length) return;
         if (d.p(ctx.player).lp <= dmg && d.p(ctx.opp).lp <= dmg) {
           d.p(ctx.player).lp = 0;
           d.p(ctx.opp).lp = 0;
@@ -596,7 +596,7 @@ def(77754944, {
         const top = Math.max(...mons.map((c) => d.getAtk(c)));
         const cands = mons.filter((c) => d.getAtk(c) === top);
         const c = cands.length > 1 ? await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands, hint: 'harm' }) : cands[0];
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: () => 75,
     }),

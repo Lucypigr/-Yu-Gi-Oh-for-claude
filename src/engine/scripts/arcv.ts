@@ -122,13 +122,13 @@ const topMonsterEffect = (ctx: EffectContext) => {
 };
 
 /** 讓連鎖最上面的發動無效並破壞，回傳被破壞的怪獸 */
-function negateAndDestroy(ctx: EffectContext): Card | null {
+async function negateAndDestroy(ctx: EffectContext): Promise<Card | null> {
   const link = ctx.data.link;
   if (!link) return null;
   ctx.duel.negateLink(link);
   ctx.duel.log(`「${link.card.name}」的發動被無效`);
   if (link.card.onField) {
-    const done = ctx.duel.destroy([link.card], 'effect', ctx.card);
+    const done = (await ctx.duel.destroy([link.card], 'effect', ctx.card));
     return done[0] ?? null;
   }
   return null;
@@ -636,7 +636,7 @@ def(62709239, {
       },
       operation: async (ctx) => {
         const ts = tgts(ctx).filter((c) => c.onField);
-        if (ts.length) ctx.duel.destroy(ts, 'effect', ctx.card);
+        if (ts.length) await ctx.duel.destroy(ts, 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -777,7 +777,7 @@ def(1621413, {
       },
       operation: async (ctx) => {
         const d = ctx.duel;
-        negateAndDestroy(ctx);
+        await negateAndDestroy(ctx);
         const xyzs = graveFilter(d, ctx.player, (x) => isXyz(x));
         if (!xyzs.length || d.freeMZones(ctx.player) <= 0) return;
         if (!(await d.confirm({ player: ctx.player, title: '要從墓地特殊召喚 1 隻超量怪獸嗎？', ai: true }))) return;
@@ -1159,7 +1159,7 @@ def(45533023, {
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t?.onField) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
     detach(1, {
@@ -1169,7 +1169,7 @@ def(45533023, {
       condition: (ctx) => ctx.duel.faceUpMonsters(ctx.opp).some(isSpecialSummoned),
       operation: async (ctx) => {
         const d = ctx.duel;
-        const done = d.destroy(d.faceUpMonsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card);
+        const done = (await d.destroy(d.faceUpMonsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card));
         if (done.length) d.damage(ctx.opp, done.length * 500, 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.faceUpMonsters(ctx.opp).filter(isSpecialSummoned).length >= 1 ? 65 : 0),
@@ -1193,7 +1193,7 @@ def(23603403, {
         ctx.data.noResponse = true;
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
       },
     },
     detach(1, {
@@ -1265,7 +1265,7 @@ def(81927732, {
         const t = tgt(ctx);
         if (!t?.onField) return;
         const atk = t.faceUp ? d.getAtk(t) : t.data.atk;
-        if (d.destroy([t], 'effect', ctx.card).length) d.damage(ctx.opp, Math.floor(atk / 2), 'effect', ctx.card);
+        if ((await d.destroy([t], 'effect', ctx.card)).length) d.damage(ctx.opp, Math.floor(atk / 2), 'effect', ctx.card);
       },
       ai: () => 65,
     },
@@ -1563,7 +1563,7 @@ const wingNegate = (label: string, cond: (ctx: EffectContext) => boolean): Effec
   },
   operation: async (ctx) => {
     const d = ctx.duel;
-    const destroyed = negateAndDestroy(ctx);
+    const destroyed = await negateAndDestroy(ctx);
     if (destroyed && ctx.card.isFaceUpMonster) d.addMod(ctx.card, { atk: Math.max(0, destroyed.data.atk), until: 'endTurn' });
   },
   ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 75 : 0),
@@ -1806,7 +1806,7 @@ def(96622984, {
         const foe = b && (b.attacker === ctx.card ? b.target : b.attacker);
         if (!foe?.onField) return;
         const lv = foe.data.level;
-        if (d.destroy([foe], 'effect', ctx.card).length && ctx.card.isFaceUpMonster) d.addMod(ctx.card, { level: lv, until: 'permanent' });
+        if ((await d.destroy([foe], 'effect', ctx.card)).length && ctx.card.isFaceUpMonster) d.addMod(ctx.card, { level: lv, until: 'permanent' });
       },
     },
   ],
@@ -1886,7 +1886,7 @@ def(41209827, {
         ctx.duel.faceUpMonsters(ctx.opp).some(isSpecialSummoned),
       operation: async (ctx) => {
         const d = ctx.duel;
-        d.destroy(d.monsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card);
+        await d.destroy(d.monsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card);
       },
     },
   ],
@@ -1931,7 +1931,7 @@ def(51570882, {
       condition: (ctx) => ctx.event?.card === ctx.card && ctx.card.location === 'grave',
       operation: async (ctx) => {
         const d = ctx.duel;
-        d.destroy(d.monsters(), 'effect', ctx.card);
+        await d.destroy(d.monsters(), 'effect', ctx.card);
         const cost = graveFilter(d, ctx.player, (x, c) => c !== ctx.card && isMonster(x) && isDark(x) && x.level >= 8);
         if (!cost.length || ctx.card.location !== 'grave' || d.freeMZones(ctx.player) <= 0) return;
         if (

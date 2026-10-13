@@ -108,7 +108,7 @@ def(38517737, {
         await chooseTargets(ctx, ctx.duel.monsters(ctx.opp), { title: '選擇要破壞的怪獸', aiValue: (c) => cardValue(ctx.duel, c, ctx.player) });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -414,7 +414,7 @@ def(73398797, {
       },
       operation: async (ctx) => {
         const t = ctx.duel.battle?.target;
-        if (t?.onField && !t.faceUp) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField && !t.faceUp) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
     {
@@ -696,11 +696,11 @@ def(85651167, {
       condition: (ctx) => ctx.duel.equipsOf(ctx.card).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
-        if (!d.destroy(d.equipsOf(ctx.card), 'effect', ctx.card).length) return;
+        if (!(await d.destroy(d.equipsOf(ctx.card), 'effect', ctx.card)).length) return;
         const sts = d.spellTraps(ctx.opp);
         if (!sts.length) return;
         const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的魔法・陷阱卡', cards: sts });
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length && ctx.duel.equipsOf(ctx.card).every((c) => c.controller === ctx.opp || !isSpell(c.data)) ? 50 : 0),
     },
@@ -872,7 +872,7 @@ def(50725996, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
   ],
@@ -978,7 +978,7 @@ def(43892408, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => c.faceUp && cardValue(ctx.duel, c, ctx.player) >= 1800) ? 55 : 0),
     },
@@ -1204,7 +1204,7 @@ def(48680970, {
     const mons = duel.monsters(self.controller);
     if (mons.length) {
       duel.log(`「${self.name}」離場，自己場上的怪獸全部破壞`);
-      duel.destroy(mons, 'effect', self);
+      duel.queueDestroy(mons, 'effect', self);
     }
   },
   effects: [
@@ -1379,7 +1379,7 @@ def(75782277, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
   ],
@@ -1614,7 +1614,7 @@ def(86308219, {
       },
       operation: async (ctx) => {
         const d = ctx.duel;
-        const done = d.destroy(tgts(ctx), 'effect', ctx.card);
+        const done = (await d.destroy(tgts(ctx), 'effect', ctx.card));
         const atk = Math.max(0, ...done.map((c) => c.data.atk));
         if (atk) d.damage(ctx.opp, atk, 'effect', ctx.card);
       },

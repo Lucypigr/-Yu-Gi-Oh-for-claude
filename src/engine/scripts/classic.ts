@@ -79,7 +79,7 @@ def(12600382, {
       categories: ['destroy'],
       condition: (ctx) => ctx.card.isFaceUpMonster && !EXODIA.every((id) => ctx.duel.p(ctx.player).grave.some((c) => c.id === id)),
       operation: async (ctx) => {
-        if (ctx.card.onField) ctx.duel.destroy([ctx.card], 'rule');
+        if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'rule');
       },
     },
   ],
@@ -616,7 +616,7 @@ def(36354007, {
       condition: (ctx) =>
         summonedSelf(ctx, ['tribute']) && ctx.duel.hasFlag(ctx.card, 'tributed3') && ctx.duel.monsters(ctx.opp).length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
       },
     },
   ],
@@ -666,7 +666,7 @@ def(22359980, {
             ai: d.p(ctx.player).lp > 5000,
           }));
         if (pay) d.payLP(ctx.player, 2000);
-        else d.destroy([ctx.card], 'rule');
+        else await d.destroy([ctx.card], 'rule');
       },
     },
   ],
@@ -862,7 +862,7 @@ def(2851070, {
       condition: (ctx) => ctx.card.onField && ctx.duel.hasFlag(ctx.card, 'destroyAfterBattle'),
       operation: async (ctx) => {
         ctx.card.flags.destroyAfterBattle = false;
-        if (ctx.card.onField) ctx.duel.destroy([ctx.card], 'effect', ctx.card);
+        if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
       },
     },
   ],

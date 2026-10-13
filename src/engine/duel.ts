@@ -27,6 +27,7 @@ import {
   type EffectContext,
   type EffectDef,
   type FusionConds,
+  type SubstituteApply,
   type GameEvent,
   type Loc,
   type MainAction,
@@ -186,7 +187,22 @@ export class Duel {
   /** 這張卡的效果給予對方的傷害變成 2 倍（陰雲栗仔球@火靈天星），連鎖處理完時清除 */
   doubleDamageFrom: Card[] = [];
   /** 在指定回合的結束階段處理的事（「下個回合的結束階段送去墓地」等） */
-  delayed: { turn: number; run: () => void }[] = [];
+  delayed: { turn: number; run: () => void | Promise<void> }[] = [];
+  /** 結束階段的回應時點之後要處理的事 */
+  afterEndPhase: { turn: number; run: () => void | Promise<void> }[] = [];
+  /** 在不能等待的地方（離場處理、永續效果）發生的破壞，在下一個處理時點執行 */
+  private destroyQueue: { cards: Card[]; reason: Reason; by?: Card }[] = [];
+
+  queueDestroy(cards: Card[], reason: Reason, by?: Card) {
+    this.destroyQueue.push({ cards, reason, by });
+  }
+
+  private async flushDestroys() {
+    while (this.destroyQueue.length) {
+      const x = this.destroyQueue.shift()!;
+      await this.destroy(x.cards, x.reason, x.by);
+    }
+  }
   /** 正在發動的卡（UI 用來顯示發動演出） */
   activating: { card: Card; player: PlayerId; isCardActivation: boolean; label?: string } | null = null;
 
@@ -520,6 +536,7 @@ export class Duel {
     if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
     if ((source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOpp')) return true;
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
+    if (isTrap(source.data) && (source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOppTraps')) return true;
     if ((isTrap(source.data) || isSpell(source.data)) && selfQuery('immuneSpellsTraps')) return true;
     return false;
   }
@@ -650,6 +667,11 @@ export class Duel {
       reason: 'rule',
     },
   ): boolean {
+    // 不能解放的怪獸（效果的代價等）
+    if (opts.reason === 'tribute' && card.location === 'mzone' && !this.canTribute(card, this.summonTributing)) {
+      this.log(`「${card.name}」不能解放`);
+      return false;
+    }
     const from = card.location;
     const fromZone = card.zone;
     const wasOnField = card.onField;
@@ -810,7 +832,7 @@ export class Duel {
     card.resetFieldState();
     if (linked && linked.onField && linked.stint === linkedStint) {
       linked.linked = null;
-      this.destroy([linked], 'effect', linked);
+      this.queueDestroy([linked], 'effect', linked);
     }
     this.raise({ type: 'leftField', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp });
   }
@@ -832,52 +854,81 @@ export class Duel {
   }
 
   /** 破壞卡片，回傳實際被破壞的卡 */
-  /**
-   * 「被破壞的場合，可以作為代替把…破壞」：找得到代替的卡就破壞它，回傳是否代替成功。
-   * 為了不打斷處理，自動選擇價值最低的卡；代替的卡比這張卡更強時不代替。
-   */
-  private substituteDestroy(c: Card, batch: Card[], reason: Reason): boolean {
+  /** 「被破壞的場合，可以作為代替…」：這張卡可以使用的代替破壞 */
+  private substituteOptions(c: Card, batch: Card[], reason: Reason): { label: string; ai: number; apply: () => void }[] {
+    const out: { label: string; ai: number; apply: () => void }[] = [];
+    if (!c.onField || (reason !== 'battle' && reason !== 'effect')) return out;
+    const add = (r: SubstituteApply | undefined, label: string) => {
+      if (!r) return;
+      if (Array.isArray(r)) for (const o of r) out.push({ label: o.label, ai: 60, apply: o.apply });
+      else out.push({ label, ai: 60, apply: r });
+    };
     // 墓地的卡除外代替（轉生炎獸 烽火猞猁）
-    if (c.onField && (reason === 'battle' || reason === 'effect')) {
-      for (const g of [...this.p(c.controller).grave]) {
-        const f = getScript(g.id).graveSubstitute;
-        if (f && f(this, g, c, reason)) {
-          this.log(`除外墓地的「${g.name}」代替「${c.name}」的破壞`);
-          this.banish([g], 'effect', g);
-          return true;
-        }
-      }
+    for (const g of [...this.p(c.controller).grave]) {
+      const apply = getScript(g.id).graveSubstitute?.(this, g, c, reason);
+      if (typeof apply === 'function')
+        out.push({
+          label: `除外墓地的「${g.name}」代替`,
+          ai: 60,
+          apply: () => {
+            apply();
+            this.log(`除外墓地的「${g.name}」代替「${c.name}」的破壞`);
+            this.banish([g], 'effect', g);
+          },
+        });
     }
     // 場上其他卡的代替（光龍王@火靈天星）
-    if (c.onField && (reason === 'battle' || reason === 'effect')) {
-      for (const f of this.fieldCards(c.controller)) {
-        if (f === c || !f.faceUp || this.isNegated(f)) continue;
-        const hook = getScript(f.id).fieldSubstitute;
-        if (hook && hook(this, f, c, reason)) return true;
-      }
+    for (const f of this.fieldCards(c.controller)) {
+      if (f === c || !f.faceUp || this.isNegated(f)) continue;
+      add(getScript(f.id).fieldSubstitute?.(this, f, c, reason), `用「${f.name}」的效果代替`);
     }
-    const self = getScript(c.id).selfSubstitute;
-    if (self && c.onField && c.faceUp && !this.isNegated(c) && (reason === 'battle' || reason === 'effect') && self(this, c, reason)) return true;
+    if (c.faceUp && !this.isNegated(c)) {
+      add(getScript(c.id).selfSubstitute?.(this, c, reason), `用「${c.name}」的效果代替`);
+    }
     const sub = getScript(c.id).destroySubstitute;
-    if (!sub || !c.faceUp || c.location !== 'mzone' || this.isNegated(c)) return false;
-    const cands = sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x));
-    if (!cands.length) return false;
-    const worth = (x: Card) => (x.location === 'mzone' ? this.getAtk(x) : 0) + (x.location === 'mzone' ? x.data.level * 40 : 500);
-    const pick = cands.reduce((a, b) => (worth(b) < worth(a) ? b : a));
-    if (worth(pick) > worth(c)) return false;
-    this.log(`「${c.name}」的代替：破壞「${pick.name}」`);
-    this.destroyNoSubstitute([pick], 'effect', c);
+    if (sub && c.faceUp && c.location === 'mzone' && !this.isNegated(c)) {
+      const worth = (x: Card) => (x.location === 'mzone' ? this.getAtk(x) + x.data.level * 40 : 500);
+      for (const x of sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x)))
+        out.push({
+          label: `破壞「${x.name}」代替`,
+          // AI：代替的卡比這張卡更有價值時不代替
+          ai: worth(x) <= worth(c) ? 60 - worth(x) / 1000 : 0,
+          apply: () => {
+            this.log(`「${c.name}」的代替：破壞「${x.name}」`);
+            this.destroyNoSubstitute([x], 'effect', c);
+          },
+        });
+    }
+    return out;
+  }
+
+  /** 詢問控制者要不要代替破壞，回傳是否代替 */
+  private async substituteDestroy(c: Card, batch: Card[], reason: Reason): Promise<boolean> {
+    const opts = this.substituteOptions(c, batch, reason);
+    if (!opts.length) return false;
+    const i = await this.chooseOption({
+      player: c.controller,
+      title: `「${c.name}」要被破壞，要代替嗎？`,
+      card: c,
+      options: [{ label: '不代替', ai: 10 }, ...opts.map((o) => ({ label: o.label, ai: o.ai }))],
+    });
+    if (i <= 0 || !c.onField) return false;
+    opts[i - 1].apply();
     return true;
   }
 
-  destroy(cards: Card[], reason: Reason, by?: Card): Card[] {
+  async destroy(cards: Card[], reason: Reason, by?: Card): Promise<Card[]> {
     const kept = cards.filter((c) => c.onField && !(reason === 'effect' && by && this.isImmune(c, by)) && !(reason === 'effect' && this.has(c, 'effectIndestructible')));
-    const subbed = kept.filter((c) => this.substituteDestroy(c, cards, reason));
-    return this.destroyNoSubstitute(
+    const subbed: Card[] = [];
+    for (const c of kept) if (await this.substituteDestroy(c, cards, reason)) subbed.push(c);
+    const done = this.destroyNoSubstitute(
       cards.filter((c) => !subbed.includes(c)),
       reason,
       by,
     );
+    // 一起離場而要破壞的卡（活死人的呼聲的對象等）
+    await this.flushDestroys();
+    return done;
   }
 
   private destroyNoSubstitute(cards: Card[], reason: Reason, by?: Card): Card[] {
@@ -1139,7 +1190,7 @@ export class Duel {
   returnControl(card: Card) {
     if (card.location !== 'mzone' || card.controller === card.owner) return;
     if (this.freeMZones(card.owner) <= 0) {
-      this.destroy([card], 'rule');
+      this.destroyNoSubstitute([card], 'rule');
       return;
     }
     const old = this.p(card.controller).mzone;
@@ -1303,6 +1354,7 @@ export class Duel {
    * 處理目前的狀況：誘發效果 → 連鎖；沒有誘發時開放回應時機 win。
    */
   async settle(win?: WindowInfo) {
+    await this.flushDestroys();
     this.checkState();
     const saved = this.windowEvent;
     this.windowEvent = win?.event ?? null;
@@ -1370,6 +1422,7 @@ export class Duel {
         this.resolvingLink = link;
         await this.pause(350);
         await this.resolveLink(link);
+        await this.flushDestroys();
         this.chain.pop();
         this.resolvingLink = null;
         this.checkState();
@@ -1390,7 +1443,7 @@ export class Duel {
     const stillThere = card.stint === cardStint && card.onField;
     if (link.negated) {
       this.log(`「${card.name}」的發動被無效`);
-      if (link.isCardActivation && stillThere) this.destroy([card], 'effect');
+      if (link.isCardActivation && stillThere) await this.destroy([card], 'effect');
       return;
     }
     if (link.isCardActivation) {
@@ -1671,21 +1724,32 @@ export class Duel {
   // 主要階段的行動
   // =====================================================================
 
-  tributesNeeded(card: Card): number {
+  tributesNeeded(card: Card, reduce = true): number {
     const fixed = getScript(card.id).tributes;
     if (fixed !== undefined) return fixed;
     const lv = this.getLevel(card);
     const n = lv >= 7 ? 2 : lv >= 5 ? 1 : 0;
     // 齒車街：「古代的機械」怪獸召喚需要的解放減少 1 隻
-    if (n > 0 && this.has(card, 'tributeMinus1')) return n - 1;
+    if (reduce && n > 0 && this.has(card, 'tributeMinus1')) return n - 1;
     return n;
   }
 
-  tributable(p: PlayerId): Card[] {
-    // 靈魂交錯：這回合可以解放對方的怪獸
-    const borrowed = this.monsters(other(p)).filter((c) => c.flags.soulExchange === p + 1 && this.hasFlag(c, 'soulExchangeTurn'));
-    return [...this.monsters(p), ...borrowed].filter((c) => !this.has(c, 'cannotTribute'));
+  /** 可以解放的怪獸；forSummon：為了上級召喚而解放 */
+  tributable(p: PlayerId, forSummon = false): Card[] {
+    // 靈魂交錯：這回合可以為了上級召喚解放對方的怪獸
+    const borrowed = forSummon ? this.monsters(other(p)).filter((c) => c.flags.soulExchange === p + 1 && this.hasFlag(c, 'soulExchangeTurn')) : [];
+    return [...this.monsters(p), ...borrowed].filter((c) => this.canTribute(c, forSummon));
   }
+
+  /** 這張卡能不能解放（等級偷竊蟲：上級召喚以外不能解放） */
+  canTribute(c: Card, forSummon = false): boolean {
+    if (this.has(c, 'cannotTribute')) return false;
+    if (!forSummon && getScript(c.id).onlyTributeForSummon && c.faceUp && !this.isNegated(c)) return false;
+    return true;
+  }
+
+  /** 正在為了上級召喚解放 */
+  private summonTributing = false;
 
   /** 可以不用解放召喚（怒怒怒戰士、銀河騎士） */
   canSummonWithoutTribute(card: Card): boolean {
@@ -1766,8 +1830,8 @@ export class Duel {
     if (ps.normalSummons <= 0 || ps.turnFlags.noSummon) return false;
     if (!this.summonAllowed(p, card, 'normal')) return false;
     const need = this.tributesNeeded(card);
-    if (need === 0 || this.canSummonWithoutTribute(card)) return this.freeMZones(p) > 0 || this.tributable(p).length >= need;
-    return this.tributable(p).length >= need;
+    if (need === 0 || this.canSummonWithoutTribute(card)) return this.freeMZones(p) > 0 || this.tributable(p, true).length >= need;
+    return this.tributable(p, true).length >= need;
   }
 
   getMainActions(p: PlayerId): MainAction[] {
@@ -1903,7 +1967,7 @@ export class Duel {
     }
     if (ev.negated) {
       this.log(`「${cards[0].name}」的召喚被無效`);
-      this.destroy(
+      await this.destroy(
         cards.filter((c) => c.onField),
         'effect',
       );
@@ -1912,13 +1976,24 @@ export class Duel {
     return false;
   }
 
+  /** 齒車街：「可以」減少解放（不減少時用原本的數量） */
+  private async chooseTributeCount(p: PlayerId, card: Card): Promise<number> {
+    const need = this.tributesNeeded(card);
+    const full = this.tributesNeeded(card, false);
+    if (full > need && this.tributable(p, true).length >= full) {
+      const reduce = await this.confirm({ player: p, title: `要讓召喚「${card.name}」需要的解放減少 1 隻嗎？`, card, ai: true });
+      if (!reduce) return full;
+    }
+    return need;
+  }
+
   private async doNormalSummon(p: PlayerId, card: Card, set: boolean) {
     const ps = this.p(p);
-    let need = this.tributesNeeded(card);
+    let need = await this.chooseTributeCount(p, card);
     let tributes: Card[] = [];
     let noTribute = false;
     if (need > 0 && this.canSummonWithoutTribute(card)) {
-      const enough = this.tributable(p).length >= need;
+      const enough = this.tributable(p, true).length >= need;
       noTribute =
         !enough ||
         this.freeMZones(p) <= 0 ||
@@ -1929,7 +2004,7 @@ export class Duel {
     // 閃電之戰士 吉爾福德：也可以解放 3 隻召喚
     const optional = getScript(card.id).optionalTributes;
     let usedOptional = false;
-    if (need > 0 && optional && optional > need && this.tributable(p).length >= optional) {
+    if (need > 0 && optional && optional > need && this.tributable(p, true).length >= optional) {
       usedOptional = await this.confirm({ player: p, title: `要解放 ${optional} 隻怪獸召喚「${card.name}」嗎？`, card, ai: this.monsters(other(p)).length >= 2 });
       if (usedOptional) need = optional;
     }
@@ -1937,13 +2012,15 @@ export class Duel {
       tributes = await this.select({
         player: p,
         title: `選擇 ${need} 隻要解放的怪獸`,
-        cards: this.tributable(p),
+        cards: this.tributable(p, true),
         min: need,
         max: need,
         hint: 'cost',
       });
       if (tributes.length < need) return;
+      this.summonTributing = true;
       for (const t of tributes) this.moveTo(t, 'grave', { reason: 'tribute' });
+      this.summonTributing = false;
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     }
     ps.normalSummons--;
@@ -1985,14 +2062,16 @@ export class Duel {
   /** 效果處理中進行通常召喚（古代的機械司令：「進行 1 隻『古代的機械』怪獸的召喚」），不消耗通常召喚次數 */
   async normalSummonByEffect(p: PlayerId, card: Card): Promise<boolean> {
     if (card.location !== 'hand' || !this.summonAllowed(p, card, 'normal')) return false;
-    let need = this.tributesNeeded(card);
+    let need = await this.chooseTributeCount(p, card);
     if (need > 0 && this.canSummonWithoutTribute(card) && this.freeMZones(p) > 0) need = 0;
     let tributes: Card[] = [];
     if (need > 0) {
-      if (this.tributable(p).length < need) return false;
-      tributes = await this.select({ player: p, title: `選擇 ${need} 隻要解放的怪獸`, cards: this.tributable(p), min: need, max: need, hint: 'cost' });
+      if (this.tributable(p, true).length < need) return false;
+      tributes = await this.select({ player: p, title: `選擇 ${need} 隻要解放的怪獸`, cards: this.tributable(p, true), min: need, max: need, hint: 'cost' });
       if (tributes.length < need) return false;
+      this.summonTributing = true;
       for (const t of tributes) this.moveTo(t, 'grave', { reason: 'tribute' });
+      this.summonTributing = false;
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     } else if (this.freeMZones(p) <= 0) return false;
     if (!this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk' })) return false;
@@ -2510,6 +2589,12 @@ export class Duel {
     return true;
   }
 
+  /** 這回合追加的攻擊只能向指定怪獸攻擊（氮素戰士） */
+  private attackRestriction = new Map<Card, Card>();
+  restrictNextAttack(attacker: Card, target: Card) {
+    this.attackRestriction.set(attacker, target);
+  }
+
   getAttackOptions(p: PlayerId): AttackOption[] {
     if (this.turn === 1) return [];
     if (this.playerHas(p, 'cannotDeclareAttack')) return [];
@@ -2524,6 +2609,12 @@ export class Duel {
         if (!each || c.location !== 'mzone' || !c.faceUp || c.position !== 'atk' || this.has(c, 'cannotAttack') || this.isNegated(c)) continue;
         const rest = targets.filter((t) => !c.attackedTargets.includes(t) && each(this, c, t));
         if (rest.length) out.push({ attacker: c, targets: rest, canDirect: false });
+        continue;
+      }
+      // 氮素戰士：追加的攻擊只能向指定的怪獸攻擊
+      const only = this.attackRestriction.get(c);
+      if (only && c.attacks > 0) {
+        if (targets.includes(only)) out.push({ attacker: c, targets: [only], canDirect: false });
         continue;
       }
       const canDirect = (oppMons.length === 0 || this.has(c, 'directAttack')) && !this.has(c, 'cannotDirectAttack');
@@ -2734,7 +2825,8 @@ export class Duel {
     await this.settle();
 
     const survivors = destroyList.filter((c) => c.location === 'mzone' && c.stint === stints.get(c));
-    const still = survivors.filter((c) => !this.substituteDestroy(c, survivors, 'battle'));
+    const still: Card[] = [];
+    for (const c of survivors) if (!(await this.substituteDestroy(c, survivors, 'battle'))) still.push(c);
     for (const c of still) {
       const by = c === attacker ? target ?? undefined : attacker;
       const from = c.location;
@@ -2807,6 +2899,9 @@ export class Duel {
       pl.turnFlags = {};
       pl.summonLocks = [];
       pl.noTributeRules = [];
+    }
+    this.attackRestriction.clear();
+    for (const pl of this.players) {
       pl.summonedThisTurn = [];
       pl.activationLocks = [];
     }
@@ -2856,14 +2951,19 @@ export class Duel {
     // 預定在這個結束階段處理的事
     const due = this.delayed.filter((x) => x.turn === this.turn);
     this.delayed = this.delayed.filter((x) => x.turn > this.turn);
-    for (const x of due) x.run();
+    for (const x of due) await x.run();
     this.raise({ type: 'endPhase', player: tp });
     await this.settle({ kind: 'phase' });
+    // 結束階段的處理之後（淘氣仙星的燈光舞台：沒有發動的卡送去墓地）
+    const after = this.afterEndPhase.filter((x) => x.turn === this.turn);
+    this.afterEndPhase = this.afterEndPhase.filter((x) => x.turn > this.turn);
+    for (const x of after) await x.run();
+    if (after.length) await this.settle();
     // 暫時控制權返還
     for (const c of this.monsters()) if (c.controlUntilEnd) this.returnControl(c);
     // 「結束階段破壞／除外」的怪獸
     const doomed = this.monsters().filter((c) => this.hasFlag(c, 'destroyAtEnd'));
-    if (doomed.length) this.destroy(doomed, 'effect');
+    if (doomed.length) await this.destroy(doomed, 'effect');
     const exiled = this.monsters().filter((c) => this.hasFlag(c, 'banishAtEnd'));
     if (exiled.length) this.banish(exiled, 'effect');
     const shuffled = this.monsters().filter((c) => this.hasFlag(c, 'deckAtEnd'));

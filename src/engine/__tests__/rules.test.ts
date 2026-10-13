@@ -17,6 +17,12 @@ class TestAI extends AIController {
     if (forced) return forced;
     return super.chooseResponse(duel, p, options, win);
   }
+  /** 指定選項（例如：不代替破壞） */
+  optionPick: number | null = null;
+  async chooseOption(duel: Duel, prompt: Parameters<AIController['chooseOption']>[1]) {
+    if (this.optionPick !== null) return this.optionPick;
+    return super.chooseOption(duel, prompt);
+  }
 }
 
 function setup() {
@@ -254,7 +260,7 @@ describe('魔法・陷阱', () => {
     await duel.performMainAction(0, { type: 'activate', card: ss, effect: act.effect, effectIndex: act.effectIndex });
     expect(target.controller).toBe(0);
     expect(ss.location).toBe('szone');
-    duel.destroy([ss], 'effect');
+    await duel.destroy([ss], 'effect');
     expect(target.controller).toBe(1);
   });
 
@@ -266,7 +272,7 @@ describe('魔法・陷阱', () => {
     await duel.performMainAction(0, { type: 'activate', card: coth, effect: act.effect, effectIndex: act.effectIndex });
     expect(m.location).toBe('mzone');
     expect(coth.location).toBe('szone');
-    duel.destroy([coth], 'effect');
+    await duel.destroy([coth], 'effect');
     expect(m.location).toBe('grave');
   });
 
@@ -432,14 +438,14 @@ describe('第二彈卡片', () => {
     const chain = put(duel, 1, 50078509, 'szone', { faceUp: false });
     const act = duel.getActivatable(1).find((x) => x.card === chain);
     expect(act).toBeUndefined(); // 人造人在場時不能發動陷阱
-    duel.destroy([target], 'rule');
+    await duel.destroy([target], 'rule');
     const t2 = put(duel, 0, 70095154, 'mzone'); // 電子龍
     const act2 = duel.getActivatable(1).find((x) => x.card === chain)!;
     await duel.performMainAction(1, { type: 'activate', card: chain, effect: act2.effect, effectIndex: act2.effectIndex });
     expect(chain.location).toBe('szone');
     expect(t2.negated).toBe(true);
     expect(duel.has(t2, 'cannotAttack')).toBe(true);
-    duel.destroy([chain], 'effect');
+    await duel.destroy([chain], 'effect');
     expect(t2.negated).toBe(false);
   });
 
@@ -513,7 +519,7 @@ describe('靈擺與連結', () => {
     expect(m1.location).toBe('mzone');
     expect(m2.location).toBe('mzone');
     expect(duel.getMainActions(0).some((a) => a.type === 'pendulumSummon')).toBe(false);
-    duel.destroy([m1], 'effect');
+    await duel.destroy([m1], 'effect');
     expect(m1.location).toBe('extra');
     expect(m1.faceUp).toBe(true);
   });
@@ -652,11 +658,11 @@ describe('超量（第四彈）', () => {
 });
 
 describe('5D\'s 經典（第五彈）', () => {
-  it('六武眾被破壞時可以改為破壞其他「六武眾」', () => {
+  it('六武眾被破壞時可以改為破壞其他「六武眾」', async () => {
     const { duel } = setup();
     const zanji = put(duel, 0, 95519486, 'mzone'); // 斬次 1800
     const yariza = put(duel, 0, 69025477, 'mzone'); // 槍左 1000
-    duel.destroy([zanji], 'effect');
+    await duel.destroy([zanji], 'effect');
     expect(zanji.location).toBe('mzone');
     expect(yariza.location).toBe('grave');
   });
@@ -736,7 +742,7 @@ describe('第六彈：寶玉獸・卡通・命運英雄・黑羽補完', () => {
   it('寶玉獸被破壞時當作永續魔法放到魔法・陷阱區域，紅玉獸特殊召喚它們', async () => {
     const { duel } = setup();
     const cat = put(duel, 0, 32933942, 'mzone'); // 紫晶貓
-    duel.destroy([cat], 'effect');
+    await duel.destroy([cat], 'effect');
     expect(cat.location).toBe('szone');
     expect(cat.faceUp).toBe(true);
     const ruby = put(duel, 0, 32710364, 'hand');
@@ -767,7 +773,7 @@ describe('第六彈：寶玉獸・卡通・命運英雄・黑羽補完', () => {
     duel.turn++;
     expect(duel.has(elf, 'cannotAttack')).toBe(false);
     expect(duel.getAttackOptions(0).find((o) => o.attacker === elf)?.canDirect).toBe(true);
-    duel.destroy([world], 'effect');
+    await duel.destroy([world], 'effect');
     await duel.settle();
     expect(elf.location).toBe('grave');
   });
@@ -907,7 +913,9 @@ describe('第八彈：三幻神', () => {
     const se = put(duel, 0, 68005187, 'hand');
     const act = duel.getActivatable(0).find((x) => x.card === se)!;
     await duel.performMainAction(0, { type: 'activate', card: se, effect: act.effect, effectIndex: act.effectIndex });
-    expect(duel.tributable(0)).toContain(theirs);
+    // 只能為了上級召喚解放
+    expect(duel.tributable(0, true)).toContain(theirs);
+    expect(duel.tributable(0)).not.toContain(theirs);
   });
 });
 
@@ -936,7 +944,7 @@ describe('第九彈：初代經典補完', () => {
     expect(duel.getAtk(ter)).toBe(3000);
     const other = put(duel, 1, 76184692, 'mzone');
     expect(duel.has(other, 'cannotAttack')).toBe(true);
-    duel.destroy([ter], 'effect');
+    await duel.destroy([ter], 'effect');
     expect(ter.location).toBe('grave'); // 效果破壞不能代替
   });
 
@@ -1052,7 +1060,7 @@ describe('第十彈：ARC-V 四天龍', () => {
     expect(boots.location).toBe('banished');
     expect(blade.location).toBe('hand');
     expect(scales.location).toBe('mzone');
-    duel.destroy([scales], 'effect');
+    await duel.destroy([scales], 'effect');
     expect(scales.location).toBe('banished');
   });
 
@@ -1065,7 +1073,7 @@ describe('第十彈：ARC-V 四天龍', () => {
     expect(fog.location).toBe('szone');
     expect(duel.isNegated(foe)).toBe(true);
     expect(duel.has(foe, 'cannotAttack')).toBe(true);
-    duel.destroy([foe], 'effect');
+    await duel.destroy([foe], 'effect');
     expect(fog.location).toBe('grave');
   });
 });
@@ -1148,7 +1156,7 @@ describe('第十彈：和原卡一致的規則', () => {
     expect(sb.location).toBe('mzone');
     expect(sb.position).toBe('def');
     expect(duel.getDef(sb)).toBe(300);
-    duel.destroy([sb], 'effect');
+    await duel.destroy([sb], 'effect');
     expect(sb.location).toBe('grave');
     expect(sb.data.type & 0x4).toBeTruthy();
   });
@@ -1284,13 +1292,13 @@ describe('第十一彈：VRAINS', () => {
     expect(foe.location).toBe('grave');
   });
 
-  it('轉生炎獸 獨角兔：解放讓怪獸這回合不會被對方的效果破壞', () => {
+  it('轉生炎獸 獨角兔：解放讓怪獸這回合不會被對方的效果破壞', async () => {
     const { duel } = setup();
     const m = put(duel, 0, 89631139, 'mzone');
     duel.setFlag(m, 'oppEffectIndestructible');
     const raigeki = put(duel, 1, 12580477, 'grave');
-    expect(duel.destroy([m], 'effect', raigeki).length).toBe(0);
-    expect(duel.destroy([m], 'effect', m).length).toBe(1);
+    expect((await duel.destroy([m], 'effect', raigeki)).length).toBe(0);
+    expect((await duel.destroy([m], 'effect', m)).length).toBe(1);
   });
 
   it('轉生炎獸 蜃景雄馬：發動後這回合不能發動炎屬性以外的怪獸效果', async () => {
@@ -1336,13 +1344,13 @@ describe('第十二彈：@火靈天星', () => {
     expect(duel.p(1).lp).toBe(8000 - 800);
   });
 
-  it('牢牢妖@火靈天星：自己的電子界族怪獸 1 回合各 1 次不會被效果破壞', () => {
+  it('牢牢妖@火靈天星：自己的電子界族怪獸 1 回合各 1 次不會被效果破壞', async () => {
     const { duel } = setup();
     put(duel, 0, 82257671, 'mzone');
     const m = put(duel, 0, 15808381, 'mzone');
-    expect(duel.destroy([m], 'effect').length).toBe(0);
+    expect((await duel.destroy([m], 'effect')).length).toBe(0);
     expect(m.location).toBe('mzone');
-    expect(duel.destroy([m], 'effect').length).toBe(1);
+    expect((await duel.destroy([m], 'effect')).length).toBe(1);
   });
 
   it('電子界到臨者@火靈天星：原本攻擊力是素材數量×1000，不受其他卡的效果影響', async () => {
@@ -1357,9 +1365,9 @@ describe('第十二彈：@火靈天星', () => {
     expect(duel.getAtk(arrival)).toBe(3000);
     expect(arrival.data.atk).toBe(3000);
     const raigeki = put(duel, 1, 12580477, 'grave');
-    expect(duel.destroy([arrival], 'effect', raigeki).length).toBe(0);
+    expect((await duel.destroy([arrival], 'effect', raigeki)).length).toBe(0);
     // 離場時原本攻擊力還原
-    duel.destroy([arrival], 'rule' as any);
+    await duel.destroy([arrival], 'rule' as any);
     expect(arrival.data.atk).toBe(0);
   });
 
@@ -1374,14 +1382,14 @@ describe('第十二彈：@火靈天星', () => {
     expect(duel.getMainActions(0).some((a) => a.type === 'link')).toBe(false);
   });
 
-  it('光龍王@火靈天星：自己的怪獸被效果破壞時取除超量素材代替', () => {
+  it('光龍王@火靈天星：自己的怪獸被效果破壞時取除超量素材代替', async () => {
     const { duel } = setup();
     const ld = put(duel, 0, 61399402, 'mzone');
     const m = new Card(getCard(FILLER), 0);
     m.location = 'overlay';
     ld.overlays.push(m);
     const mon = put(duel, 0, 89631139, 'mzone');
-    expect(duel.destroy([mon], 'effect').length).toBe(0);
+    expect((await duel.destroy([mon], 'effect')).length).toBe(0);
     expect(mon.location).toBe('mzone');
     expect(ld.overlays.length).toBe(0);
   });
@@ -1467,7 +1475,7 @@ describe('第十三彈：新宇俠・火山', () => {
     await activateMain(duel, 0, trooper);
     const token = duel.monsters(1).find((c) => c.id === 22411610)!;
     expect(token).toBeTruthy();
-    duel.destroy([token], 'effect');
+    await duel.destroy([token], 'effect');
     await duel.settle();
     expect(duel.p(1).lp).toBe(7500);
   });
@@ -1565,12 +1573,12 @@ describe('第十四彈：古代的機械・5D\'s', () => {
     expect(gaia.summonType).toBe('synchro');
   });
 
-  it('動力工具龍：被破壞時可以把裝備魔法送去墓地代替', () => {
+  it('動力工具龍：被破壞時可以把裝備魔法送去墓地代替', async () => {
     const { duel } = setup();
     const ptd = put(duel, 0, 2403771, 'mzone');
     const eq = put(duel, 0, 79068663, 'szone', { faceUp: true });
     duel.equip(eq, ptd);
-    duel.destroy([ptd], 'effect', put(duel, 1, 12580477, 'grave'));
+    await duel.destroy([ptd], 'effect', put(duel, 1, 12580477, 'grave'));
     expect(ptd.location).toBe('mzone');
     expect(eq.location).toBe('grave');
   });
@@ -1708,5 +1716,59 @@ describe('第十六彈：半龍女僕・魔救', () => {
     // 翻開的其他 4 張回到牌組最下面
     const deck = duel.p(0).deck;
     expect(deck.slice(-4).every((c) => c.id === FILLER)).toBe(true);
+  });
+});
+
+describe('與原卡一致的處理', () => {
+  it('代替破壞可以選擇不代替', async () => {
+    const { duel, a } = setup();
+    const ptd = put(duel, 0, 2403771, 'mzone');
+    const eq = put(duel, 0, 79068663, 'szone', { faceUp: true });
+    duel.equip(eq, ptd);
+    a.optionPick = 0;
+    await duel.destroy([ptd], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(ptd.location).toBe('grave');
+    const ptd2 = put(duel, 0, 2403771, 'mzone');
+    const eq2 = put(duel, 0, 79068663, 'szone', { faceUp: true });
+    duel.equip(eq2, ptd2);
+    a.optionPick = 1;
+    await duel.destroy([ptd2], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(ptd2.location).toBe('mzone');
+    expect(eq2.location).toBe('grave');
+  });
+
+  it('等級偷竊蟲：上級召喚以外不能解放', () => {
+    const { duel } = setup();
+    const eater = put(duel, 0, 57421866, 'mzone');
+    expect(duel.tributable(0)).not.toContain(eater);
+    expect(duel.tributable(0, true)).toContain(eater);
+    expect(duel.moveTo(eater, 'grave', { reason: 'tribute' })).toBe(false);
+  });
+
+  it('黑薔薇華園：場上的表側表示怪獸變成植物族，離場後恢復', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const blue = put(duel, 0, 89631139, 'mzone');
+    const garden = put(duel, 0, 69053263, 'szone', { faceUp: true });
+    duel.raise({ type: 'standby', player: 0 });
+    expect(blue.data.race).toBe(0x400);
+    duel.moveTo(garden, 'grave', { reason: 'rule' });
+    expect(blue.data.race).toBe(0x2000);
+  });
+
+  it('淘氣仙星的燈光舞台：結束階段沒有發動的對象卡送去墓地', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const stage = put(duel, 0, 35371948, 'szone');
+    duel.moveTo(stage, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const set = put(duel, 1, 44095762, 'szone', { faceUp: false });
+    const act = duel.getActivatable(0).find((x) => x.card === stage)!;
+    await duel.performMainAction(0, { type: 'activate', card: stage, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.hasFlag(set, 'cannotActivate')).toBe(true);
+    for (const x of duel.delayed.filter((x) => x.turn === duel.turn)) await x.run();
+    expect(duel.hasFlag(set, 'cannotActivate')).toBe(false);
+    for (const x of duel.afterEndPhase.filter((x) => x.turn === duel.turn)) await x.run();
+    expect(set.location).toBe('grave');
   });
 });

@@ -73,7 +73,7 @@ def(41356845, {
         const t = tgt(ctx);
         if (!t || t.faceUp) return;
         d.changePosition(t, 'def', true, ctx.card);
-        if (d.getDef(t) <= 2000) d.destroy([t], 'effect', ctx.card);
+        if (d.getDef(t) <= 2000) await d.destroy([t], 'effect', ctx.card);
         else d.changePosition(t, 'def', false, ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).some((c) => !c.faceUp && c.data.def <= 2000) ? 45 : 0),
@@ -181,7 +181,7 @@ def(83887306, {
         d.setTargets(ctx, [...own, ...(foe ? [foe] : [])]);
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -204,7 +204,7 @@ def(37580756, {
         await chooseTargets(ctx, ctx.duel.monsters(), { title: '選擇要破壞的怪獸' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).length ? 60 : 0),
     }),
@@ -383,7 +383,7 @@ def(84749824, {
         else if (ctx.data.link) {
           ctx.duel.negateLink(ctx.data.link);
           const l = ctx.data.link;
-          if (!l.isCardActivation && l.card.onField) ctx.duel.destroy([l.card], 'effect', ctx.card);
+          if (!l.isCardActivation && l.card.onField) await ctx.duel.destroy([l.card], 'effect', ctx.card);
         }
       },
       ai: (ctx) => {
@@ -462,7 +462,7 @@ def(49010598, {
         const l = ctx.data.link;
         if (!l) return;
         ctx.duel.negateLink(l);
-        if (l.card.onField) ctx.duel.destroy([l.card], 'effect', ctx.card);
+        if (l.card.onField) await ctx.duel.destroy([l.card], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 60 : 0),
     }),

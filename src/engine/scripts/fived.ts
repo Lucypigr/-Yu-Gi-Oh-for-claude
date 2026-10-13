@@ -56,12 +56,12 @@ const oppActivatedST = (ctx: EffectContext) => {
   return !!top && !top.negated && top.player === ctx.opp && top.isCardActivation && (isSpell(top.card.data) || isTrap(top.card.data));
 };
 /** 把連鎖最上面的發動無效並破壞 */
-function negateTop(ctx: EffectContext) {
+async function negateTop(ctx: EffectContext) {
   const link = ctx.data.link;
   if (!link) return;
   ctx.duel.negateLink(link);
   ctx.duel.log(`「${link.card.name}」的發動被無效`);
-  if (link.card.onField) ctx.duel.destroy([link.card], 'effect', ctx.card);
+  if (link.card.onField) await ctx.duel.destroy([link.card], 'effect', ctx.card);
 }
 
 // =====================================================================
@@ -538,7 +538,7 @@ def(33236860, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const atk = d.getAtk(ctx.card);
-        d.destroy(
+        await d.destroy(
           tgts(ctx).filter((c) => c.isFaceUpMonster && d.getDef(c) < atk),
           'effect',
           ctx.card,
@@ -685,7 +685,7 @@ def(53567095, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length >= 2 && (ctx.duel.battle?.attacker.controller === ctx.opp || ctx.duel.phase === 'end') ? 60 : 0),
     }),
@@ -699,7 +699,7 @@ def(59839761, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some(isBW) && ctx.duel.spellTraps(ctx.opp).some((c) => !c.faceUp),
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp).filter((c) => !c.faceUp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp).filter((c) => !c.faceUp), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).filter((c) => !c.faceUp).length >= 2 ? 60 : ctx.duel.turnPlayer === ctx.player ? 35 : 0),
     }),
@@ -735,7 +735,7 @@ def(89040386, {
         return !!b && b.attacker.controller === ctx.opp && !b.target && ctx.duel.p(ctx.player).grave.filter(isBW).length >= 5;
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
       },
       ai: () => 85,
     }),
@@ -815,7 +815,7 @@ def(41470137, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     }),
     tagOut(),
@@ -914,7 +914,7 @@ def(5975022, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     }),
     tagOut(),
@@ -1128,7 +1128,7 @@ def(48156348, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length ? 1 : 0),
     },
@@ -1330,7 +1330,7 @@ def(
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).some((c) => !c.faceUp) ? 55 : 0),
     },
@@ -1355,7 +1355,7 @@ def(
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).some((c) => c.faceUp) ? 55 : 0),
     },
@@ -1382,7 +1382,7 @@ def(
       },
       operation: async (ctx) => {
         const t = ctx.duel.battle?.target;
-        if (t?.onField && !t.faceUp) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField && !t.faceUp) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
   ]),
@@ -1400,7 +1400,7 @@ def(
       condition: (ctx) => ctx.event?.attacker === ctx.card && !!ctx.event.target?.onField && otherSS(ctx.duel, ctx.card),
       operation: async (ctx) => {
         const t = ctx.event?.target;
-        if (t?.onField) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
   ]),
@@ -1532,7 +1532,7 @@ def(74094021, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 1800) ? 50 : 0),
     },
@@ -1592,7 +1592,7 @@ def(78792195, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2200) ? 50 : 0),
     },
@@ -1885,7 +1885,7 @@ def(81426505, {
           { label: `對方蓋放的魔法・陷阱全部破壞（${down.length}）`, ai: down.length * 1000, cards: down },
         ];
         const i = await d.chooseOption({ player: ctx.player, title: '選擇效果', card: ctx.card, options });
-        d.destroy(options[i].cards, 'effect', ctx.card);
+        await d.destroy(options[i].cards, 'effect', ctx.card);
       },
       ai: () => 70,
     }),
@@ -1955,7 +1955,7 @@ def(21007444, {
         if (!r) return;
         const still = r.cards.filter((c, i) => c.location === 'mzone' && c.stint === r.stints[i]);
         const atk = still.reduce((s, c) => s + d.getAtk(c), 0);
-        const done = d.destroy(still, 'effect', ctx.card);
+        const done = (await d.destroy(still, 'effect', ctx.card));
         if (done.length) d.damage(ctx.player, atk, 'effect', ctx.card);
       },
     },

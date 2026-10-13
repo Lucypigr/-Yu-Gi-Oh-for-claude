@@ -87,11 +87,11 @@ function token(duel: Duel, id: number, p: PlayerId, by: Card, position: 'atk' | 
 }
 
 /** 效果處理：無效對方的發動並破壞 */
-const negateDestroy = (ctx: EffectContext) => {
+const negateDestroy = async (ctx: EffectContext) => {
   const link = ctx.data.negateLink;
   if (!link) return;
   ctx.duel.negateLink(link);
-  if (link.card.onField || link.card.location === 'hand') ctx.duel.destroy([link.card], 'effect', ctx.card);
+  if (link.card.onField || link.card.location === 'hand') await ctx.duel.destroy([link.card], 'effect', ctx.card);
 };
 
 // =====================================================================
@@ -355,7 +355,7 @@ def(76547525, {
         const top = Math.max(...mons.map((c) => d.getAtk(c)));
         const cands = mons.filter((c) => d.getAtk(c) === top);
         const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands, hint: 'harm', aiValue: (x) => (x.controller === ctx.opp ? 1 : -1) });
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -379,7 +379,7 @@ def(SCARLIGHT, {
       operation: async (ctx) => {
         const d = ctx.duel;
         if (!ctx.card.isFaceUpMonster) return;
-        const done = d.destroy(scarlightTargets(ctx), 'effect', ctx.card);
+        const done = (await d.destroy(scarlightTargets(ctx), 'effect', ctx.card));
         if (done.length) d.damage(ctx.opp, done.length * 500, 'effect', ctx.card);
       },
       ai: (ctx) => {
@@ -411,7 +411,7 @@ def(39765958, {
       operation: async (ctx) => {
         const d = ctx.duel;
         lockOthersAttack(ctx);
-        d.destroy(d.faceUpMonsters().filter((c) => c !== ctx.card && c.position === 'atk'), 'effect', ctx.card);
+        await d.destroy(d.faceUpMonsters().filter((c) => c !== ctx.card && c.position === 'atk'), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -444,7 +444,7 @@ def(16172067, {
       operation: async (ctx) => {
         const d = ctx.duel;
         lockOthersAttack(ctx);
-        d.destroy(d.fieldCards().filter((c) => c !== ctx.card), 'effect', ctx.card);
+        await d.destroy(d.fieldCards().filter((c) => c !== ctx.card), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -466,7 +466,7 @@ def(16172067, {
         ctx.data.negateLink = ctx.duel.chainTop;
       },
       operation: async (ctx) => {
-        negateDestroy(ctx);
+        await negateDestroy(ctx);
         if (ctx.card.isFaceUpMonster) ctx.duel.addMod(ctx.card, { atk: 500, until: 'permanent' });
       },
       ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 80 : 0),
@@ -556,7 +556,7 @@ def(
       categories: ['destroy'],
       condition: (ctx) => ctx.event?.attacker === ctx.card && ctx.card.isFaceUpMonster,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters().filter((c) => c !== ctx.card), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters().filter((c) => c !== ctx.card), 'effect', ctx.card);
       },
     },
   ]),
@@ -694,7 +694,7 @@ def(WITCH_BR, {
         d.log(`抽到「${c.name}」（給雙方確認）`);
         if (!isMonster(c.data)) {
           d.sendToGrave([c], 'effect', ctx.card);
-          if (ctx.card.onField) d.destroy([ctx.card], 'effect', ctx.card);
+          if (ctx.card.onField) await d.destroy([ctx.card], 'effect', ctx.card);
         }
       },
     },
@@ -936,16 +936,17 @@ def(49674183, {
 // 薔薇藤蔓
 def(41160533, {
   neverSpecialSummon: true,
-  extraAttackCount: (duel, self) => {
-    // 自己的戰鬥階段開始時對方場上的表側植物族怪獸數量
-    if (duel.phase !== 'battle' || duel.turnPlayer !== self.controller) return 0;
-    if (self.flags.tentacleTurn !== duel.turn) {
-      self.flags.tentacleTurn = duel.turn;
-      self.flags.tentacleCount = duel.faceUpMonsters(other(self.controller)).filter((c) => isPlantC(duel, c)).length;
-    }
-    return (self.flags.tentacleCount as number) ?? 0;
-  },
+  // 自己的戰鬥階段開始時對方場上的表側植物族怪獸數量
+  extraAttackCount: (duel, self) => (self.flags.tentacleTurn === duel.turn ? ((self.flags.tentacleCount as number) ?? 0) : 0),
   effects: [
+    {
+      kind: 'continuous',
+      onEvent: (duel, self, ev) => {
+        if (ev.type !== 'battlePhaseStart' || duel.turnPlayer !== self.controller) return;
+        self.flags.tentacleTurn = duel.turn;
+        self.flags.tentacleCount = duel.faceUpMonsters(other(self.controller)).filter((c) => isPlantC(duel, c)).length;
+      },
+    },
     {
       kind: 'trigger',
       event: 'destroyed',
@@ -997,7 +998,7 @@ def(89252157, {
       },
       operation: async (ctx) => {
         const c = await ssOne(ctx, ctx.duel.p(ctx.player).hand.filter((c) => isPlant(c.data)), '選擇要特殊召喚的植物族怪獸');
-        if (c) ctx.duel.setFlag(c, 'immuneTraps');
+        if (c) ctx.duel.setFlag(c, 'immuneOppTraps');
       },
       ai: () => 70,
     },
@@ -1154,7 +1155,7 @@ def(RUDDY_ROSE, {
           const others = d.fieldCards().filter((c) => c !== ctx.card);
           const oppV = d.fieldCards(ctx.opp).reduce((s, c) => s + cardValue(d, c, ctx.player), 0);
           const myV = d.fieldCards(ctx.player).filter((c) => c !== ctx.card).reduce((s, c) => s + cardValue(d, c, ctx.player), 0);
-          if (others.length && (await d.confirm({ player: ctx.player, title: '要破壞場上的其他卡全部嗎？', ai: oppV > myV }))) d.destroy(others, 'effect', ctx.card);
+          if (others.length && (await d.confirm({ player: ctx.player, title: '要破壞場上的其他卡全部嗎？', ai: oppV > myV }))) await d.destroy(others, 'effect', ctx.card);
         }
       },
       ai: (ctx) => {
@@ -1314,9 +1315,28 @@ def(45247637, {
   ],
 });
 
-// 黑薔薇華園
+// 黑薔薇華園：場上的表側表示怪獸變成植物族
+function gardenRaces(duel: Duel, self: Card, active: boolean) {
+  for (const c of duel.monsters()) {
+    const orig = c.flags.gardenRace;
+    if (active && c.faceUp && orig === undefined && c.data.race !== RACE.PLANT) {
+      if (!c.baseData) c.baseData = c.data;
+      c.flags.gardenRace = c.data.race;
+      c.data = { ...c.data, race: RACE.PLANT };
+    } else if ((!active || !c.faceUp) && typeof orig === 'number') {
+      c.data = { ...c.data, race: orig };
+      delete c.flags.gardenRace;
+    }
+  }
+  void self;
+}
 def(BLACK_ROSE_GARDEN, {
+  onLeaveField: (duel, self) => gardenRaces(duel, self, false),
   effects: [
+    {
+      kind: 'continuous',
+      onEvent: (duel, self) => gardenRaces(duel, self, true),
+    },
     activate({
       once: 'name',
       categories: ['search'],
@@ -1384,7 +1404,7 @@ def(BLACK_GARDEN, {
         const d = ctx.duel;
         const plants = d.faceUpMonsters().filter((c) => isPlantC(d, c));
         const all = [ctx.card, ...plants];
-        const done = d.destroy(all, 'effect', ctx.card);
+        const done = (await d.destroy(all, 'effect', ctx.card));
         const t = tgt(ctx);
         if (done.length === all.length && t) d.specialSummon(t, ctx.player, { position: 'atk', by: ctx.card });
       },
@@ -1532,14 +1552,14 @@ const equipSpellsOf = (duel: Duel, c: Card) => duel.equipsOf(c).filter((e) => is
 
 // 動力工具龍
 def(POWER_TOOL, {
-  selfSubstitute: (duel, self) => {
-    const eq = equipSpellsOf(duel, self);
-    if (!eq.length) return false;
-    const pick = eq.reduce((a, b) => (cardValue(duel, b, self.controller) < cardValue(duel, a, self.controller) ? b : a));
-    duel.log(`把「${pick.name}」送去墓地代替「${self.name}」的破壞`);
-    duel.sendToGrave([pick], 'effect', self);
-    return true;
-  },
+  selfSubstitute: (duel, self) =>
+    equipSpellsOf(duel, self).map((e) => ({
+      label: `把裝備的「${e.name}」送去墓地代替`,
+      apply: () => {
+        duel.log(`把「${e.name}」送去墓地代替「${self.name}」的破壞`);
+        duel.sendToGrave([e], 'effect', self);
+      },
+    })),
   effects: [
     {
       kind: 'ignition',
@@ -1566,13 +1586,16 @@ def(POWER_TOOL, {
 def(25165047, {
   synchro: { nonTuner: (c) => c.id === POWER_TOOL, nonTunerMax: 1 },
   replaceEffectDamage: () => true,
-  selfSubstitute: (duel, self) => {
-    const eq = duel.p(self.controller).grave.filter((c) => isSpell(c.data) && spellKind(c.data) === 'equip');
-    if (!eq.length) return false;
-    duel.log(`除外墓地的「${eq[0].name}」代替「${self.name}」的破壞`);
-    duel.banish([eq[0]], 'effect', self);
-    return true;
-  },
+  selfSubstitute: (duel, self) =>
+    duel.p(self.controller).grave
+      .filter((c) => isSpell(c.data) && spellKind(c.data) === 'equip')
+      .map((e) => ({
+        label: `除外墓地的「${e.name}」代替`,
+        apply: () => {
+          duel.log(`除外墓地的「${e.name}」代替「${self.name}」的破壞`);
+          duel.banish([e], 'effect', self);
+        },
+      })),
   effects: [
     {
       kind: 'trigger',
@@ -1731,7 +1754,7 @@ def(59771339, {
       onEvent: (duel, self, ev) => {
         if (ev.type !== 'damageStepStart' || ev.attacker !== self || !ev.target || ev.target.position !== 'def' || !duel.battle) return;
         duel.battle.skipCalc = true;
-        duel.destroy([ev.target], 'effect', self);
+        duel.queueDestroy([ev.target], 'effect', self);
       },
     },
   ],
@@ -1803,7 +1826,7 @@ def(74860293, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length > 0 ? 85 : 0),
     },
@@ -1926,7 +1949,10 @@ def(18013090, {
         const t = tgt(ctx);
         if (!t || !t.isFaceUpMonster || t.position !== 'def') return;
         d.changePosition(t, 'atk', true, ctx.card);
-        if (ctx.card.isFaceUpMonster) ctx.card.extraAttacks++;
+        if (ctx.card.isFaceUpMonster) {
+          ctx.card.extraAttacks++;
+          d.restrictNextAttack(ctx.card, t);
+        }
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -2031,6 +2057,7 @@ const roadTarget = (d: CardData) => isMonster(d) && d.level <= 2 && (d.race & (R
 
 // 等級偷竊蟲
 def(57421866, {
+  onlyTributeForSummon: true,
   effects: [
     {
       kind: 'ignition',
@@ -2230,7 +2257,18 @@ def(63730624, {
         if (!eq || eq.stint !== self.equipStint) return;
         // 自己回合：成為裝備怪獸的攻擊對象的怪獸的效果只在那次戰鬥階段內無效
         if (ev.type === 'attackDeclared' && ev.attacker === eq && ev.target && duel.turnPlayer === self.controller) {
-          duel.setFlag(ev.target, 'negated');
+          const t = ev.target;
+          const prev = t.flags.negated;
+          duel.setFlag(t, 'negated');
+          // 只在那次戰鬥階段內無效
+          const stint = t.stint;
+          duel.listeners.push((e) => {
+            if (t.stint !== stint) return true;
+            if (e.type !== 'battlePhaseEnd') return false;
+            if (prev === undefined) delete t.flags.negated;
+            else t.flags.negated = prev;
+            return true;
+          });
           duel.log(`「${ev.target.name}」的效果在這次戰鬥階段無效`);
         }
       },
@@ -2252,7 +2290,7 @@ def(63730624, {
         const ev = ctx.event;
         if (!eq || !ev) return;
         const foe = ev.attacker === eq ? ev.target : ev.attacker;
-        if (foe?.onField) ctx.duel.destroy([foe], 'effect', ctx.card);
+        if (foe?.onField) await ctx.duel.destroy([foe], 'effect', ctx.card);
       },
     },
   ],
@@ -2295,7 +2333,7 @@ def(63851864, {
         return n >= 3;
       },
       operation: async (ctx) => {
-        if (ctx.card.onField) ctx.duel.destroy([ctx.card], 'effect', ctx.card);
+        if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
       },
     },
   ],

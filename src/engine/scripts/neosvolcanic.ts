@@ -327,7 +327,7 @@ def(85507811, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (!t?.onField || !d.destroy([t], 'effect', ctx.card).length) return;
+        if (!t?.onField || !(await d.destroy([t], 'effect', ctx.card)).length) return;
         const data = t.data;
         if (!ctx.card.isFaceUpMonster) return;
         if (isMonster(data)) d.setFlag(ctx.card, 'cannotAttack');
@@ -410,7 +410,7 @@ def(49352945, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.spellTraps().length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length > ctx.duel.spellTraps(ctx.player).length ? 60 : 0),
     },
@@ -532,11 +532,10 @@ const neosFusionTargets = (ctx: EffectContext) => {
   });
 };
 def(NEOS_FUSION, {
-  graveSubstitute: (duel, self, destroyed, reason) =>
-    (reason === 'battle' || reason === 'effect') &&
-    destroyed.controller === self.owner &&
-    destroyed.isFaceUpMonster &&
-    isNeosFusion(destroyed),
+  graveSubstitute: (_duel, self, destroyed, reason) =>
+    (reason === 'battle' || reason === 'effect') && destroyed.controller === self.owner && destroyed.isFaceUpMonster && isNeosFusion(destroyed)
+      ? () => {}
+      : false,
   effects: [
     activate({
       label: '無視召喚條件特殊召喚以新宇俠為素材的融合怪獸',
@@ -754,8 +753,8 @@ def(18302224, {
         const stint = c.stint;
         d.delayed.push({
           turn: d.turn,
-          run: () => {
-            if (c.stint === stint && c.onField) d.destroy([c], 'effect', ctx.card);
+          run: async () => {
+            if (c.stint === stint && c.onField) await d.destroy([c], 'effect', ctx.card);
           },
         });
       },
@@ -782,7 +781,7 @@ def(52098461, {
         const d = ctx.duel;
         const t = tgt(ctx);
         if (!t?.onField || !d.returnToDeck([t], false, 'effect', ctx.card).length) return;
-        d.destroy(
+        await d.destroy(
           d.fieldCards().filter((c) => c !== ctx.card),
           'effect',
           ctx.card,
@@ -889,7 +888,7 @@ def(69750546, {
         d.sendToGrave(sel, 'cost', ctx.card);
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
       },
     },
   ],
@@ -930,7 +929,7 @@ def(32543380, {
       condition: (ctx) => ctx.event?.reason === 'battle' && ctx.event.by === ctx.card && ctx.event.card?.location === 'grave',
       operation: async (ctx) => {
         const d = ctx.duel;
-        const done = d.destroy(d.monsters(ctx.opp), 'effect', ctx.card);
+        const done = (await d.destroy(d.monsters(ctx.opp), 'effect', ctx.card));
         if (done.length) d.damage(ctx.opp, 500 * done.length, 'effect', ctx.card);
       },
     },
@@ -1363,7 +1362,7 @@ def(69537999, {
         if (!f) return;
         d.sendToGrave([f], 'effect', ctx.card);
         const t = tgt(ctx);
-        if (t?.onField) d.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await d.destroy([t], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.phase === 'main1' || ctx.duel.phase === 'main2' ? 50 : 0),
     },
@@ -1415,7 +1414,7 @@ def(TRI_BLAZE, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t?.onField && d.destroy([t], 'effect', ctx.card).length) d.damage(ctx.opp, 500, 'effect', ctx.card);
+        if (t?.onField && (await d.destroy([t], 'effect', ctx.card)).length) d.damage(ctx.opp, 500, 'effect', ctx.card);
       },
       ai: () => 50,
     },
@@ -1491,7 +1490,7 @@ def(85250352, {
         if (!c) return;
         d.sendToGrave([c], 'effect', ctx.card);
         const t = tgt(ctx);
-        if (t?.onField) d.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await d.destroy([t], 'effect', ctx.card);
       },
       ai: () => 55,
     },

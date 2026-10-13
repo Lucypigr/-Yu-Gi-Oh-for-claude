@@ -114,6 +114,7 @@ export type Query =
   | 'battleIndesOnce' // 1 回合 1 次不會被戰鬥破壞
   | 'effectIndestructible'
   | 'immuneTraps' // 不受陷阱效果影響
+  | 'immuneOppTraps' // 不受對方的陷阱卡的效果影響
   | 'immuneSpellsTraps'
   | 'cannotActivateTraps' // 不能發動陷阱卡（全域，target 為 null，player 為被限制方）
   | 'cannotDeclareAttack' // 不能攻擊宣言（全域，player 為被限制方）
@@ -202,6 +203,9 @@ export interface EffectDef {
 /** 融合素材條件；validate 是整組素材的額外條件（例如：屬性不同） */
 export type FusionConds = Array<(d: CardData, c?: Card) => boolean> & { validate?: (cards: Card[]) => boolean };
 
+/** 代替破壞：可以代替時回傳執行代替的函式（不在這裡執行，讓玩家選擇要不要代替） */
+export type SubstituteApply = (() => void) | { label: string; apply: () => void }[] | null | false;
+
 /** 卡片腳本：一張卡的所有效果與特殊召喚條件 */
 export interface CardScript {
   effects?: EffectDef[];
@@ -262,15 +266,17 @@ export interface CardScript {
   /** 場地魔法等：可以只用 1 隻同名連結怪獸作為素材連結召喚（轉生炎獸的聖域） */
   sameNameLink?: (duel: Duel, self: Card, p: PlayerId, link: Card) => boolean;
   /** 在場上的這張卡：自己場上的其他卡被破壞時可以代替（光龍王@火靈天星取除素材），回傳是否代替 */
-  fieldSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  fieldSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => SubstituteApply;
   /** 「○○在自己場上只能有 1 隻表側表示存在」 */
   uniqueOnField?: boolean;
   /** 在墓地的這張卡：自己場上的卡被破壞時可以除外代替（轉生炎獸 烽火猞猁），回傳是否代替 */
-  graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
+  graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => SubstituteApply;
   /** 只要這張卡在怪獸區域存在，雙方 1 回合只能有 1 次把怪獸特殊召喚（神影依・米德拉什） */
   oneSpecialSummonPerTurn?: boolean;
   /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
   ssOncePerTurn?: boolean;
+  /** 上級召喚以外不能解放（等級偷竊蟲） */
+  onlyTributeForSummon?: boolean;
   /** 「這張卡不能特殊召喚」（無視召喚條件時除外） */
   neverSpecialSummon?: boolean;
   /** 不能特殊召喚（無視召喚條件時除外） */
@@ -284,7 +290,7 @@ export interface CardScript {
   /** 作為同步素材時，對同步怪獸的處理（火焰共鳴者、高超同調士） */
   asSynchroMaterial?: (duel: Duel, synchro: Card, self: Card) => void;
   /** 這張卡被破壞時的代替處理（動力工具龍：把裝備魔法送去墓地），回傳是否代替 */
-  selfSubstitute?: (duel: Duel, self: Card, reason: Reason) => boolean;
+  selfSubstitute?: (duel: Duel, self: Card, reason: Reason) => SubstituteApply;
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
   asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
   /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */

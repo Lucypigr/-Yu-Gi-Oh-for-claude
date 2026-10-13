@@ -155,7 +155,7 @@ def(
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).length ? 85 : 0),
     },
@@ -209,7 +209,7 @@ def(
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length ? 80 : 0),
     },
@@ -345,7 +345,7 @@ def(20366274, {
       operation: async (ctx) => {
         const ev = ctx.event;
         const foe = ev?.attacker === ctx.card ? ev.target : ev?.attacker;
-        if (foe?.onField) ctx.duel.destroy([foe], 'effect', ctx.card);
+        if (foe?.onField) await ctx.duel.destroy([foe], 'effect', ctx.card);
       },
     },
     elShaddollRecover,
@@ -373,7 +373,7 @@ def(74822425, {
         const link = ctx.data.negateLink;
         if (!link) return;
         ctx.duel.negateLink(link);
-        if (link.card.onField) ctx.duel.destroy([link.card], 'effect', ctx.card);
+        if (link.card.onField) await ctx.duel.destroy([link.card], 'effect', ctx.card);
         await sendShaddollFromHand(ctx);
       },
       ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 80 : 0),
@@ -838,7 +838,7 @@ def(ROZE, {
       condition: (ctx) =>
         ctx.card.location === 'hand' &&
         ctx.duel.freeMZones(ctx.player) > 0 &&
-        (ctx.event?.cards ?? []).some((c) => c.controller === ctx.player && isAce(c.data) && c.id !== ROZE),
+        (ctx.event?.cards ?? []).some((c) => isAce(c.data) && c.id !== ROZE),
       operation: async (ctx) => {
         if (ctx.card.location === 'hand') ctx.duel.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card });
       },
@@ -1074,7 +1074,7 @@ def(98462037, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t) d.destroy([t], 'effect', ctx.card);
+        if (t) await d.destroy([t], 'effect', ctx.card);
         if (spellsInGrave(d, ctx.player) <= 3 && ctx.card.onField) d.sendToGrave([ctx.card], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length ? 85 : 0),
@@ -1099,7 +1099,7 @@ def(98462037, {
       operation: async (ctx) => {
         const ev = ctx.event;
         const foe = ev?.attacker === ctx.card ? ev.target : ev?.attacker;
-        if (foe?.onField) ctx.duel.destroy([foe], 'effect', ctx.card);
+        if (foe?.onField) await ctx.duel.destroy([foe], 'effect', ctx.card);
       },
       ai: () => 80,
     },
@@ -1140,11 +1140,11 @@ def(99550630, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t) d.destroy([t], 'effect', ctx.card);
+        if (t) await d.destroy([t], 'effect', ctx.card);
         const st = d.spellTraps().filter((c) => c !== ctx.card);
         if (overclock(d, ctx.player) && st.length && (await d.confirm({ player: ctx.player, title: '要破壞場上 1 張魔法・陷阱卡嗎？', ai: st.some((c) => c.controller === ctx.opp) }))) {
           const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的魔法・陷阱卡', cards: st, hint: 'harm', aiValue: (x) => (x.controller === ctx.opp ? 100 : -100) });
-          if (c) d.destroy([c], 'effect', ctx.card);
+          if (c) await d.destroy([c], 'effect', ctx.card);
         }
       },
       ai: (ctx) => (ctx.duel.faceUpMonsters(ctx.opp).length ? 85 : 0),
@@ -1167,11 +1167,11 @@ def(25955749, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t) d.destroy([t], 'effect', ctx.card);
+        if (t) await d.destroy([t], 'effect', ctx.card);
         const mons = d.monsters();
         if (overclock(d, ctx.player) && mons.length && (await d.confirm({ player: ctx.player, title: '要破壞場上 1 隻怪獸嗎？', ai: mons.some((c) => c.controller === ctx.opp) }))) {
           const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: mons, hint: 'harm', aiValue: (x) => (x.controller === ctx.opp ? cardValue(d, x, ctx.player) : -5000) });
-          if (c) d.destroy([c], 'effect', ctx.card);
+          if (c) await d.destroy([c], 'effect', ctx.card);
         }
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).some((c) => !c.faceUp) ? 80 : 0),
