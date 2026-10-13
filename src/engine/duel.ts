@@ -181,6 +181,36 @@ export class Duel {
   /** 目前正在處理的連鎖（UI 顯示用） */
   resolvingLink: ChainLink | null = null;
   /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
+  /** 正在作為融合召喚的素材移動的卡（「成為融合召喚的素材送去墓地的場合」用） */
+  private fusionMoving: Set<Card> | null = null;
+  /** 同時送去墓地的怪獸（「怪獸 2 隻以上同時被送去墓地的場合」用） */
+  private graveBatchDepth = 0;
+  private graveBatchCards: Card[] = [];
+  /** 在 fn 中送去墓地的怪獸視為同時送去墓地 */
+  graveBatch<T>(fn: () => T): T {
+    this.graveBatchDepth++;
+    try {
+      return fn();
+    } finally {
+      if (--this.graveBatchDepth === 0) {
+        const cards = this.graveBatchCards;
+        this.graveBatchCards = [];
+        if (cards.length >= 2) this.raise({ type: 'toGraveMulti', cards, player: cards[0].owner });
+      }
+    }
+  }
+
+  /** 把融合素材移動（送去墓地・除外・回到牌組），事件會標記為融合召喚的素材 */
+  moveFusionMaterials<T>(mats: Card[], move: () => T): T {
+    const prev = this.fusionMoving;
+    this.fusionMoving = new Set(mats);
+    try {
+      return move();
+    } finally {
+      this.fusionMoving = prev;
+    }
+  }
+
   lingering: {
     turn: number;
     query?: (card: Card, q: Query) => boolean;
@@ -753,7 +783,10 @@ export class Duel {
         card.controller = controller;
         card.faceUp = opts.faceUp ?? true;
         card.position = opts.position ?? 'atk';
-        if (!wasOnField) card.turnPlaced = this.turn;
+        if (!wasOnField) {
+          card.turnPlaced = this.turn;
+          card.summonedFrom = from;
+        }
         break;
       case 'szone':
         ps.szone[zoneIndex] = card;
@@ -805,8 +838,10 @@ export class Duel {
     }
 
     const base: GameEvent = { type: 'toGrave', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp };
+    if (opts.reason === 'material' && this.fusionMoving?.has(card)) base.asFusion = true;
     // 「這個回合有融合怪獸被送去自己墓地的場合」
     if (to === 'grave' && isMonster(card.data) && (card.data.type & TYPE.FUSION) !== 0) this.p(card.owner).turnFlags.fusionToGrave = true;
+    if (to === 'grave' && this.graveBatchDepth > 0 && isMonster(card.data)) this.graveBatchCards.push(card);
     if (to === 'grave') this.raise({ ...base, type: 'toGrave' });
     if (to === 'banished') this.raise({ ...base, type: 'banished' });
     if (to === 'hand' && from !== 'deck') this.raise({ ...base, type: 'toHand' });
@@ -949,6 +984,10 @@ export class Duel {
   }
 
   private destroyNoSubstitute(cards: Card[], reason: Reason, by?: Card): Card[] {
+    return this.graveBatch(() => this.destroyEach(cards, reason, by));
+  }
+
+  private destroyEach(cards: Card[], reason: Reason, by?: Card): Card[] {
     const done: Card[] = [];
     for (const c of cards) {
       if (!c.onField) continue;
@@ -996,13 +1035,15 @@ export class Duel {
   }
 
   sendToGrave(cards: Card[], reason: Reason, by?: Card): Card[] {
-    const done: Card[] = [];
-    for (const c of cards) {
-      if (c.location === 'grave') continue;
-      if (reason === 'effect' && c.onField && by && this.isImmune(c, by)) continue;
-      if (this.moveTo(c, 'grave', { reason, by })) done.push(c);
-    }
-    return done;
+    return this.graveBatch(() => {
+      const done: Card[] = [];
+      for (const c of cards) {
+        if (c.location === 'grave') continue;
+        if (reason === 'effect' && c.onField && by && this.isImmune(c, by)) continue;
+        if (this.moveTo(c, 'grave', { reason, by })) done.push(c);
+      }
+      return done;
+    });
   }
 
   banish(cards: Card[], reason: Reason, by?: Card): Card[] {
@@ -1045,7 +1086,7 @@ export class Duel {
   discard(cards: Card[], _reason: Reason = 'discard', by?: Card): Card[] {
     // 作為代價丟棄的卡不是「被效果送去墓地」
     const reason: Reason = _reason === 'cost' ? 'cost' : 'discard';
-    const done = cards.filter((c) => c.location === 'hand' && this.moveTo(c, 'grave', { reason, by }));
+    const done = this.graveBatch(() => cards.filter((c) => c.location === 'hand' && this.moveTo(c, 'grave', { reason, by })));
     if (done.length) this.log(`丟棄 ${done.map((c) => `「${c.name}」`).join('、')}`);
     return done;
   }
@@ -1339,6 +1380,7 @@ export class Duel {
     if (effect.once === 'turn' && card.usedTurn[effectIndex] === this.turn) return false;
     if (effect.once === 'name' && this.p(player).usedNames[`${card.id}:${effectIndex}`] === this.turn) return false;
     if (effect.once === 'nameShared' && this.p(player).usedNames[card.id] === this.turn) return false;
+    if (effect.once === 'duel' && this.p(player).usedNames[`duel:${card.id}:${effectIndex}`] !== undefined) return false;
     return true;
   }
 
@@ -1346,6 +1388,7 @@ export class Duel {
     if (effect.once === 'turn') card.usedTurn[effectIndex] = this.turn;
     if (effect.once === 'name') this.p(player).usedNames[`${card.id}:${effectIndex}`] = this.turn;
     if (effect.once === 'nameShared') this.p(player).usedNames[card.id] = this.turn;
+    if (effect.once === 'duel') this.p(player).usedNames[`duel:${card.id}:${effectIndex}`] = this.turn;
   }
 
   /** 把待處理的誘發效果放上連鎖（回合玩家先） */
@@ -1484,8 +1527,11 @@ export class Duel {
         }
       }
     }
-    // 魔陷卡被人造人無效
-    if (link.isCardActivation && isTrap(card.data) && this.trapsNegated()) {
+    // 效果被無效化（發動本身有效，魔法・陷阱卡照常送去墓地）
+    if (ctx.data.effectNegated) {
+      this.log(`「${card.name}」的效果被無效`);
+    } else if (link.isCardActivation && isTrap(card.data) && this.trapsNegated()) {
+      // 魔陷卡被人造人無效
       this.log(`「${card.name}」的效果被無效`);
     } else if (effect.operation) {
       await effect.operation(ctx);
@@ -1506,6 +1552,15 @@ export class Duel {
       return;
     }
     link.negated = true;
+  }
+
+  /** 讓連鎖中的效果無效化（「那個效果無效」） */
+  negateEffect(link: ChainLink) {
+    if (link.ctx.data.unnegatable) {
+      this.log(`「${link.card.name}」的效果不會被無效`);
+      return;
+    }
+    link.ctx.data.effectNegated = true;
   }
 
   /** 這位玩家現在不能發動效果（失烙印：融合召喚成功時對方不能發動） */
@@ -2066,7 +2121,7 @@ export class Duel {
       });
       if (tributes.length < need) return;
       this.summonTributing = true;
-      for (const t of tributes) this.moveTo(t, 'grave', { reason: 'tribute' });
+      this.graveBatch(() => tributes.forEach((t) => this.moveTo(t, 'grave', { reason: 'tribute' })));
       this.summonTributing = false;
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     }
@@ -2117,7 +2172,7 @@ export class Duel {
       tributes = await this.select({ player: p, title: `選擇 ${need} 隻要解放的怪獸`, cards: this.tributable(p, true), min: need, max: need, hint: 'cost' });
       if (tributes.length < need) return false;
       this.summonTributing = true;
-      for (const t of tributes) this.moveTo(t, 'grave', { reason: 'tribute' });
+      this.graveBatch(() => tributes.forEach((t) => this.moveTo(t, 'grave', { reason: 'tribute' })));
       this.summonTributing = false;
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     } else if (this.freeMZones(p) <= 0) return false;
@@ -2324,7 +2379,7 @@ export class Duel {
     this.lastSynchroMaterials = [];
     this.lastLinkSummon = card;
     const reincarnated = mats.some((m) => m.id === card.id);
-    for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
+    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 連結召喚`, p);
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk', zone });
     card.summonType = 'link';
@@ -2415,7 +2470,7 @@ export class Duel {
     this.lastSynchroMaterials = mats;
     this.lastSynchroSummon = card;
     card.summonMaterials = mats;
-    for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
+    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     const pos = await this.choosePosition(p, card);
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: this.extraZones(p, card)[0] });
@@ -2444,7 +2499,7 @@ export class Duel {
     this.lastSynchroMaterials = mats;
     this.lastSynchroSummon = card;
     card.summonMaterials = mats;
-    for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
+    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
     this.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     if (!this.specialSummon(card, p, { summonType: 'synchro', position: 'atk' })) {
       card.summonMaterials = [];
@@ -2568,16 +2623,21 @@ export class Duel {
   /** 取除超量素材 */
   detachMaterials(card: Card, n: number): boolean {
     if (card.overlays.length < n) return false;
+    this.graveBatch(() => this.detachEach(card, n));
+    this.log(`「${card.name}」取除 ${n} 個超量素材`);
+    return true;
+  }
+
+  private detachEach(card: Card, n: number) {
     for (let i = 0; i < n; i++) {
       const o = card.overlays.shift()!;
       o.stint++;
       o.location = 'grave';
       o.faceUp = true;
       this.p(o.owner).grave.push(o);
+      if (isMonster(o.data)) this.graveBatchCards.push(o);
       this.raise({ type: 'toGrave', card: o, from: 'overlay', reason: 'cost' });
     }
-    this.log(`「${card.name}」取除 ${n} 個超量素材`);
-    return true;
   }
 
   // ---- 融合・儀式（由魔法卡的效果呼叫）----
@@ -2886,6 +2946,8 @@ export class Duel {
     const survivors = destroyList.filter((c) => c.location === 'mzone' && c.stint === stints.get(c));
     const still: Card[] = [];
     for (const c of survivors) if (!(await this.substituteDestroy(c, survivors, 'battle'))) still.push(c);
+    // 被戰鬥破壞的怪獸同時送去墓地（迴圈中有 await 以外的處理，用計數包起來）
+    this.graveBatchDepth++;
     for (const c of still) {
       const by = c === attacker ? target ?? undefined : attacker;
       const from = c.location;
@@ -2899,6 +2961,8 @@ export class Duel {
         this.raise({ type: 'destroyed', card: c, from, fromZone, reason: 'battle', by, prevController, wasFaceUp: true, summonType: prevSummonType ?? undefined });
       }
     }
+    // 抵銷上面的計數，並在最外層結束時發出「同時送去墓地」的事件
+    this.graveBatch(() => this.graveBatchDepth--);
     if (still.length) {
       this.log(`${still.map((c) => `「${c.name}」`).join('、')} 被戰鬥破壞`);
       await this.pause(400);

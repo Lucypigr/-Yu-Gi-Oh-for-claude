@@ -35,6 +35,8 @@ export class Card {
   extraAttacks = 0;
   /** 融合・連結召喚時使用的素材 */
   summonMaterials: Card[] = [];
+  /** 出場前所在的位置（「從額外牌組特殊召喚的怪獸」用） */
+  summonedFrom: Loc | null = null;
   /** 用和自身同名的怪獸作為素材召喚（轉生炎獸的「轉生」） */
   reincarnated = false;
   /** 最後一次被破壞送去墓地的回合（離場後保留） */
@@ -99,6 +101,7 @@ export class Card {
     this.copied = null;
     this.reincarnated = false;
     this.summonMaterials = [];
+    this.summonedFrom = null;
     this.posChangedTurn = 0;
     this.counters = 0;
     this.equipTarget = null;

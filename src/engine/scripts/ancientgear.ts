@@ -81,9 +81,12 @@ export async function fusionSummon(
   if (!ok(mats)) mats = findSet(d, conds, opts.pool, opts.validate) ?? [];
   if (!mats.length) return null;
   const fromDeck = mats.some((m) => m.location === 'deck');
-  if (opts.toDeck) d.returnToDeck(mats, false, 'material', ctx.card);
-  else if (opts.banish) d.banish(mats, 'material', ctx.card);
-  else d.sendToGrave(mats, 'material', ctx.card);
+  const fromHand = mats.filter((m) => m.location === 'hand').length;
+  d.moveFusionMaterials(mats, () => {
+    if (opts.toDeck) d.returnToDeck(mats, false, 'material', ctx.card);
+    else if (opts.banish) d.banish(mats, 'material', ctx.card);
+    else d.sendToGrave(mats, 'material', ctx.card);
+  });
   for (const m of mats) m.fusionMaterial = true;
   if (fromDeck || opts.toDeck) d.shuffleDeck(ctx.player);
   d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
@@ -92,6 +95,8 @@ export async function fusionSummon(
     f.summonMaterials = [];
     return null;
   }
+  // 作為融合素材的手牌的怪獸數量（星辰爪龍 巨蟹摩羯龍魔）
+  f.flags.handMaterials = fromHand;
   return f;
 }
 

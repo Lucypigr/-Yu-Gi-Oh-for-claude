@@ -60,7 +60,12 @@ export async function chooseTargets(
         ctx.duel.has(c, 'untargetable') ||
         (isMonster(ctx.card.data) && ctx.duel.has(c, 'untargetableByMonsters')) ||
         (isMonster(ctx.card.data) && (ctx.card.data.type & 0x20) !== 0 && ctx.card.data.level <= 6 && ctx.duel.has(c, 'untargetableByL6Monsters')) ||
-        (c.controller !== ctx.player && ctx.duel.has(c, 'untargetableByOpp'))
+        (c.controller !== ctx.player && ctx.duel.has(c, 'untargetableByOpp')) ||
+        (c.controller !== ctx.player &&
+          isMonster(ctx.card.data) &&
+          ctx.card.location === 'mzone' &&
+          ctx.card.summonedFrom === 'extra' &&
+          ctx.duel.has(c, 'untargetableByOppExtraMonsters'))
       ),
   );
   const sel = await ctx.duel.select({
