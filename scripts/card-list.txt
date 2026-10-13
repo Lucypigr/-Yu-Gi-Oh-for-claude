@@ -1358,3 +1358,43 @@
 97616504  # Sky Striker Mecharmory - Hercules Base
 24010609  # Sky Striker Mecha Modules - Multirole
 50005218  # Sky Striker Airspace - Area Zero
+# ---- 半龍女僕（第十六彈）----
+32600024  # Chamber Dragonmaid
+13171876  # Laundry Dragonmaid
+16960120  # Kitchen Dragonmaid
+88453933  # Parlor Dragonmaid
+40398073  # Nurse Dragonmaid
+15848542  # Dragonmaid Lorpar
+42055234  # Dragonmaid Tinkhec
+49575521  # Dragonmaid Nudyarl
+76782778  # Dragonmaid Ernus
+12163590  # Dragonmaid Cehrmba
+41232647  # House Dragonmaid
+48658295  # Lady's Dragonmaid
+24799107  # Dragonmaid Sheou
+14625090  # Dragonmaid Welcome
+15754711  # Dragonmaid Send-Off
+40110009  # Dragonmaid Changeover
+78231355  # Dragonmaid Hospitality
+57416183  # Dragonmaid Tidying
+77515704  # Dragonmaid Downtime
+# ---- 魔救（第十六彈）----
+11302671  # Adamancipator Analyzer
+48519867  # Adamancipator Seeker
+85914562  # Adamancipator Researcher
+24925387  # Adamancipator Conductor
+10286023  # Adamancipator Crystal - Dragite
+47897376  # Adamancipator Crystal - Leonite
+51420096  # Adamancipator Crystal - Tiamite
+74891384  # Adamancipator Crystal - Raptite
+9464441  # Adamancipator Risen - Dragite
+47674738  # Adamancipator Risen - Leonite
+89813287  # Adamancipator Risen - Tiamite
+73079836  # Adamancipator Risen - Raptite
+41458361  # Adamancipator Luminous
+46552140  # Adamancipator Laputite
+72957245  # Adamancipator Signs
+9341993  # Adamancipator Relief
+30068809  # Adamancipator Mates
+99927991  # Adamancipator Friends
+45730592  # Adamancipator Resonance

@@ -54,6 +54,7 @@ export type EventType =
   | 'damage'
   | 'standby'
   | 'endPhase'
+  | 'battlePhaseStart'
   | 'battlePhaseEnd'
   | 'activated'
   | 'drawn' // 抽卡（cards：抽到的卡）

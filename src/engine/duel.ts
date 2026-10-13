@@ -2839,6 +2839,7 @@ export class Duel {
 
     if (goBattle && this.turn > 1) {
       await this.setPhase('battle');
+      this.raise({ type: 'battlePhaseStart', player: tp });
       await this.settle({ kind: 'phase' });
       await this.battlePhase();
       this.raise({ type: 'battlePhaseEnd', player: tp });

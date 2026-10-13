@@ -1656,3 +1656,57 @@ describe('第十五彈：影依・閃刀姬', () => {
     expect(duel.getActivatable(0).some((x) => x.card === engage)).toBe(true);
   });
 });
+
+describe('第十六彈：半龍女僕・魔救', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('寢室龍女：戰鬥階段開始時回到手牌，特殊召喚 7 星以上的半龍女僕；戰鬥階段結束時換回來', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const chamber = put(duel, 0, 32600024, 'mzone');
+    const lorpar = put(duel, 0, 15848542, 'hand'); // 8 星，戰鬥階段結束時換成 3 星
+    put(duel, 0, 16960120, 'hand'); // 蒸餾室龍女 3 星
+    duel.phase = 'battle';
+    duel.raise({ type: 'battlePhaseStart', player: 0 });
+    await duel.settle();
+    expect(chamber.location).toBe('hand');
+    expect(lorpar.location).toBe('mzone');
+    duel.raise({ type: 'battlePhaseEnd', player: 0 });
+    await duel.settle();
+    expect(lorpar.location).toBe('hand');
+    expect(duel.monsters(0).some((c) => c.id === 16960120)).toBe(true);
+  });
+
+  it('貼身龍女：除外場上與墓地相同屬性而等級不同的半龍女僕，從額外牌組特殊召喚', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const lady = put(duel, 0, 48658295, 'extra');
+    const kitchen = put(duel, 0, 16960120, 'mzone'); // 炎 3 星
+    const tinkhec = put(duel, 0, 42055234, 'grave'); // 炎 8 星
+    const act = duel.getMainActions(0).find((a) => a.type === 'spSummon' && a.card === lady);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(lady.location).toBe('mzone');
+    expect(kitchen.location).toBe('banished');
+    expect(tinkhec.location).toBe('banished');
+  });
+
+  it('魔救之分析者：翻開 5 張特殊召喚調整以外的 4 星以下岩石族，剩下的回到牌組最下面；巨龍晶石被魔救的效果特殊召喚時抽 1 張', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const analyzer = put(duel, 0, 11302671, 'mzone');
+    for (const id of [FILLER, FILLER, FILLER, FILLER]) put(duel, 0, id, 'deck');
+    const dragite = put(duel, 0, 10286023, 'deck');
+    const hand = duel.p(0).hand.length;
+    await activateMain(duel, 0, analyzer, 0);
+    expect(dragite.location).toBe('mzone');
+    expect(duel.p(0).hand.length).toBe(hand + 1);
+    // 翻開的其他 4 張回到牌組最下面
+    const deck = duel.p(0).deck;
+    expect(deck.slice(-4).every((c) => c.id === FILLER)).toBe(true);
+  });
+});
