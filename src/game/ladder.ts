@@ -371,6 +371,8 @@ const THEME_NAMES: Record<string, string> = {
   jack: '紅蓮魔龍',
   shaddoll: '影依',
   skystriker: '閃刀姬',
+  dragonmaid: '半龍女僕',
+  adamancipator: '魔救',
 };
 
 function themeDecks(): ThemeDeck[] {

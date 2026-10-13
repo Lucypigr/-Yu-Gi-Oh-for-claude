@@ -20,6 +20,7 @@ import './neosvolcanic';
 import './ancientgear';
 import './signers';
 import './shaddollsky';
+import './maidrock';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

@@ -53,5 +53,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'ignister', name: '@火靈天星・「艾」', match: (d) => d.nameEn.includes('@Ignister') || /A\.I\./.test(d.nameEn) },
   { id: 'shaddoll', name: '影依', match: en('Shaddoll') },
   { id: 'sky-striker', name: '閃刀姬', match: en('Sky Striker') },
+  { id: 'dragonmaid', name: '半龍女僕', match: en('Dragonmaid') },
+  { id: 'adamancipator', name: '魔救', match: en('Adamancipator') },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

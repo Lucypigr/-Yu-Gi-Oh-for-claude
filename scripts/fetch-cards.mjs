@@ -31,6 +31,18 @@ const tc = (s) => FIXUPS.reduce((acc, [a, b]) => acc.split(a).join(b), convert(s
 // 衍生物等資料庫沒有的卡片，手動定義
 const MANUAL = [
   {
+    id: 41458362,
+    name: '奇石衍生物',
+    nameEn: 'Adamancipator Token',
+    desc: '「魔救之輝跡」的效果特殊召喚的衍生物。等級和作為對象的怪獸相同。',
+    type: 0x4011,
+    atk: 0,
+    def: 0,
+    level: 1,
+    race: 0x100,
+    attribute: 0x10,
+  },
+  {
     id: 52340445,
     name: '閃刀姬衍生物',
     nameEn: 'Sky Striker Ace Token',
