@@ -104,7 +104,7 @@ def(12580477, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.monsters(ctx.opp).length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
       },
       ai: (ctx) => (sum(ctx.duel.monsters(ctx.opp).map((c) => cardValue(ctx.duel, c, ctx.player))) >= 1500 ? 85 : 20),
     }),
@@ -118,7 +118,7 @@ def(53129443, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.monsters().length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(), 'effect', ctx.card);
       },
       ai: (ctx) => (boardDiff(ctx.duel, ctx.player) >= 1200 ? 75 : 0),
     }),
@@ -132,7 +132,7 @@ def(18144506, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.spellTraps(ctx.opp).length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
       },
       ai: (ctx) => 40 + 15 * ctx.duel.spellTraps(ctx.opp).length,
     }),
@@ -152,7 +152,7 @@ def(5318639, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -175,7 +175,7 @@ def(19613556, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.spellTraps().some((c) => c !== ctx.card),
       operation: async (ctx) => {
-        ctx.duel.destroy(
+        await ctx.duel.destroy(
           ctx.duel.spellTraps().filter((c) => c !== ctx.card),
           'effect',
           ctx.card,
@@ -238,7 +238,7 @@ def(72302403, {
       operation: async (ctx) => {
         ctx.card.counters++;
         ctx.duel.log(`「${ctx.card.name}」經過 ${ctx.card.counters} 回合`);
-        if (ctx.card.counters >= 3) ctx.duel.destroy([ctx.card], 'rule');
+        if (ctx.card.counters >= 3) await ctx.duel.destroy([ctx.card], 'rule');
       },
     },
   ],
@@ -257,7 +257,7 @@ def(66788016, {
         const low = Math.min(...mons.map((c) => d.getAtk(c)));
         const cands = mons.filter((c) => d.getAtk(c) === low);
         const c = cands.length > 1 ? await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands, hint: 'harm' }) : cands[0];
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.faceUpMonsters(ctx.opp).length ? 45 : 0),
     }),
@@ -657,7 +657,7 @@ def(69162969, {
       condition: (ctx) => handOthers(ctx).length > 0 && ctx.duel.faceUpMonsters(ctx.opp).length > 0,
       cost: async (ctx) => discardOne(ctx),
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.faceUpMonsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.faceUpMonsters(ctx.opp), 'effect', ctx.card);
       },
       ai: (ctx) => (sum(ctx.duel.faceUpMonsters(ctx.opp).map((c) => cardValue(ctx.duel, c))) >= 2200 ? 70 : 0),
     }),
@@ -678,7 +678,7 @@ def(97169186, {
         const high = Math.max(...mons.map(defOf));
         const cands = mons.filter((c) => defOf(c) === high);
         const c = cands.length > 1 ? await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands, hint: 'harm' }) : cands[0];
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).length ? 45 : 0),
     }),
@@ -700,7 +700,7 @@ def(71044499, {
         if (!t || t.faceUp) return;
         const flip = isFlip(t.data);
         const code = t.id;
-        const destroyed = d.destroy([t], 'effect', ctx.card);
+        const destroyed = (await d.destroy([t], 'effect', ctx.card));
         d.banish(destroyed, 'effect', ctx.card);
         if (flip && destroyed.length) {
           for (const p of [0, 1] as PlayerId[]) d.banish(d.p(p).deck.filter((c) => c.id === code), 'effect', ctx.card);
@@ -905,7 +905,7 @@ def(79759861, {
         await chooseTargets(ctx, ctx.duel.monsters(), { title: '選擇要破壞的怪獸' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.monsters(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) ? 55 : 0),
     }),
@@ -936,7 +936,7 @@ def(63391643, {
         await chooseTargets(ctx, ctx.duel.monsters(ctx.opp), { title: '選擇要破壞的對方怪獸' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: () => 60,
     }),

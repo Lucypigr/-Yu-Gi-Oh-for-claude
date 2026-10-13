@@ -63,7 +63,7 @@ def(
         d.setFlag(ctx.card, 'cannotAttack');
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -110,7 +110,7 @@ def(
             if (d.getAtk(c) <= 0) dead.push(c);
           }
           d.log('召雷彈！');
-          if (dead.length) d.destroy(dead, 'effect', ctx.card);
+          if (dead.length) await d.destroy(dead, 'effect', ctx.card);
         },
       },
       toGraveIfSpecial,
@@ -159,7 +159,7 @@ def(
           );
         },
         operation: async (ctx) => {
-          ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+          await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
         },
         ai: (ctx) =>
           ctx.duel.p(ctx.player).lp > 3000 && ctx.duel.monsters(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) ? 50 : 0,

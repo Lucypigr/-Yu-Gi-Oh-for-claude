@@ -274,7 +274,7 @@ def(97896503, {
       },
       operation: async (ctx) => {
         const t = ctx.duel.battle?.target;
-        if (t?.onField) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
   ],
@@ -296,7 +296,7 @@ def(57036718, {
         const low = Math.min(...mons.map((c) => d.getAtk(c)));
         const cands = mons.filter((c) => d.getAtk(c) === low);
         const t = cands.length > 1 ? await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands }) : cands[0];
-        if (t) d.destroy([t], 'effect', ctx.card);
+        if (t) await d.destroy([t], 'effect', ctx.card);
         if (ctx.card.isFaceUpMonster) d.addMod(ctx.card, { atk: -800, until: 'permanent' });
       },
     },
@@ -840,7 +840,7 @@ def(17494901, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length ? 60 : 0),
     }),
@@ -1009,7 +1009,7 @@ def(94380860, {
         );
       },
       operation: async (ctx) => {
-        if (ctx.duel.destroy(tgts(ctx), 'effect', ctx.card).length) ctx.duel.draw(ctx.player, 1);
+        if ((await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card)).length) ctx.duel.draw(ctx.player, 1);
       },
       ai: () => 60,
     }),
@@ -1150,7 +1150,7 @@ def(80764541, {
             return;
           }
         }
-        d.destroy([t], 'effect', ctx.card);
+        await d.destroy([t], 'effect', ctx.card);
       },
       ai: () => 55,
     }),

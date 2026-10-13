@@ -263,7 +263,7 @@ def(94620082, {
         )
           return;
         const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的卡', cards: st, hint: 'harm' });
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).some((c) => c.faceUp) ? 50 : 25),
     },
@@ -546,7 +546,7 @@ def(14934922, {
         const d = ctx.duel;
         const t = tgt(ctx);
         if (ctx.data.mode === 0) {
-          if (t?.onField) d.destroy([t], 'effect', ctx.card);
+          if (t?.onField) await d.destroy([t], 'effect', ctx.card);
           return;
         }
         if (!t?.isFaceUpMonster) return;
@@ -560,7 +560,7 @@ def(14934922, {
           max: t.data.level,
           hint: 'harm',
         });
-        d.destroy(sel, 'effect', ctx.card);
+        await d.destroy(sel, 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -592,7 +592,7 @@ def(51339637, {
         const link = ctx.data.link;
         if (!link) return;
         ctx.duel.negateLink(link);
-        if (link.card.onField) ctx.duel.destroy([link.card], 'effect', ctx.card);
+        if (link.card.onField) await ctx.duel.destroy([link.card], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 80 : 0),
     }),
@@ -731,8 +731,9 @@ def(14812471, {
     const p = self.owner;
     const key = `${self.id}:sub`;
     if (destroyed.controller !== p || !isSala(destroyed.data) || duel.p(p).usedNames[key] === duel.turn) return false;
-    duel.p(p).usedNames[key] = duel.turn;
-    return true;
+    return () => {
+      duel.p(p).usedNames[key] = duel.turn;
+    };
   },
   effects: [
     {
@@ -811,7 +812,7 @@ def(EMERALD_EAGLE, {
       categories: ['destroy'],
       condition: (ctx) => summonedSelf(ctx, ['ritual']) && ctx.card.reincarnated && ctx.duel.monsters(ctx.opp).some(isSpecialSummoned),
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.monsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.monsters(ctx.opp).filter(isSpecialSummoned), 'effect', ctx.card);
       },
     },
     {
@@ -854,7 +855,7 @@ def(EMERALD_EAGLE, {
         const foe = b && (b.attacker === ctx.card ? b.target : b.attacker);
         if (!foe?.onField) return;
         const atk = Math.max(0, foe.data.atk);
-        if (d.destroy([foe], 'effect', ctx.card).length) d.damage(ctx.opp, atk, 'effect', ctx.card);
+        if ((await d.destroy([foe], 'effect', ctx.card)).length) d.damage(ctx.opp, atk, 'effect', ctx.card);
       },
     },
   ],
@@ -1250,7 +1251,7 @@ def(22219822, {
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t?.onField) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
     },
   ],
@@ -1265,7 +1266,14 @@ const oppLinkedMonsters = (ctx: EffectContext) => [
 ];
 
 // 淘氣仙星的燈光舞台
+/** 「只要這張卡在場地區域存在」：燈光舞台離場時解除對象卡的封鎖 */
+const stageLocks = new WeakMap<Card, { target: Card; stint: number }>();
 def(35371948, {
+  onLeaveField: (_duel, self) => {
+    const lock = stageLocks.get(self);
+    if (lock && lock.target.stint === lock.stint) delete lock.target.flags.cannotActivate;
+    stageLocks.delete(self);
+  },
   effects: [
     activate({
       label: '可以把「淘氣仙星」怪獸加入手牌',
@@ -1296,15 +1304,27 @@ def(35371948, {
         if (!t?.onField || t.faceUp || !ctx.card.onField) return;
         d.setFlag(t, 'cannotActivate');
         d.log('那張蓋放的卡直到結束階段不能發動');
-        // 對方在結束階段必須把那張卡發動或送去墓地（不發動時送去墓地）
         const stage = ctx.card;
         const stageStint = stage.stint;
         const tStint = t.stint;
+        stageLocks.set(stage, { target: t, stint: tStint });
+        const alive = () => stage.stint === stageStint && stage.onField && t.stint === tStint && t.onField && !t.faceUp;
+        // 結束階段：解除不能發動，對方可以在結束階段發動那張卡
         d.delayed.push({
           turn: d.turn,
           run: () => {
-            if (stage.stint === stageStint && stage.onField && t.stint === tStint && t.onField && !t.faceUp)
+            if (t.stint === tStint) delete t.flags.cannotActivate;
+          },
+        });
+        // 結束階段沒有發動的話送去墓地
+        d.afterEndPhase.push({
+          turn: d.turn,
+          run: () => {
+            stageLocks.delete(stage);
+            if (alive()) {
+              d.log(`「${t.name}」在結束階段沒有發動，送去墓地`);
               d.sendToGrave([t], 'effect', stage);
+            }
           },
         });
       },
@@ -1540,7 +1560,7 @@ function rokket(id: number, label: string, after: (ctx: EffectContext, col: numb
           const d = ctx.duel;
           if (!ctx.card.onField) return;
           const col = columnOf(d, ctx.card.controller, 'mzone', ctx.card.zone);
-          if (!d.destroy([ctx.card], 'effect', ctx.card).length) return;
+          if (!(await d.destroy([ctx.card], 'effect', ctx.card)).length) return;
           await after(ctx, col);
         },
         ai: () => aiAfter,
@@ -1584,7 +1604,7 @@ rokket(5087128, '破壞相同縱列的怪獸與它相鄰的怪獸', async (ctx, 
   if (!c) return;
   const row = d.p(c.controller).mzone;
   const adj = c.zone < 5 ? [row[c.zone - 1], row[c.zone + 1]].filter((x): x is Card => !!x && x.zone < 5) : [];
-  d.destroy([c, ...adj], 'effect', ctx.card);
+  await d.destroy([c, ...adj], 'effect', ctx.card);
 });
 rokket(53266486, '1 隻怪獸不能攻擊，效果無效', async (ctx) => {
   const d = ctx.duel;
@@ -1605,7 +1625,7 @@ rokket(53266486, '1 隻怪獸不能攻擊，效果無效', async (ctx) => {
 });
 rokket(32472237, '破壞相同縱列的對方的卡', async (ctx, col) => {
   const d = ctx.duel;
-  d.destroy(
+  await d.destroy(
     cardsInColumn(d, col).filter((c) => c.controller === ctx.opp),
     'effect',
     ctx.card,
@@ -1654,7 +1674,7 @@ def(68464358, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (!t?.onField || !d.destroy([t], 'effect', ctx.card).length) return;
+        if (!t?.onField || !(await d.destroy([t], 'effect', ctx.card)).length) return;
         await ssFromDeck(ctx, (x) => isRokket(x) && x.id !== 68464358);
       },
       ai: (ctx) => (ctx.duel.faceUpMonsters(ctx.player).some((c) => isRokket(c.data) && c !== ctx.card) ? 40 : 0),

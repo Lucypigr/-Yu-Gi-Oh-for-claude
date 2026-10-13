@@ -391,7 +391,7 @@ def(HOUSE, {
       },
       operation: async (ctx) => {
         const t = tgt(ctx);
-        if (t) ctx.duel.destroy([t], 'effect', ctx.card);
+        if (t) await ctx.duel.destroy([t], 'effect', ctx.card);
       },
       ai: () => 90,
     },
@@ -531,7 +531,7 @@ def(24799107, {
         const link = ctx.data.negateLink;
         if (link) {
           d.negateLink(link);
-          if (link.card.onField || link.card.location === 'hand') d.destroy([link.card], 'effect', ctx.card);
+          if (link.card.onField || link.card.location === 'hand') await d.destroy([link.card], 'effect', ctx.card);
         }
         if (!ctx.card.onField) return;
         d.returnToDeck([ctx.card], false, 'effect', ctx.card);
@@ -818,8 +818,19 @@ async function excavate(ctx: EffectContext, n: number, handle: (cards: Card[]) =
   if (!top.length) return;
   d.log(`翻開：${top.map((c) => `「${c.name}」`).join('、')}`);
   await handle(top);
-  // 剩下的卡（還在牌組的）回到牌組最下面
-  const rest = top.filter((c) => c.location === 'deck');
+  // 剩下的卡（還在牌組的）用喜歡的順序回到牌組最下面
+  let rest = top.filter((c) => c.location === 'deck');
+  if (rest.length > 1) {
+    const order = await d.select({
+      player: ctx.player,
+      title: '依序選擇要放回牌組最下面的卡（先選的在上面）',
+      cards: rest,
+      min: rest.length,
+      max: rest.length,
+      hint: 'benefit',
+    });
+    if (order.length === rest.length) rest = order;
+  }
   for (const c of rest) deck.splice(deck.indexOf(c), 1);
   deck.push(...rest);
   if (rest.length) d.log(`${rest.length} 張卡回到牌組最下面`);
@@ -1057,7 +1068,7 @@ def(9464441, {
         const link = ctx.data.negateLink;
         if (!link) return;
         ctx.duel.negateLink(link);
-        if (link.card.onField) ctx.duel.destroy([link.card], 'effect', ctx.card);
+        if (link.card.onField) await ctx.duel.destroy([link.card], 'effect', ctx.card);
       },
       ai: () => 80,
     },
@@ -1343,7 +1354,7 @@ def(9341993, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length >= 2 && ctx.duel.monsters(ctx.opp).some((c) => ctx.duel.getAtk(c) >= 2000) ? 60 : 0),
     }),
@@ -1433,7 +1444,7 @@ def(45730592, {
         const link = ctx.data.negateLink;
         if (!link) return;
         ctx.duel.negateLink(link);
-        if (link.card.onField || link.card.location === 'hand') ctx.duel.destroy([link.card], 'effect', ctx.card);
+        if (link.card.onField || link.card.location === 'hand') await ctx.duel.destroy([link.card], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 80 : 0),
     }),

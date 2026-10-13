@@ -54,7 +54,7 @@ for (const id of IGKNIGHTS) {
         operation: async (ctx) => {
           const d = ctx.duel;
           const [l, r] = d.pendulumScales(ctx.player);
-          d.destroy([l, r].filter((c): c is Card => !!c), 'effect', ctx.card);
+          await d.destroy([l, r].filter((c): c is Card => !!c), 'effect', ctx.card);
           const cands = [...d.p(ctx.player).deck, ...d.p(ctx.player).grave].filter(warriorFire);
           if (!cands.length) return;
           const c = await d.selectOne({ player: ctx.player, title: '選擇戰士族・炎屬性怪獸加入手牌', cards: cands, hint: 'benefit' });
@@ -88,7 +88,7 @@ def(75195825, {
         await chooseTargets(ctx, cands, { title: '選擇靈擺區域的卡' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.pendulumScales(ctx.opp).some((c) => c) ? 45 : 0),
     }),
@@ -127,7 +127,7 @@ def(68182934, {
         await chooseTargets(ctx, ctx.duel.fieldCards(), { title: '選擇要破壞的卡' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
   ],
@@ -146,7 +146,7 @@ def(43785278, {
         await chooseTargets(ctx, ctx.duel.spellTraps().filter((c) => c.faceUp && c !== ctx.card), { title: '選擇表側表示的魔法・陷阱卡' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
   ],
@@ -281,7 +281,7 @@ function magicianPend(id: number, targetMonsters: boolean) {
           await chooseTargets(ctx, cands, { title: '選擇要破壞的卡' });
         },
         operation: async (ctx) => {
-          ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+          await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
         },
         ai: (ctx) =>
           (targetMonsters ? ctx.duel.faceUpMonsters(ctx.opp) : ctx.duel.spellTraps(ctx.opp)).some((c) => cardValue(ctx.duel, c, ctx.player) >= 1500)
@@ -319,7 +319,7 @@ def(16178681, {
         deckFilter(ctx, (d) => isPendulum(d) && d.atk <= 1500).length > 0,
       operation: async (ctx) => {
         if (!inPendZone(ctx.card)) return;
-        ctx.duel.destroy([ctx.card], 'effect', ctx.card);
+        await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
         await searchDeck(ctx, (d) => isPendulum(d) && d.atk <= 1500, 1, '選擇攻擊力 1500 以下的靈擺怪獸');
       },
     },
@@ -619,7 +619,7 @@ link(1861629, { min: 2, filter: isEffectMonster }, [
       const l = ctx.data.link;
       if (!l) return;
       ctx.duel.negateLink(l);
-      if (!l.isCardActivation && l.card.onField) ctx.duel.destroy([l.card], 'effect', ctx.card);
+      if (!l.isCardActivation && l.card.onField) await ctx.duel.destroy([l.card], 'effect', ctx.card);
     },
     ai: () => 65,
   },

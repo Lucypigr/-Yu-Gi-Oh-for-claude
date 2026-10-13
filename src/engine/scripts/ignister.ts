@@ -89,7 +89,7 @@ def(15808381, {
       },
       operation: async (ctx) => {
         const pair = battlePair(ctx);
-        if (pair?.mine.onField) ctx.duel.destroy([pair.mine], 'effect', ctx.card);
+        if (pair?.mine.onField) await ctx.duel.destroy([pair.mine], 'effect', ctx.card);
       },
       // AI：只在自己的怪獸反正會被戰鬥破壞、手牌有刺刺妖時使用
       ai: (ctx) => {
@@ -817,7 +817,7 @@ def(98506199, {
           max: n,
           hint: 'harm',
         });
-        d.destroy(sel, 'effect', ctx.card);
+        await d.destroy(sel, 'effect', ctx.card);
       },
       ai: () => 60,
     },
@@ -853,9 +853,10 @@ def(98506199, {
 def(61399402, {
   fieldSubstitute: (duel, self, destroyed, reason) => {
     if (reason !== 'effect' || destroyed.location !== 'mzone' || self.overlays.length === 0) return false;
-    duel.detachMaterials(self, 1);
-    duel.log(`取除「${self.name}」的超量素材代替「${destroyed.name}」的破壞`);
-    return true;
+    return () => {
+      duel.detachMaterials(self, 1);
+      duel.log(`取除「${self.name}」的超量素材代替「${destroyed.name}」的破壞`);
+    };
   },
   effects: [
     {
@@ -880,7 +881,7 @@ def(61399402, {
           max: n,
           hint: 'harm',
         });
-        d.destroy(sel, 'effect', ctx.card);
+        await d.destroy(sel, 'effect', ctx.card);
       },
       ai: () => 60,
     },
@@ -1011,7 +1012,7 @@ def(24882256, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const c = await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: d.monsters(ctx.opp), hint: 'harm' });
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
     },
     {
@@ -1074,7 +1075,7 @@ def(11738489, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t?.onField) d.destroy([t], 'effect', ctx.card);
+        if (t?.onField) await d.destroy([t], 'effect', ctx.card);
         const zones = freeLinkedZones(d, ctx.card);
         if (!zones.length) return;
         const token = new Card(getCard(IGNISTER_TOKEN), ctx.player);
@@ -1288,8 +1289,9 @@ def(86449372, {
       duel.p(self.owner).usedNames[key] === duel.turn
     )
       return false;
-    duel.p(self.owner).usedNames[key] = duel.turn;
-    return true;
+    return () => {
+      duel.p(self.owner).usedNames[key] = duel.turn;
+    };
   },
   effects: [
     activate({
@@ -1610,7 +1612,7 @@ def(69381150, {
             return;
           }
         }
-        d.destroy([ctx.card], 'effect', ctx.card);
+        await d.destroy([ctx.card], 'effect', ctx.card);
       },
     },
   ],

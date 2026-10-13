@@ -375,7 +375,7 @@ def(26412047, {
         const top = Math.max(...mons.map((c) => d.getAtk(c)));
         const cands = mons.filter((c) => d.getAtk(c) === top);
         const c = cands.length > 1 ? await d.selectOne({ player: ctx.player, title: '選擇要破壞的怪獸', cards: cands, hint: 'harm' }) : cands[0];
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -435,7 +435,7 @@ def(17655904, {
       condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, BEWD)) && ctx.duel.monsters(ctx.opp).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
-        d.destroy(d.monsters(ctx.opp), 'effect', ctx.card);
+        await d.destroy(d.monsters(ctx.opp), 'effect', ctx.card);
         for (const c of d.monsters(ctx.player)) if (isNamed(c.data, BEWD)) d.setFlag(c, 'cannotAttack');
       },
       ai: (ctx) => (sum(ctx.duel.monsters(ctx.opp).map((c) => cardValue(ctx.duel, c, ctx.player))) >= 2500 ? 80 : 0),
@@ -450,7 +450,7 @@ def(2314238, {
       categories: ['destroy'],
       condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some((c) => isNamed(c.data, DM)) && ctx.duel.spellTraps(ctx.opp).length > 0,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(ctx.opp), 'effect', ctx.card);
       },
       ai: () => 70,
     }),
@@ -632,7 +632,7 @@ def(44656491, {
         const d = ctx.duel;
         const pay = d.p(ctx.player).lp > 100 && (await d.confirm({ player: ctx.player, title: '要支付 100 基本分維持「和平使者」嗎？', card: ctx.card, ai: true }));
         if (pay) d.payLP(ctx.player, 100);
-        else d.destroy([ctx.card], 'rule');
+        else await d.destroy([ctx.card], 'rule');
       },
     },
   ],
@@ -661,7 +661,7 @@ def(58775978, {
       condition: (ctx) => ctx.card.location === 'szone' && ctx.card.faceUp && ctx.duel.turnPlayer === ctx.opp,
       operation: async (ctx) => {
         ctx.card.counters++;
-        if (ctx.card.counters >= 2) ctx.duel.destroy([ctx.card], 'rule');
+        if (ctx.card.counters >= 2) await ctx.duel.destroy([ctx.card], 'rule');
       },
     },
   ],
@@ -731,7 +731,7 @@ def(37318031, {
           max: n,
           hint: 'harm',
         });
-        d.destroy(sel, 'effect', ctx.card);
+        await d.destroy(sel, 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length ? 55 : 0),
     }),

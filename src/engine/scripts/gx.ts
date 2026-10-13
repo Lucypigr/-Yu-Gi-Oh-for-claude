@@ -33,12 +33,12 @@ const oppActivatedST = (ctx: EffectContext) => {
   const top = ctx.duel.chainTop;
   return !!top && !top.negated && top.player === ctx.opp && top.isCardActivation && (isSpell(top.card.data) || isTrap(top.card.data));
 };
-function negateTop(ctx: EffectContext) {
+async function negateTop(ctx: EffectContext) {
   const link = ctx.data.link;
   if (!link) return;
   ctx.duel.negateLink(link);
   ctx.duel.log(`「${link.card.name}」的發動被無效`);
-  if (link.card.onField) ctx.duel.destroy([link.card], 'effect', ctx.card);
+  if (link.card.onField) await ctx.duel.destroy([link.card], 'effect', ctx.card);
 }
 
 /** 解放自己場上 n 隻怪獸的特殊召喚規則 */
@@ -201,7 +201,7 @@ def(65192027, {
         });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length ? 55 : 0),
     },
@@ -234,7 +234,7 @@ def(93016201, {
       },
       operation: async (ctx) => {
         if (ctx.data.mode === 'summon') ctx.data.ev.negated = true;
-        else negateTop(ctx);
+        else await negateTop(ctx);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -564,7 +564,7 @@ def(63362460, {
         await chooseTargets(ctx, ctx.duel.spellTraps(ctx.opp).filter((c) => c.faceUp && isSpell(c.data)), { title: '選擇對方表側的魔法卡' });
       },
       operation: async (ctx) => {
-        if (ctx.duel.destroy(tgts(ctx), 'effect', ctx.card).length) ctx.duel.damage(ctx.opp, 500, 'effect', ctx.card);
+        if ((await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card)).length) ctx.duel.damage(ctx.opp, 500, 'effect', ctx.card);
       },
     },
     {
@@ -655,7 +655,7 @@ def(60461804, {
         d.setTargets(ctx, [mine, theirs].filter((c): c is Card => !!c));
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => {
         const d = ctx.duel;
@@ -704,7 +704,7 @@ def(90579153, {
       },
       operation: async (ctx) => {
         const d = ctx.duel;
-        d.destroy(tgts(ctx), 'effect', ctx.card);
+        await d.destroy(tgts(ctx), 'effect', ctx.card);
         if (ctx.card.isFaceUpMonster) ctx.card.mods = [];
         d.update();
       },
@@ -877,7 +877,7 @@ function toonRules(opts: { pay500?: boolean } = {}): EffectDef[] {
         ctx.event.prevController === ctx.player &&
         !toonWorldOn(ctx.duel, ctx.player),
       operation: async (ctx) => {
-        if (ctx.card.onField) ctx.duel.destroy([ctx.card], 'effect', ctx.card);
+        if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
       },
     },
   ];
@@ -1109,7 +1109,7 @@ def(28112535, {
         let heads = 0;
         for (let i = 0; i < 3; i++) if (d.coinToss()) heads++;
         d.log(`擲硬幣：${heads} 次正面`);
-        if (heads >= 2) d.destroy(tgts(ctx), 'effect', ctx.card);
+        if (heads >= 2) await d.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).length ? 45 : 0),
     },
@@ -1132,7 +1132,7 @@ def(64116319, {
         if (ctx.card.location !== 'hand' || !d.specialSummon(ctx.card, ctx.player, { position: 'atk', by: ctx.card })) return;
         if (d.faceUpMonsters(ctx.player).some((c) => c !== ctx.card && isToon(c)) && d.spellTraps(ctx.opp).length) {
           const t = await d.selectOne({ player: ctx.player, title: '選擇要破壞的魔法・陷阱卡', cards: d.spellTraps(ctx.opp) });
-          if (t) d.destroy([t], 'effect', ctx.card);
+          if (t) await d.destroy([t], 'effect', ctx.card);
         }
       },
       ai: () => 55,
@@ -1261,7 +1261,7 @@ def(33453260, {
       mandatory: true,
       condition: (ctx) => ctx.card.onField && ctx.event?.card?.id === TOON_WORLD && !toonWorldOn(ctx.duel, ctx.player),
       operation: async (ctx) => {
-        if (ctx.card.onField) ctx.duel.destroy([ctx.card], 'effect', ctx.card);
+        if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
       },
     },
   ],
@@ -1547,7 +1547,7 @@ def(96331676, {
         await chooseTargets(ctx, ctx.duel.fieldCards(ctx.opp), { title: '選擇要破壞的卡', aiValue: (c) => cardValue(ctx.duel, c, ctx.player) });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) && (ctx.duel.battle || ctx.duel.phase === 'end') ? 60 : 0),
     }),

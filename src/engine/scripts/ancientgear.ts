@@ -429,7 +429,7 @@ def(91098230, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (t) d.destroy([t], 'effect', ctx.card);
+        if (t) await d.destroy([t], 'effect', ctx.card);
         const p = ctx.player;
         const boost = (c: Card) => {
           if (c.controller === p && c.isFaceUpMonster && golemOrMention(c)) d.addMod(c, { atk: 600, until: 'endTurn' });
@@ -680,7 +680,7 @@ def(44874522, {
           hint: 'harm',
           aiValue: (x) => (x.controller === ctx.opp ? 1000 : -1000),
         });
-        if (c) d.destroy([c], 'effect', ctx.card);
+        if (c) await d.destroy([c], 'effect', ctx.card);
       },
       ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length ? 70 : 0),
     },
@@ -845,7 +845,7 @@ def(10547580, {
         const ts = tgts(ctx);
         const mine = ts.find((c) => c.controller === ctx.player);
         const foe = ts.find((c) => c.controller === ctx.opp && c.isFaceUpMonster);
-        if (!mine || !d.destroy([mine], 'effect', ctx.card).length) return;
+        if (!mine || !(await d.destroy([mine], 'effect', ctx.card)).length) return;
         if (foe) d.addMod(foe, { setAtk: 0, setDef: 0, until: 'endTurn' }, ctx.card);
       },
       ai: (ctx) => {
@@ -1004,7 +1004,7 @@ def(44052074, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (!t || !d.destroy([t], 'effect', ctx.card).length) return;
+        if (!t || !(await d.destroy([t], 'effect', ctx.card)).length) return;
         await ssIgnoring(ctx, deckFilter(ctx, isAGMon), '選擇要特殊召喚的「古代的機械」怪獸');
       },
       ai: () => 80,
@@ -1030,7 +1030,7 @@ def(44052074, {
       operation: async (ctx) => {
         const d = ctx.duel;
         const t = tgt(ctx);
-        if (!t || !d.destroy([t], 'effect', ctx.card).length) return;
+        if (!t || !(await d.destroy([t], 'effect', ctx.card)).length) return;
         if (d.freeMZones(ctx.player) <= 0) return;
         const token = new Card(getCard(AG_TOKEN), ctx.player);
         token.location = 'void';

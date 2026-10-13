@@ -189,7 +189,7 @@ export class AIController implements Controller {
     let tributeCost = 0;
     if (need > 0) {
       const vals = duel
-        .tributable(p)
+        .tributable(p, true)
         .map((c) => cardValue(duel, c, p))
         .sort((a, b) => a - b);
       tributeCost = vals.slice(0, need).reduce((a, b) => a + b, 0);

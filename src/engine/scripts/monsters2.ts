@@ -183,7 +183,7 @@ def(21502796, {
           max: 1,
           hint: 'harm',
         });
-        d.destroy(sel, 'effect', ctx.card);
+        await d.destroy(sel, 'effect', ctx.card);
         d.sendToGrave(d.p(ctx.player).deck.slice(0, 3), 'effect', ctx.card);
       },
     },
@@ -300,7 +300,7 @@ def(57281778, {
       operation: async (ctx) => {
         const ev = ctx.event!;
         const foe = ev.attacker === ctx.card ? ev.target! : ev.attacker!;
-        if (foe.location === 'mzone') ctx.duel.destroy([foe], 'effect', ctx.card);
+        if (foe.location === 'mzone') await ctx.duel.destroy([foe], 'effect', ctx.card);
       },
     },
   ],
@@ -555,7 +555,7 @@ def(16226786, {
         await chooseTargets(ctx, ctx.duel.monsters(ctx.opp), { title: '選擇要破壞的對方怪獸' });
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
     {
@@ -669,7 +669,7 @@ def(47606319, {
       categories: ['destroy'],
       condition: destroyedByBattleToGrave,
       operation: async (ctx) => {
-        ctx.duel.destroy(ctx.duel.spellTraps(), 'effect', ctx.card);
+        await ctx.duel.destroy(ctx.duel.spellTraps(), 'effect', ctx.card);
       },
     },
   ],
@@ -996,7 +996,7 @@ def(31386180, {
         await chooseTargets(ctx, ctx.duel.fieldCards(ctx.opp), { title: '選擇要破壞的對方的卡' });
       },
       operation: async (ctx) => {
-        if (ctx.card.overlays.length > 0) ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        if (ctx.card.overlays.length > 0) await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
     },
     {
@@ -1067,7 +1067,7 @@ def(29669359, {
         const t = tgt(ctx);
         if (!t) return;
         const atk = Math.max(0, t.data.atk);
-        if (ctx.duel.destroy([t], 'effect', ctx.card).length) ctx.duel.damage(ctx.opp, atk, 'effect', ctx.card);
+        if ((await ctx.duel.destroy([t], 'effect', ctx.card)).length) ctx.duel.damage(ctx.opp, atk, 'effect', ctx.card);
       },
       ai: () => 70,
     }),
@@ -1095,7 +1095,7 @@ def(95169481, {
         d.setTargets(ctx, [own, other].filter((c): c is Card => !!c));
       },
       operation: async (ctx) => {
-        ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
+        await ctx.duel.destroy(tgts(ctx), 'effect', ctx.card);
       },
       ai: (ctx) =>
         ctx.duel.fieldCards(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) &&
