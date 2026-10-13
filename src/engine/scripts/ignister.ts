@@ -1403,7 +1403,7 @@ def(AI_LOVE_FUSION, {
     activate({
       label: '融合召喚電子界族融合怪獸',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) =>
         (ctx.duel.freeMZones(ctx.player) > 0 || ctx.duel.monsters(ctx.player).length > 0) && loveFusionTargets(ctx).length > 0,
       operation: async (ctx) => {

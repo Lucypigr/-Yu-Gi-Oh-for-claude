@@ -517,7 +517,7 @@ def(86938484, {
       kind: 'ignition',
       label: '用手牌・場上的怪獸融合召喚「影依」融合怪獸',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, shaddollHandField(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, shaddollHandField(ctx));
@@ -561,7 +561,7 @@ def(44394295, {
   effects: [
     activate({
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, shaddollFusionOpts(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, shaddollFusionOpts(ctx));
@@ -583,7 +583,7 @@ def(6417578, {
   effects: [
     activate({
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, shaddollHandField(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, shaddollHandField(ctx));
@@ -633,7 +633,7 @@ def(60226558, {
       label: '用包含裝備怪獸的手牌・場上的怪獸融合召喚「影依」融合怪獸',
       range: ['szone'],
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => !!ctx.card.equipTarget && fusionTargets(ctx.duel, ctx.player, nepheOpts(ctx)).length > 0,
       operation: async (ctx) => {
         if (ctx.card.equipTarget) await fusionSummon(ctx, nepheOpts(ctx));
@@ -704,7 +704,7 @@ def(21011044, {
       label: '除外場上・墓地的素材：融合召喚「影依」融合怪獸',
       range: ['szone'],
       once: 'name',
-      categories: ['summon', 'toDeck'],
+      categories: ['summon', 'toDeck', 'fusion'],
       condition: (ctx) =>
         (ctx.duel.phase === 'main1' || ctx.duel.phase === 'main2') && fusionTargets(ctx.duel, ctx.player, schismOpts(ctx)).length > 0,
       operation: async (ctx) => {

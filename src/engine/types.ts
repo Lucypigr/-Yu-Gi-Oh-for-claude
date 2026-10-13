@@ -90,6 +90,7 @@ export type EffectKind = 'activate' | 'ignition' | 'quick' | 'trigger' | 'contin
 
 export type Category =
   | 'destroy'
+  | 'fusion' // 包含融合召喚的效果
   | 'negate'
   | 'draw'
   | 'search'
@@ -130,6 +131,7 @@ export type Query =
   | 'noMonDuringAttack' // 這張卡攻擊時對方不能發動怪獸的效果
   | 'noMonEffInBattlePhase' // 戰鬥階段中不能發動怪獸的效果（全域，player 為被限制方）
   | 'untargetableByL6Monsters' // 不會成為 6 星以下的效果怪獸的效果的對象（渦輪戰士）
+  | 'fusionUnnegatable' // 自己發動的融合召喚效果不會被無效，融合召喚成功時對方不能發動（全域，player 為受益方）
   | 'tributeMinus1' // 召喚需要的解放減少 1 隻（齒車街）
   | 'noOppResponse' // 對方不能對應這張卡的效果的發動（target 為發動的卡，player 為發動者）
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
@@ -201,7 +203,11 @@ export interface EffectDef {
 }
 
 /** 融合素材條件；validate 是整組素材的額外條件（例如：屬性不同） */
-export type FusionConds = Array<(d: CardData, c?: Card) => boolean> & { validate?: (cards: Card[]) => boolean };
+export type FusionConds = Array<(d: CardData, c?: Card, duel?: Duel) => boolean> & {
+  validate?: (cards: Card[]) => boolean;
+  /** 「…1 隻以上」：可以追加的素材 */
+  more?: (d: CardData, c?: Card) => boolean;
+};
 
 /** 代替破壞：可以代替時回傳執行代替的函式（不在這裡執行，讓玩家選擇要不要代替） */
 export type SubstituteApply = (() => void) | { label: string; apply: () => void }[] | null | false;
@@ -275,6 +281,8 @@ export interface CardScript {
   oneSpecialSummonPerTurn?: boolean;
   /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
   ssOncePerTurn?: boolean;
+  /** 這張卡在怪獸區域存在時的召喚限制，回傳 false 表示 p 不能召喚 card */
+  summonRestriction?: (duel: Duel, self: Card, p: PlayerId, card: Card, kind: 'normal' | 'flip' | 'special') => boolean;
   /** 上級召喚以外不能解放（等級偷竊蟲） */
   onlyTributeForSummon?: boolean;
   /** 「這張卡不能特殊召喚」（無視召喚條件時除外） */

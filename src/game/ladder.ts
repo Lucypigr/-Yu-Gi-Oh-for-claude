@@ -373,6 +373,8 @@ const THEME_NAMES: Record<string, string> = {
   skystriker: '閃刀姬',
   dragonmaid: '半龍女僕',
   adamancipator: '魔救',
+  branded: '烙印',
+  snakeeye: '蛇眼',
 };
 
 function themeDecks(): ThemeDeck[] {

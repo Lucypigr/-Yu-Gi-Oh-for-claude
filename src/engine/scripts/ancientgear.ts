@@ -58,7 +58,7 @@ async function ssIgnoring(ctx: EffectContext, cands: Card[], title: string, posi
 /** 融合召喚（pool：可以作為素材的卡；banish：素材除外；validate：素材組合的額外條件） */
 export async function fusionSummon(
   ctx: EffectContext,
-  opts: { pool: Card[]; filter: (f: Card) => boolean; banish?: boolean; validate?: (mats: Card[]) => boolean },
+  opts: { pool: Card[]; filter: (f: Card) => boolean; banish?: boolean; toDeck?: boolean; validate?: (mats: Card[]) => boolean },
 ): Promise<Card | null> {
   const d = ctx.duel;
   const cands = fusionTargets(d, ctx.player, opts);
@@ -70,9 +70,9 @@ export async function fusionSummon(
   let mats = await d.select({
     player: ctx.player,
     title: `選擇「${f.name}」的融合素材`,
-    cards: opts.pool.filter((c) => conds.some((cond) => cond(c.data, c))),
+    cards: opts.pool.filter((c) => conds.some((cond) => cond(c.data, c, d)) || !!conds.more?.(c.data, c)),
     min: conds.length,
-    max: conds.length,
+    max: conds.more ? opts.pool.length : conds.length,
     hint: 'cost',
     // AI：優先用牌組・墓地的卡
     aiValue: (c) => (c.location === 'deck' ? 3000 : c.location === 'grave' ? 2000 : 0) - cardValue(d, c, ctx.player),
@@ -80,10 +80,12 @@ export async function fusionSummon(
   });
   if (!ok(mats)) mats = findSet(d, conds, opts.pool, opts.validate) ?? [];
   if (!mats.length) return null;
-  if (opts.banish) d.banish(mats, 'material', ctx.card);
+  const fromDeck = mats.some((m) => m.location === 'deck');
+  if (opts.toDeck) d.returnToDeck(mats, false, 'material', ctx.card);
+  else if (opts.banish) d.banish(mats, 'material', ctx.card);
   else d.sendToGrave(mats, 'material', ctx.card);
   for (const m of mats) m.fusionMaterial = true;
-  if (mats.some((m) => m.location === 'deck')) d.shuffleDeck(ctx.player);
+  if (fromDeck || opts.toDeck) d.shuffleDeck(ctx.player);
   d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
   f.summonMaterials = mats;
   if (!d.specialSummon(f, ctx.player, { position: 'atk', summonType: 'fusion', by: ctx.card })) {
@@ -100,7 +102,7 @@ function findSet(d: Duel, conds: FusionConds, pool: Card[], validate?: (m: Card[
   const rec = (i: number): boolean => {
     if (i === conds.length) return validate(chosen) && (!conds.validate || conds.validate(chosen));
     for (const c of pool) {
-      if (chosen.includes(c) || !conds[i](c.data, c)) continue;
+      if (chosen.includes(c) || !conds[i](c.data, c, d)) continue;
       chosen.push(c);
       if (rec(i + 1)) return true;
       chosen.pop();
@@ -541,7 +543,7 @@ def(42878636, {
       kind: 'ignition',
       label: '用手牌・場上的怪獸融合召喚「古代的機械」融合怪獸',
       once: 'turn',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, houndOpts(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, houndOpts(ctx));
@@ -865,7 +867,7 @@ def(10547580, {
 def(64061284, {
   effects: [
     activate({
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, agFusionOpts(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, agFusionOpts(ctx));
@@ -1091,7 +1093,7 @@ def(53541822, {
       label: '除外素材：融合召喚有「古代的機械巨人」記述的融合怪獸（可以攻擊 3 次）',
       range: ['szone'],
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => ctx.duel.monsters(ctx.opp).length > 0 && fusionTargets(ctx.duel, ctx.player, duelOpts(ctx)).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;

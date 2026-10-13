@@ -299,7 +299,7 @@ def(84257639, {
 def(24094653, {
   effects: [
     activate({
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => ctx.duel.fusionCandidates(ctx.player, fusionPool(ctx)).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;

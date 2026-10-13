@@ -1012,7 +1012,7 @@ def(FUSION_OF_FIRE, {
     activate({
       label: '用自己和對方的怪獸融合召喚「轉生炎獸」融合怪獸',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fireFusions(ctx).length > 0,
       operation: async (ctx) => {
         const cands = fireFusions(ctx);

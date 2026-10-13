@@ -1772,3 +1772,133 @@ describe('與原卡一致的處理', () => {
     expect(set.location).toBe('grave');
   });
 });
+
+describe('第十七彈：烙印・死獄鄉', () => {
+  it('阿不思的落胤：丟棄 1 張手牌，用這張卡和對方場上的怪獸融合召喚', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = false;
+    b.declineAll = true;
+    const albaz = put(duel, 0, 68468459, 'mzone');
+    const blue = put(duel, 1, 89631139, 'mzone'); // 光屬性
+    put(duel, 0, FILLER, 'hand');
+    const albion = put(duel, 0, 87746184, 'extra');
+    duel.raise({ type: 'summoned', card: albaz, cards: [albaz], player: 0, summonType: 'normal' });
+    await duel.settle();
+    expect(albion.location).toBe('mzone');
+    expect(albion.summonType).toBe('fusion');
+    expect(albaz.location).toBe('grave');
+    expect(blue.location).toBe('grave');
+  });
+
+  it('烙印融合：用手牌・牌組的怪獸融合召喚，這回合不能從額外牌組特殊召喚融合怪獸以外', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 68468459, 'hand');
+    put(duel, 0, 89631139, 'deck');
+    const albion = put(duel, 0, 87746184, 'extra');
+    const bf = put(duel, 0, 44362883, 'hand');
+    const act = duel.getActivatable(0).find((x) => x.card === bf)!;
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: bf, effect: act.effect, effectIndex: act.effectIndex });
+    expect(albion.location).toBe('mzone');
+    const sync = put(duel, 0, 44508094, 'extra');
+    expect(duel.summonAllowed(0, sync, 'special')).toBe(false);
+  });
+});
+
+describe('第十八彈：蛇眼・刻魔', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('蛇眼大炎魔：攻擊宣言時，對方怪獸和這張卡當作永續魔法放在原本持有者的魔陷區', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const dbs = put(duel, 0, 27260347, 'mzone');
+    const blue = put(duel, 1, 89631139, 'mzone');
+    duel.raise({ type: 'attackDeclared', card: dbs, attacker: dbs, target: blue, player: 0 });
+    await duel.settle();
+    expect(blue.location).toBe('szone');
+    expect(blue.controller).toBe(1);
+    expect(dbs.location).toBe('szone');
+    expect(dbs.controller).toBe(0);
+  });
+
+  it('蛇眼炎龍：對方回合把當作永續魔法的怪獸卡在自己場上特殊召喚', async () => {
+    const { duel, a, b } = setup();
+    b.declineAll = true;
+    const fl = put(duel, 0, 48452496, 'mzone');
+    const blue = put(duel, 1, 89631139, 'mzone');
+    duel.placeAsSpell(blue, 1, fl);
+    expect(blue.location).toBe('szone');
+    duel.turnPlayer = 1;
+    const act = duel.getActivatable(0, { kind: 'free' } as never).find((x) => x.card === fl);
+    expect(act).toBeTruthy();
+    void a;
+    await duel.performMainAction(0, { type: 'activate', card: fl, effect: act!.effect, effectIndex: act!.effectIndex });
+    expect(blue.location).toBe('mzone');
+    expect(blue.controller).toBe(0);
+  });
+
+  it('蛇眼梣樹靈：召喚時檢索炎屬性・1 星怪獸；②把包含自己的 2 張卡送去墓地特殊召喚其他蛇眼', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ash = put(duel, 0, 9674034, 'mzone');
+    const oak = put(duel, 0, 45663742, 'deck');
+    duel.raise({ type: 'summoned', card: ash, cards: [ash], player: 0, summonType: 'normal' });
+    await duel.settle();
+    expect(oak.location).toBe('hand');
+    const poplar = put(duel, 0, 90241276, 'deck');
+    const other = put(duel, 0, FILLER, 'mzone');
+    await activateMain(duel, 0, ash);
+    expect(other.location).toBe('grave');
+    expect([oak, poplar].some((c) => c.location === 'mzone')).toBe(true);
+    // 橡樹靈的①讓送去墓地的梣樹靈回來
+    expect(duel.logs.some((l) => l.text === '甲 發動「蛇眼梣樹靈」的效果')).toBe(true);
+  });
+
+  it('賜炎之咎姬：存在期間自己不能特殊召喚炎屬性以外的怪獸', () => {
+    const { duel } = setup();
+    put(duel, 0, 2772337, 'mzone');
+    const blue = put(duel, 0, 89631139, 'hand');
+    const ash = put(duel, 0, 9674034, 'hand');
+    expect(duel.summonAllowed(0, blue, 'special')).toBe(false);
+    expect(duel.summonAllowed(0, ash, 'special')).toBe(true);
+    expect(duel.summonAllowed(1, put(duel, 1, 89631139, 'hand'), 'special')).toBe(true);
+  });
+
+  it('刻魔的鎮魂棺：從墓地當作攻擊力上升 600 的裝備魔法裝備', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const eng = put(duel, 0, 60764609, 'mzone');
+    const req = put(duel, 0, 2463794, 'grave');
+    const atk = duel.getAtk(eng);
+    await activateMain(duel, 0, req);
+    expect(req.location).toBe('szone');
+    expect(req.equipTarget).toBe(eng);
+    expect(duel.getAtk(eng)).toBe(atk + 600);
+  });
+
+  it('刻魔的神聖棺：特殊召喚墓地的惡魔族・光屬性怪獸並裝備，攻擊力上升連結標記合計×600', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ag = put(duel, 0, 32991300, 'mzone');
+    const eng = put(duel, 0, 60764609, 'grave');
+    await activateMain(duel, 0, ag);
+    expect(eng.location).toBe('mzone');
+    expect(ag.equipTarget).toBe(eng);
+    expect(duel.getAtk(eng)).toBe(1800 + 3 * 600);
+  });
+
+  it('刻魔的憐歌：自己的惡魔族・光屬性怪獸不會被戰鬥破壞，受到的戰鬥傷害減半', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const eng = put(duel, 0, 60764609, 'mzone');
+    const kyrie = put(duel, 0, 26434972, 'szone', { faceUp: false });
+    await activateMain(duel, 0, kyrie);
+    expect(duel.has(eng, 'battleIndestructible')).toBe(true);
+    expect(duel.p(0).turnFlags.halfBattleDamageTaken).toBe(true);
+  });
+});
