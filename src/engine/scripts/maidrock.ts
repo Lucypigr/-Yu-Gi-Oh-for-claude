@@ -489,7 +489,7 @@ async function ladyFusionSummon(ctx: EffectContext) {
   });
   if (!d.matchMaterials(conds, mats)) mats = d.findMaterialSet(conds, opts.pool) ?? [];
   if (!mats.length) return;
-  d.returnToDeck(mats, false, 'material', ctx.card);
+  d.moveFusionMaterials(mats, () => d.returnToDeck(mats, false, 'material', ctx.card));
   for (const m of mats) m.fusionMaterial = true;
   d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
   f.summonMaterials = mats;

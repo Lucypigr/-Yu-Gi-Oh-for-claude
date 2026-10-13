@@ -377,6 +377,8 @@ const THEME_NAMES: Record<string, string> = {
   snakeeye: '蛇眼',
   ryzeal: '雷火沸動',
   maliss: '碼麗絲',
+  mitsurugi: '巳劍',
+  dracotail: '星辰',
 };
 
 function themeDecks(): ThemeDeck[] {

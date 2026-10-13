@@ -60,5 +60,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'fiendsmith', name: '刻魔', match: (d) => d.nameEn.includes('Fiendsmith') || d.id === 28803166 },
   { id: 'ryzeal', name: '雷火沸動', match: en('Ryzeal') },
   { id: 'maliss', name: '碼麗絲', match: en('Maliss') },
+  { id: 'mitsurugi', name: '巳劍', match: en('Mitsurugi') },
+  { id: 'dracotail', name: '星辰', match: en('Dracotail') },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

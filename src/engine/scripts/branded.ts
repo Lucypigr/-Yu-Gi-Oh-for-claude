@@ -1583,12 +1583,14 @@ async function fusionSummonMixed(ctx: EffectContext, opts: { pool: Card[]; filte
   });
   if (!ok(mats)) return null;
   const fromGrave = mats.filter((m) => m.location === 'grave');
-  d.banish(fromGrave, 'material', ctx.card);
-  d.sendToGrave(
-    mats.filter((m) => !fromGrave.includes(m)),
-    'material',
-    ctx.card,
-  );
+  d.moveFusionMaterials(mats, () => {
+    d.banish(fromGrave, 'material', ctx.card);
+    d.sendToGrave(
+      mats.filter((m) => !fromGrave.includes(m)),
+      'material',
+      ctx.card,
+    );
+  });
   for (const m of mats) m.fusionMaterial = true;
   d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
   f.summonMaterials = mats;

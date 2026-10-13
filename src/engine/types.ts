@@ -58,7 +58,8 @@ export type EventType =
   | 'battlePhaseEnd'
   | 'activated'
   | 'drawn' // 抽卡（cards：抽到的卡）
-  | 'placedAsSpell'; // 怪獸卡當作永續魔法放到魔法・陷阱區域
+  | 'placedAsSpell' // 怪獸卡當作永續魔法放到魔法・陷阱區域
+  | 'toGraveMulti'; // 怪獸 2 隻以上同時被送去墓地（cards：那些怪獸）
 
 export interface GameEvent {
   type: EventType;
@@ -83,6 +84,8 @@ export interface GameEvent {
   /** 召喚之際被無效 */
   negated?: boolean;
   link?: ChainLink;
+  /** 作為融合召喚的素材移動 */
+  asFusion?: boolean;
 }
 
 // ---- 效果 ----
@@ -145,6 +148,7 @@ export type Query =
   | 'oppEffectIndestructible' // 不會被對方的效果破壞
   | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
   | 'immuneOpp' // 不受對方的效果影響
+  | 'untargetableByOppExtraMonsters' // 對方不能作為從額外牌組特殊召喚的怪獸的效果的對象
   | 'swapBaseAtkDef' // 原本攻擊力和原本守備力交換（碼麗絲<王后>紅棋勒索）
   | 'banishBattleKills' // 這張卡戰鬥破壞的怪獸不去墓地而除外
   | 'noBattleDamageToController' // 這張卡的戰鬥發生的對控制者的戰鬥傷害變成 0
@@ -181,8 +185,9 @@ export interface EffectDef {
   /**
    * 1 回合 1 次：'turn' = 這張卡；'name' = 同名卡共用（每個效果分開計算，「①②的效果1回合各能使用1次」）；
    * 'nameShared' = 同名卡的多個效果共用 1 次（「①②的效果1回合只能有1次使用其中任意1個」）
+   * 'duel' = 這個卡名的這個效果在決鬥中只能使用 1 次
    */
-  once?: 'turn' | 'name' | 'nameShared';
+  once?: 'turn' | 'name' | 'nameShared' | 'duel';
   /** 陷阱卡在蓋放的回合也能發動的條件 */
   setTurnActivation?: (duel: Duel, card: Card, p: PlayerId) => boolean;
   /** 可在傷害步驟發動 */

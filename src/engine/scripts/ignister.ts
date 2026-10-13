@@ -1438,7 +1438,7 @@ def(AI_LOVE_FUSION, {
         });
         if (!ok(mats)) mats = d.findMaterialSet(conds, loveFusionPool(ctx)) ?? [];
         if (!mats.length) return;
-        d.sendToGrave(mats, 'material', ctx.card);
+        d.moveFusionMaterials(mats, () => d.sendToGrave(mats, 'material', ctx.card));
         for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
         f.summonMaterials = mats;

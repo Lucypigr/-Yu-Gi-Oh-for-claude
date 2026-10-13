@@ -2030,3 +2030,113 @@ describe('第十九彈：雷火沸動・碼麗絲', () => {
     expect(duel.has(ransom, 'cannotBeAttackTarget')).toBe(false);
   });
 });
+
+describe('第二十彈：巳劍・星辰', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('巳劍降臨：解放手牌等級合計相同的爬蟲類族怪獸，從牌組儀式召喚；被解放的巳劍之尊發動效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const saji = put(duel, 0, 18176525, 'hand');
+    const aramasa = put(duel, 0, 40543231, 'hand');
+    const murakumo = put(duel, 0, 19899073, 'deck');
+    const prayers = put(duel, 0, 45171524, 'deck'); // 佐士檢索的魔法・陷阱
+    const descent = put(duel, 0, 81560239, 'hand');
+    await activateMain(duel, 0, descent);
+    expect(murakumo.location).toBe('mzone');
+    expect(murakumo.summonType).toBe('ritual');
+    expect(saji.location).toBe('grave');
+    expect(aramasa.location).toBe('grave');
+    expect(prayers.location).toBe('hand');
+  });
+
+  it('天叢雲之巳劍：被解放時檢索其他巳劍卡，那之後可以特殊召喚這張卡', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const murakumo = put(duel, 0, 19899073, 'mzone');
+    murakumo.properlySummoned = true;
+    const saji = put(duel, 0, 18176525, 'deck');
+    duel.sendToGrave([murakumo], 'tribute');
+    await duel.settle();
+    expect(saji.location).toBe('hand');
+    expect(murakumo.location).toBe('mzone');
+  });
+
+  it('天叢雲之巳劍：對方把效果發動時，對方不丟棄手牌的話那個效果無效化', async () => {
+    const { duel, a, b } = setup();
+    a.respondWith = [19899073];
+    b.declineAll = true;
+    put(duel, 0, 19899073, 'mzone');
+    duel.turnPlayer = 1;
+    const pot = put(duel, 1, 55144522, 'hand');
+    const hand = duel.p(1).hand.length;
+    await activateMain(duel, 1, pot);
+    expect(pot.location).toBe('grave');
+    expect(duel.p(1).hand.length).toBe(hand - 1); // 沒有抽到卡
+  });
+
+  it('巳劍之尊 草那藝：自己場上其他爬蟲類族怪獸被破壞時，可以解放這張卡代替', async () => {
+    const { duel, a } = setup();
+    a.optionPick = 1;
+    const kusanagi = put(duel, 0, 82782870, 'mzone');
+    const aramasa = put(duel, 0, 40543231, 'mzone');
+    await duel.destroy([aramasa], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(aramasa.location).toBe('mzone');
+    expect(kusanagi.location).toBe('grave');
+  });
+
+  it('天羽羽斬之巳劍：①的效果在決鬥中只能使用 1 次', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const hab = put(duel, 0, 13332685, 'hand');
+    put(duel, 0, 40543231, 'deck');
+    put(duel, 0, 18176525, 'deck');
+    await activateMain(duel, 0, hab);
+    duel.turn += 2;
+    expect(duel.getActivatable(0).some((x) => x.card === hab)).toBe(false);
+  });
+
+  it('羅睺星辰：用牌組的怪獸融合召喚，成為素材的星辰怪獸從牌組蓋放星辰魔法・陷阱', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const lukias = put(duel, 0, 75003700, 'deck');
+    put(duel, 0, FILLER, 'hand');
+    const horn = put(duel, 0, 69932023, 'deck');
+    const arth = put(duel, 0, 33760966, 'extra');
+    const rahu = put(duel, 0, 32548318, 'hand');
+    await activateMain(duel, 0, rahu);
+    expect(arth.location).toBe('mzone');
+    expect(lukias.location === 'grave' || lukias.location === 'hand').toBe(true);
+    expect(horn.location).toBe('szone');
+    expect(horn.faceUp).toBe(false);
+  });
+
+  it('星辰爪龍：怪獸 2 隻以上同時被送去墓地時從墓地特殊召喚，離場時除外', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const arth = put(duel, 0, 33760966, 'grave');
+    arth.properlySummoned = true;
+    const m1 = put(duel, 1, FILLER, 'mzone');
+    const m2 = put(duel, 1, FILLER, 'mzone');
+    await duel.destroy([m1, m2], 'effect', put(duel, 0, 53129443, 'grave'));
+    await duel.settle();
+    expect(arth.location).toBe('mzone');
+    await duel.destroy([arth], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(arth.location).toBe('banished');
+  });
+
+  it('只有 1 隻怪獸送去墓地時不算「同時 2 隻以上」', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const arth = put(duel, 0, 33760966, 'grave');
+    arth.properlySummoned = true;
+    await duel.destroy([put(duel, 1, FILLER, 'mzone')], 'effect', put(duel, 0, 12580477, 'grave'));
+    await duel.destroy([put(duel, 1, FILLER, 'mzone')], 'effect', put(duel, 0, 12580477, 'grave'));
+    await duel.settle();
+    expect(arth.location).toBe('grave');
+  });
+});

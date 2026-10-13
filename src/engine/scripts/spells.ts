@@ -321,7 +321,7 @@ def(24094653, {
         });
         if (!d.matchMaterials(conds, mats)) mats = d.findMaterialSet(conds, pool) ?? [];
         if (!mats.length) return;
-        d.sendToGrave(mats, 'material', ctx.card);
+        d.moveFusionMaterials(mats, () => d.sendToGrave(mats, 'material', ctx.card));
         for (const m of mats) m.fusionMaterial = true;
         d.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 融合召喚`);
         const pos = await d.choosePosition(ctx.player, f);
