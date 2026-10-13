@@ -19,6 +19,7 @@ import './ignister';
 import './neosvolcanic';
 import './ancientgear';
 import './signers';
+import './shaddollsky';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

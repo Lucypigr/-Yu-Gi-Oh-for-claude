@@ -1589,3 +1589,70 @@ describe('第十四彈：古代的機械・5D\'s', () => {
     expect(duel.monsters(1).some((c) => c.id === 71645243)).toBe(true);
   });
 });
+
+describe('第十五彈：影依・閃刀姬', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('影依融合：手牌的影依怪獸成為素材，被效果送去墓地的效果發動', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const winda = put(duel, 0, 94977269, 'extra');
+    const hedgehog = put(duel, 0, 4939890, 'hand');
+    put(duel, 0, 78010363, 'hand'); // 黑森林的魔女（暗）
+    put(duel, 0, 37445295, 'deck'); // 影依獵鷹
+    const fusion = put(duel, 0, 44394295, 'hand');
+    await activateMain(duel, 0, fusion);
+    expect(winda.location).toBe('mzone');
+    expect(hedgehog.location).toBe('grave');
+    // 刺蝟②：從牌組把影依怪獸加入手牌
+    expect(duel.p(0).hand.some((c) => c.id === 37445295)).toBe(true);
+  });
+
+  it('作為代價丟棄不算被效果送去墓地', () => {
+    const { duel } = setup();
+    const beast = put(duel, 0, 3717252, 'hand');
+    const before = duel.p(0).hand.length;
+    duel.discard([beast], 'cost');
+    expect(beast.location).toBe('grave');
+    expect(duel.p(0).hand.length).toBe(before - 1);
+  });
+
+  it('神影依・米德拉什：雙方 1 回合只能特殊召喚 1 次', () => {
+    const { duel } = setup();
+    const winda = put(duel, 1, 94977269, 'mzone');
+    winda.summonType = 'fusion';
+    const a = put(duel, 0, FILLER, 'grave');
+    const b2 = put(duel, 0, FILLER, 'grave');
+    expect(duel.specialSummon(a, 0)).toBe(true);
+    expect(duel.specialSummon(b2, 0)).toBe(false);
+  });
+
+  it('影依的原核在怪獸區域時可以代替任何屬性的融合素材', () => {
+    const { duel } = setup();
+    const core = put(duel, 0, 4904633, 'szone', { faceUp: false });
+    duel.summonTrapAsMonster(core, 0, { atk: 1450, def: 1950, level: 9, race: 0x2, attribute: 0x20, effect: true });
+    put(duel, 0, 4939890, 'hand');
+    const grysta = put(duel, 0, 48424886, 'extra'); // 影依＋炎屬性
+    const pool = [...duel.p(0).hand, ...duel.faceUpMonsters(0)];
+    expect(duel.fusionCandidates(0, pool)).toContain(grysta);
+  });
+
+  it('閃刀魔法：主要怪獸區域有怪獸時不能發動；零衣解放後在額外怪獸區域特殊召喚閃刀姬', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const engage = put(duel, 0, 63166095, 'hand');
+    put(duel, 0, 99550630, 'deck');
+    const raye = put(duel, 0, 26077387, 'mzone');
+    expect(duel.getActivatable(0).some((x) => x.card === engage)).toBe(false);
+    const kagari = put(duel, 0, 63288573, 'extra');
+    await activateMain(duel, 0, raye);
+    expect(raye.location).toBe('grave');
+    expect(kagari.location).toBe('mzone');
+    expect(kagari.zone).toBeGreaterThanOrEqual(5);
+    expect(duel.getActivatable(0).some((x) => x.card === engage)).toBe(true);
+  });
+});

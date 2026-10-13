@@ -26,6 +26,7 @@ import {
   type Controller,
   type EffectContext,
   type EffectDef,
+  type FusionConds,
   type GameEvent,
   type Loc,
   type MainAction,
@@ -695,7 +696,7 @@ export class Duel {
     card.movedFrom = from;
 
     if (wasOnField && !(to === 'mzone' && from === 'mzone')) {
-      this.handleLeaveField(card, from, prevController, wasFaceUp, opts);
+      this.handleLeaveField(card, from, prevController, wasFaceUp, opts, fromZone);
     }
 
     // 衍生物離場就消失
@@ -781,6 +782,7 @@ export class Duel {
     prevController: PlayerId,
     wasFaceUp: boolean,
     opts: { reason: Reason; by?: Card },
+    fromZone?: number,
   ) {
     // 超量素材送去墓地
     for (const o of card.overlays.splice(0)) {
@@ -810,7 +812,7 @@ export class Duel {
       linked.linked = null;
       this.destroy([linked], 'effect', linked);
     }
-    this.raise({ type: 'leftField', card, from, reason: opts.reason, by: opts.by, prevController, wasFaceUp });
+    this.raise({ type: 'leftField', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp });
   }
 
   draw(p: PlayerId, n = 1): Card[] {
@@ -971,7 +973,9 @@ export class Duel {
 
   /** 丟棄手牌（reason 只用於記錄，丟棄一律視為「丟棄」） */
   discard(cards: Card[], _reason: Reason = 'discard', by?: Card): Card[] {
-    const done = cards.filter((c) => c.location === 'hand' && this.moveTo(c, 'grave', { reason: 'discard', by }));
+    // 作為代價丟棄的卡不是「被效果送去墓地」
+    const reason: Reason = _reason === 'cost' ? 'cost' : 'discard';
+    const done = cards.filter((c) => c.location === 'hand' && this.moveTo(c, 'grave', { reason, by }));
     if (done.length) this.log(`丟棄 ${done.map((c) => `「${c.name}」`).join('、')}`);
     return done;
   }
@@ -1442,6 +1446,9 @@ export class Duel {
     // 「對方不能對應這個效果的發動把卡的效果發動」
     const topLink = this.chainTop;
     if (topLink && topLink.player !== p && topLink.ctx.data.noResponse) return out;
+    // 閃刀機關－多任務戰刀機：這回合對方不能對應自己的魔法卡的發動
+    if (topLink && topLink.player !== p && topLink.isCardActivation && isSpell(topLink.card.data) && this.p(topLink.player).turnFlags.spellsUnchainable)
+      return out;
     // 古代的機械要塞：對方不能對應「古代的機械」卡的效果的發動
     if (topLink && topLink.player !== p && [...this.activeContinuous()].some(({ card: src, effect }) => effect.query?.(this, src, 'noOppResponse', topLink.card, topLink.player)))
       return out;
@@ -1699,6 +1706,15 @@ export class Duel {
     }
     // 「○○在自己場上只能有 1 隻表側表示存在」
     if (getScript(card.id).uniqueOnField && this.faceUpMonsters(p).some((c) => c.id === card.id && c !== card)) return false;
+    // 神影依・米德拉什：那個期間雙方 1 回合只能有 1 次把怪獸特殊召喚
+    if (kind === 'special') {
+      for (const w of this.monsters()) {
+        if (!w.faceUp || this.isNegated(w) || !getScript(w.id).oneSpecialSummonPerTurn) continue;
+        const list = ps.summonedThisTurn;
+        const from = list.findIndex((s) => s.card === w) + 1;
+        if (list.slice(from).some((s) => s.kind === 'special' && s.card !== w)) return false;
+      }
+    }
     // 「自己對這張卡 1 回合只能有 1 次特殊召喚」
     if (kind === 'special' && getScript(card.id).ssOncePerTurn && ps.summonedThisTurn.some((s) => s.kind === 'special' && s.card.id === card.id))
       return false;
@@ -2438,8 +2454,9 @@ export class Duel {
   // ---- 融合・儀式（由魔法卡的效果呼叫）----
 
   /** 判斷 cards 是否能分配給所有素材條件 */
-  matchMaterials(conds: Array<(d: CardData, c?: Card) => boolean>, cards: Card[]): boolean {
+  matchMaterials(conds: FusionConds, cards: Card[]): boolean {
     if (conds.length !== cards.length) return false;
+    if (conds.validate && !conds.validate(cards)) return false;
     const used = new Array(cards.length).fill(false);
     const rec = (i: number): boolean => {
       if (i === conds.length) return true;
@@ -2466,10 +2483,10 @@ export class Duel {
     });
   }
 
-  findMaterialSet(conds: Array<(d: CardData, c?: Card) => boolean>, pool: Card[]): Card[] | null {
+  findMaterialSet(conds: FusionConds, pool: Card[]): Card[] | null {
     const chosen: Card[] = [];
     const rec = (i: number): boolean => {
-      if (i === conds.length) return true;
+      if (i === conds.length) return !conds.validate || conds.validate(chosen);
       for (const c of pool) {
         if (chosen.includes(c) || !conds[i](c.data, c)) continue;
         chosen.push(c);
@@ -2699,6 +2716,8 @@ export class Duel {
         return false;
       }
       if (this.p(c.controller).turnFlags.battleIndestructible) return false;
+      // 神影依・文迪戈：這回合不會被和特殊召喚的對方怪獸的戰鬥破壞
+      if (foe && this.hasFlag(c, 'indesVsSpecial') && foe.summonType && !['normal', 'tribute', 'flip'].includes(foe.summonType)) return false;
       // 1 回合 1 次不會被戰鬥破壞（暗黑共鳴者）
       if (this.has(c, 'battleIndesOnce') && c.flags.battleIndesUsed !== this.turn) {
         c.flags.battleIndesUsed = this.turn;
