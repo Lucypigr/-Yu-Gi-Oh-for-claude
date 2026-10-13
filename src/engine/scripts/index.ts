@@ -17,6 +17,8 @@ import './arcv';
 import './vrains';
 import './ignister';
 import './neosvolcanic';
+import './ancientgear';
+import './signers';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

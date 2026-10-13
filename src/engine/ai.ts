@@ -101,10 +101,11 @@ export class AIController implements Controller {
                 : duel.linkMaterialSets(p, a.card);
           const cheapest = Math.min(...sets.map((s) => s.reduce((t, c) => t + cardValue(duel, c, p), 0)));
           // 超量素材留在怪獸下面可以當效果的資源，素材的價值打折計算
+          const worth = getScript(a.card.id).aiSummonValue?.(duel, a.card) ?? cardValue(duel, a.card, p);
           const gain =
             a.type === 'xyz'
-              ? cardValue(duel, a.card, p) + 600 + 300 * Math.max(...sets.map((s) => s.length + s.reduce((t, c) => t + c.overlays.length, 0))) - 0.6 * cheapest
-              : cardValue(duel, a.card, p) + 600 - cheapest;
+              ? worth + 600 + 300 * Math.max(...sets.map((s) => s.length + s.reduce((t, c) => t + c.overlays.length, 0))) - 0.6 * cheapest
+              : worth + 600 - cheapest;
           s = gain > 0 ? 50 + gain / 100 : 0;
           break;
         }

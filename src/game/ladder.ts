@@ -365,6 +365,10 @@ const THEME_NAMES: Record<string, string> = {
   ignister: '@火靈天星',
   neos: '新宇俠',
   volcanic: '火山',
+  ancientgear: '古代的機械',
+  yusei: '廢品同調',
+  aki: '黑薔薇',
+  jack: '紅蓮魔龍',
 };
 
 function themeDecks(): ThemeDeck[] {
