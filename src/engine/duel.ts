@@ -181,7 +181,12 @@ export class Duel {
   /** 目前正在處理的連鎖（UI 顯示用） */
   resolvingLink: ChainLink | null = null;
   /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
-  lingering: { turn: number; query: (card: Card, q: Query) => boolean }[] = [];
+  lingering: {
+    turn: number;
+    query?: (card: Card, q: Query) => boolean;
+    /** 「這個回合中，○○的攻擊力上升」：之後出場的怪獸也適用 */
+    stat?: (card: Card) => { atk?: number; def?: number } | null;
+  }[] = [];
   /** 一次性的事件監聽（回傳 true 表示處理完畢、移除）：「那次傷害步驟結束時…」等 */
   listeners: ((ev: GameEvent) => boolean)[] = [];
   /** 這張卡的效果給予對方的傷害變成 2 倍（陰雲栗仔球@火靈天星），連鎖處理完時清除 */
@@ -567,11 +572,19 @@ export class Duel {
   /** 卡片是否具有某性質 */
   has(card: Card, q: Query): boolean {
     if (this.hasFlag(card, q)) return true;
-    for (const l of this.lingering) if (l.turn === this.turn && l.query(card, q)) return true;
+    for (const l of this.lingering) if (l.turn === this.turn && l.query?.(card, q)) return true;
     for (const { card: src, effect } of this.activeContinuous()) {
       if (!effect.query) continue;
       if (this.isImmune(card, src)) continue;
       if (effect.query(this, src, q, card, null)) return true;
+    }
+    return false;
+  }
+
+  /** 對玩家關於某張卡的限制（target 為那張卡，player 為被限制方） */
+  playerHasFor(player: PlayerId, q: Query, target: Card): boolean {
+    for (const { card: src, effect } of this.activeContinuous()) {
+      if (effect.query?.(this, src, q, target, player)) return true;
     }
     return false;
   }
@@ -606,6 +619,7 @@ export class Duel {
   private stat(c: Card, which: 'atk' | 'def'): number {
     if (which === 'def' && isLink(c.data)) return 0;
     let base = which === 'atk' ? c.data.atk : c.data.def;
+    if (c.location === 'mzone' && c.faceUp && !isLink(c.data) && this.has(c, 'swapBaseAtkDef')) base = which === 'atk' ? c.data.def : c.data.atk;
     if (base < 0) base = 0;
     if (c.location !== 'mzone' || !c.faceUp) return base;
     let value = base;
@@ -616,6 +630,7 @@ export class Duel {
     }
     let delta = 0;
     for (const m of c.mods) delta += (which === 'atk' ? m.atk : m.def) ?? 0;
+    for (const l of this.lingering) if (l.turn === this.turn && l.stat) delta += l.stat(c)?.[which] ?? 0;
     for (const { card: src, effect } of this.activeContinuous()) {
       if (!effect.statMod) continue;
       if (this.isImmune(c, src)) continue;
@@ -961,7 +976,9 @@ export class Duel {
   }
 
   /** 被破壞的卡要去哪裡：寶玉獸可以改為當作永續魔法放到魔法・陷阱區域 */
-  private destroyDestination(c: Card): 'grave' | 'szone' {
+  private destroyDestination(c: Card, battleBy?: Card): 'grave' | 'szone' | 'banished' {
+    // 碼麗絲<兵卒>柴郡貓：戰鬥破壞的怪獸不去墓地而除外
+    if (battleBy?.onField && this.has(battleBy, 'banishBattleKills')) return 'banished';
     if (c.location === 'mzone' && c.faceUp && getScript(c.id).placeAsSpellOnDestroy && this.freeSZones(c.owner) > 0) {
       this.log(`「${c.name}」不送去墓地，當作永續魔法放到魔法・陷阱區域`);
       return 'szone';
@@ -1453,8 +1470,19 @@ export class Duel {
       const kind = isSpell(card.data) ? spellKind(card.data) : trapKind(card.data);
       const persistent = kind === 'continuous' || kind === 'equip' || kind === 'field';
       if (persistent && !stillThere) return;
-    } else if (card.onField && this.isNegated(card)) {
+    } else if (card.onField && this.isNegated(card) && !ctx.data.unnegatable) {
       return;
+    }
+    // 雷火沸動交界機：對方發動的怪獸的效果的處理時，可以讓那個效果無效化
+    if (!link.isCardActivation && isMonster(card.data) && !ctx.data.unnegatable) {
+      for (const c of this.fieldCards()) {
+        const hook = getScript(c.id).resolveNegate;
+        if (!hook || !c.faceUp || this.isNegated(c)) continue;
+        if (await hook(this, c, link)) {
+          this.log(`「${card.name}」的效果被無效`);
+          return;
+        }
+      }
     }
     // 魔陷卡被人造人無效
     if (link.isCardActivation && isTrap(card.data) && this.trapsNegated()) {
@@ -2193,7 +2221,10 @@ export class Duel {
   xyzMaterialSets(p: PlayerId, xyz: Card): Card[][] {
     const script = getScript(xyz.id);
     const count = script.xyz?.count ?? 2;
+    const max = script.xyz?.max ?? count;
     const filter = script.xyz?.filter ?? (() => true);
+    // 雷火沸動交界機：同名卡不在自己場上存在的怪獸才能超量召喚
+    if (this.playerHasFor(p, 'cannotXyzSummon', xyz)) return [];
     const mons = this.faceUpMonsters(p).filter(
       (c) => !isToken(c.data) && !isXyz(c.data) && !isLink(c.data) && this.getLevel(c) === xyz.data.level && filter(c),
     );
@@ -2204,7 +2235,7 @@ export class Duel {
     const n = mons.length;
     for (let mask = 1; mask < 1 << n; mask++) {
       const set = mons.filter((_, i) => mask & (1 << i));
-      if (set.length === count && this.extraZones(p, xyz, set).length) out.push(set);
+      if (set.length >= count && set.length <= max && this.extraZones(p, xyz, set).length) out.push(set);
     }
     return out;
   }
@@ -2431,10 +2462,10 @@ export class Duel {
     const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
     const mats = await this.select({
       player: p,
-      title: `選擇「${card.name}」的超量素材（${card.data.level} 星 × ${count}）`,
+      title: `選擇「${card.name}」的超量素材（${card.data.level} 星 × ${count}${getScript(card.id).xyz?.max ? ' 以上' : ''}）`,
       cards: pool,
       min: 1,
-      max: count,
+      max: getScript(card.id).xyz?.max ?? count,
       hint: 'cost',
       validate: (sel) => sets.some((s) => same(s, sel)),
     });
@@ -2456,8 +2487,8 @@ export class Duel {
   }
 
   /** 用效果進行超量召喚（奇妙超量）：在效果處理中使用，召喚成功的事件交給連鎖處理 */
-  async xyzSummonByEffect(p: PlayerId, card: Card): Promise<boolean> {
-    const sets = this.xyzMaterialSets(p, card);
+  async xyzSummonByEffect(p: PlayerId, card: Card, setFilter?: (set: Card[]) => boolean): Promise<boolean> {
+    const sets = this.xyzMaterialSets(p, card).filter((s) => !setFilter || setFilter(s));
     if (!sets.length) return false;
     const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
     const pool = [...new Set(sets.flat())];
@@ -2466,7 +2497,7 @@ export class Duel {
       title: `選擇「${card.name}」的超量素材`,
       cards: pool,
       min: 1,
-      max: getScript(card.id).xyz?.count ?? 2,
+      max: getScript(card.id).xyz?.max ?? getScript(card.id).xyz?.count ?? 2,
       hint: 'cost',
       validate: (sel) => sets.some((s) => same(s, sel)),
     });
@@ -2811,7 +2842,13 @@ export class Duel {
     }
     if (dmgTo !== null && dmg > 0) {
       const ps = this.p(dmgTo);
-      if (b.noDamage[dmgTo] || ps.turnFlags.noBattleDamage || this.playerHas(dmgTo, 'noBattleDamage')) {
+      const own = attacker.controller === dmgTo ? attacker : target;
+      if (
+        b.noDamage[dmgTo] ||
+        ps.turnFlags.noBattleDamage ||
+        this.playerHas(dmgTo, 'noBattleDamage') ||
+        (own && own.controller === dmgTo && this.has(own, 'noBattleDamageToController'))
+      ) {
         this.log(`${ps.name} 不受到戰鬥傷害`);
       } else {
         // 刻魔的憐歌：自己受到的戰鬥傷害變成一半
@@ -2855,7 +2892,7 @@ export class Duel {
       const fromZone = c.zone;
       const prevController = c.controller;
       const prevSummonType = c.summonType;
-      if (this.moveTo(c, this.destroyDestination(c), { reason: 'battle', by, player: c.owner })) {
+      if (this.moveTo(c, this.destroyDestination(c, by), { reason: 'battle', by, player: c.owner })) {
         c.destroyedTurn = this.turn;
         // 這回合戰鬥破壞過怪獸（「戰鬥破壞對方怪獸的回合」的效果用）
         if (by?.onField && prevController !== by.controller) this.setFlag(by, 'battleKill');

@@ -82,7 +82,7 @@ export class AIController implements Controller {
           s = summonDone ? 0 : this.scoreSummon(duel, p, a.card, oppMax, true);
           break;
         case 'spSummon':
-          s = 65 + a.card.data.atk / 100;
+          s = getScript(a.card.id).spSummon?.ai?.(duel, a.card) ?? 65 + a.card.data.atk / 100;
           break;
         case 'pendulumScale':
           s = this.scorePendulumScale(duel, p, a.card, a.zone);

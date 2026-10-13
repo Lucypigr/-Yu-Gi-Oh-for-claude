@@ -58,5 +58,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'branded', name: '烙印・死獄鄉', match: (d) => /Branded|Despia|Albaz|Albion|Ecclesia|Quem|Mirrorjade|Titaniklad|Lubellion|Sprind|Rindbrumm|Alba-Lenatus|Mercourier/.test(d.nameEn) },
   { id: 'snake-eye', name: '蛇眼・罪寶', match: (d) => /Snake-Eye|Diabellstar|Sinful Spoils|Promethean Princess/.test(d.nameEn) },
   { id: 'fiendsmith', name: '刻魔', match: (d) => d.nameEn.includes('Fiendsmith') || d.id === 28803166 },
+  { id: 'ryzeal', name: '雷火沸動', match: en('Ryzeal') },
+  { id: 'maliss', name: '碼麗絲', match: en('Maliss') },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];
