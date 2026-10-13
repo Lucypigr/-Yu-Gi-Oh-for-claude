@@ -1171,3 +1171,48 @@
 85327820  # A.I.'s Ritual
 77421977  # A.I. Shadow
 69381150  # A.I.Q
+
+# ---- GX 新宇俠・火山（第十三彈）----
+17955766  # Neo-Spacian Aqua Dolphin
+54959865  # Neo-Spacian Air Hummingbird
+80344569  # Neo-Spacian Grand Mole
+17732278  # Neo-Spacian Glow Moss
+43237273  # Neo-Spacian Dark Panther
+89621922  # Neo-Spacian Flare Scarab
+28677304  # Elemental HERO Dark Neos
+55171412  # Elemental HERO Aqua Neos
+81566151  # Elemental HERO Flare Neos
+85507811  # Elemental HERO Glow Neos
+11502550  # Elemental HERO Air Neos
+48996569  # Elemental HERO Grand Neos
+78512663  # Elemental HERO Magma Neos
+49352945  # Elemental HERO Storm Neos
+64655485  # Elemental HERO Brave Neos
+42015635  # Neo Space
+11913700  # Instant Neo Space
+14088859  # Neos Fusion
+85840608  # Neo Space Connector
+19594506  # Neo Space Pathfinder
+47274077  # Neos Force
+18302224  # Reverse of Neos
+52098461  # Wrath of Neos
+33365932  # Volcanic Shell
+69750546  # Volcanic Scattershot
+32543380  # Volcanic Doomfire
+81020140  # Volcanic Blaster
+17415895  # Volcanic Slicer
+54514594  # Volcanic Hammerer
+33725271  # Volcanic Recharge
+33112041  # Volcanic Rat
+76459806  # Volcanic Rocket
+66436257  # Volcanic Counter
+63014935  # Volcanic Queen
+46412900  # Volcanic Emperor
+22411609  # Volcanic Trooper
+59805313  # Volcanic Rimfire
+85250352  # Volcanic Blaze Accelerator
+58143766  # Volcanic Emission
+84138874  # Volcanic Inferno
+21420702  # Tri-Blaze Accelerator
+69537999  # Blaze Accelerator
+52198054  # Blaze Accelerator Reload

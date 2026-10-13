@@ -363,6 +363,8 @@ const THEME_NAMES: Record<string, string> = {
   trickstar: '淘氣仙星',
   rokket: '彈丸龍・槍管龍',
   ignister: '@火靈天星',
+  neos: '新宇俠',
+  volcanic: '火山',
 };
 
 function themeDecks(): ThemeDeck[] {

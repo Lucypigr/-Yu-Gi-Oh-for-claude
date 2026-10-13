@@ -31,6 +31,18 @@ const tc = (s) => FIXUPS.reduce((acc, [a, b]) => acc.split(a).join(b), convert(s
 // 衍生物等資料庫沒有的卡片，手動定義
 const MANUAL = [
   {
+    id: 22411610,
+    name: '炸彈衍生物',
+    nameEn: 'Bomb Token',
+    desc: '「火山騎兵」的效果特殊召喚的衍生物。這衍生物被破壞時那個控制者受到 500 傷害。',
+    type: 0x4011,
+    atk: 1000,
+    def: 1000,
+    level: 1,
+    race: 0x80,
+    attribute: 0x4,
+  },
+  {
     id: 11738490,
     name: '@火靈天星衍生物',
     nameEn: '@Ignister Token',

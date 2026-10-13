@@ -1394,3 +1394,81 @@ describe('第十二彈：@火靈天星', () => {
     expect(duel.p(1).lp).toBe(6000);
   });
 });
+
+describe('第十三彈：新宇俠・火山', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('接觸融合：新宇俠＋黑暗豹回到牌組，特殊召喚黑暗新宇俠；不能用「融合」召喚', async () => {
+    const { duel } = setup();
+    const neos = put(duel, 0, 89943723, 'mzone');
+    const panther = put(duel, 0, 43237273, 'mzone');
+    const dn = put(duel, 0, 28677304, 'extra');
+    const poly = put(duel, 0, 24094653, 'hand');
+    expect(duel.getActivatable(0).some((x) => x.card === poly)).toBe(false);
+    const act = duel.getMainActions(0).find((a) => a.type === 'spSummon' && a.card === dn);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(dn.location).toBe('mzone');
+    expect(neos.location).toBe('deck');
+    expect(panther.location).toBe('deck');
+  });
+
+  it('新宇宙：攻擊力上升 500；新宇融合無視召喚條件特殊召喚，之後不能特殊召喚', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 89943723, 'deck');
+    put(duel, 0, 54959865, 'deck');
+    const air = put(duel, 0, 11502550, 'extra');
+    const nf = put(duel, 0, 14088859, 'hand');
+    await activateMain(duel, 0, nf);
+    expect(air.location).toBe('mzone');
+    const space = put(duel, 0, 42015635, 'szone');
+    duel.moveTo(space, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    expect(duel.getAtk(air)).toBe(2500 + 500);
+    const other = put(duel, 0, 89631139, 'grave');
+    expect(duel.specialSummon(other, 0)).toBe(false);
+  });
+
+  it('火山女王：解放對方 1 隻怪獸，在對方場上特殊召喚', async () => {
+    const { duel } = setup();
+    const foe = put(duel, 1, 89631139, 'mzone');
+    const queen = put(duel, 0, 63014935, 'hand');
+    const act = duel.getMainActions(0).find((a) => a.type === 'spSummon' && a.card === queen);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(foe.location).toBe('grave');
+    expect(queen.location).toBe('mzone');
+    expect(queen.controller).toBe(1);
+  });
+
+  it('火山帝皇：從墓地除外「烈焰加農炮」卡特殊召喚，給予除外的炎族數量×500 傷害', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const emperor = put(duel, 0, 46412900, 'grave');
+    put(duel, 0, 69537999, 'grave');
+    const pyro = put(duel, 0, 33365932, 'grave');
+    duel.moveTo(pyro, 'banished', { reason: 'rule' });
+    const act = duel.getMainActions(0).find((a) => a.type === 'spSummon' && a.card === emperor);
+    expect(act, '可以從墓地特殊召喚').toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(emperor.location).toBe('mzone');
+    expect(duel.p(1).lp).toBe(8000 - 500);
+  });
+
+  it('炸彈衍生物：被破壞時那個控制者受到 500 傷害', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const trooper = put(duel, 0, 22411609, 'mzone');
+    put(duel, 0, FILLER, 'hand');
+    await activateMain(duel, 0, trooper);
+    const token = duel.monsters(1).find((c) => c.id === 22411610)!;
+    expect(token).toBeTruthy();
+    duel.destroy([token], 'effect');
+    await duel.settle();
+    expect(duel.p(1).lp).toBe(7500);
+  });
+});
