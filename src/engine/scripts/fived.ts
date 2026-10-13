@@ -1087,7 +1087,7 @@ function materialSets(duel: Duel, p: PlayerId, reqs: ((c: Card) => boolean)[]): 
   }
   return out;
 }
-function contactFusion(reqs: ((c: Card) => boolean)[]): CardScript['spSummon'] {
+export function contactFusion(reqs: ((c: Card) => boolean)[]): CardScript['spSummon'] {
   return {
     label: '接觸融合（素材回到牌組）',
     condition: (duel, card) => materialSets(duel, card.owner, reqs).some((s) => duel.extraZones(card.owner, card, s).length > 0),

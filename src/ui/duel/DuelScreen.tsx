@@ -329,7 +329,7 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
     const right = (
       <div className="side-col">
         <div
-          className="pile"
+          className={`pile ${ps.grave.some((c) => actionsByCard.has(c)) ? 'actionable' : ''}`}
           onClick={() => setPile({ title: `${ps.name} 的墓地`, cards: [...ps.grave].reverse() })}
           title="墓地"
         >
@@ -658,6 +658,20 @@ export function DuelScreen({ playerName, deck, opponent, settings, onFinish }: P
                 onClick={() => (narrow() ? setPopupDetail(c) : setDetail(c))}
               >
                 <CardView data={c.data} size="sm" />
+                {/* 墓地的卡可以發動的效果・特殊召喚 */}
+                {(actionsByCard.get(c) ?? []).map((a, i) => (
+                  <button
+                    key={i}
+                    className="btn primary small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPile(null);
+                      doMain(a);
+                    }}
+                  >
+                    {actionLabel(a, duel)}
+                  </button>
+                ))}
               </div>
             ))}
             {!pile.cards.length && <div className="empty">沒有卡片</div>}

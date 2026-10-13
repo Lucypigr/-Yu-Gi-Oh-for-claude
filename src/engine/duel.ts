@@ -1051,6 +1051,12 @@ export class Duel {
       this.log(`「${card.name}」因為召喚限制不能特殊召喚`);
       return false;
     }
+    // 「這張卡不用融合召喚不能特殊召喚」：正規召喚過的卡可以蘇生
+    const only = getScript(card.id).spSummonOnly;
+    if (only && !opts.ignoreConditions && !only.includes(opts.summonType ?? 'special') && !(card.properlySummoned && card.location !== 'extra')) {
+      this.log(`「${card.name}」不能用這個方法特殊召喚`);
+      return false;
+    }
     // 不能特殊召喚的卡（拉之翼神龍），ignoreConditions 時無視
     if (!opts.ignoreConditions && getScript(card.id).cannotSpecialSummon?.(this, card)) {
       this.log(`「${card.name}」不能特殊召喚`);
@@ -1743,7 +1749,7 @@ export class Duel {
         const sp = getScript(card.id).spSummon;
         if (
           sp &&
-          this.freeMZones(p) > 0 &&
+          this.freeMZones(sp.toOpponent ? other(p) : p) > 0 &&
           !ps.turnFlags.noSummon &&
           !ps.turnFlags.noSpecialSummon &&
           !this.playerHas(p, 'cannotSpecialSummon') &&
@@ -1755,6 +1761,13 @@ export class Duel {
         if (this.freeSZones(p) > 0) actions.push({ type: 'setST', card });
       }
     }
+    // 墓地用規則特殊召喚的怪獸（火山帝皇）
+    if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon'))
+      for (const card of ps.grave) {
+        const sp = getScript(card.id).spSummon;
+        if (sp?.fromGrave && this.freeMZones(p) > 0 && this.summonAllowed(p, card, 'special') && sp.condition(this, card))
+          actions.push({ type: 'spSummon', card });
+      }
     // 額外牌組用規則特殊召喚的怪獸（劍鬥獸的接觸融合）
     if (!ps.turnFlags.noSummon && !ps.turnFlags.noSpecialSummon && !this.playerHas(p, 'cannotSpecialSummon'))
       for (const card of ps.extra) {
@@ -1955,9 +1968,10 @@ export class Duel {
     const sp = getScript(card.id).spSummon!;
     if (sp.cost) await sp.cost(this, card);
     const pos = await this.choosePosition(p, card);
-    const zones = sp.zones ? sp.zones(this, card) : card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
+    const target = sp.toOpponent ? other(p) : p;
+    const zones = sp.zones ? sp.zones(this, card) : card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(target);
     if (!zones.length) return;
-    this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: zones[0] });
+    this.moveTo(card, 'mzone', { reason: 'summon', player: target, faceUp: true, position: pos, zone: zones[0] });
     card.summonType = 'special';
     this.p(p).turnFlags.summoned = true;
     this.log(`${this.p(p).name} 特殊召喚「${card.name}」`, p);
@@ -2350,6 +2364,8 @@ export class Duel {
     return this.p(p).extra.filter((f) => {
       const conds = getScript(f.id).fusion;
       if (!conds) return false;
+      const only = getScript(f.id).spSummonOnly;
+      if (only && !only.includes('fusion')) return false;
       return this.findMaterialSet(conds, pool) !== null;
     });
   }

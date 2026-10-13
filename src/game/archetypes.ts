@@ -20,6 +20,8 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'magnet', name: '磁石戰士', match: en('Magnet Warrior', 'Magna Warrior') },
   { id: 'destiny-board', name: '通靈盤', match: en('Destiny Board', 'Spirit Message') },
   { id: 'elemental-hero', name: '元素英雄', match: en('Elemental HERO') },
+  { id: 'neos', name: '新宇俠・新空間俠', match: en('Neos', 'Neo-Spacian', 'Neo Space') },
+  { id: 'volcanic', name: '火山・烈焰加農炮', match: en('Volcanic', 'Blaze Accelerator') },
   { id: 'destiny-hero', name: '命運英雄', match: en('Destiny HERO', 'Destiny Draw', 'Over Destiny', 'D - ', 'Destiny Signal') },
   { id: 'toon', name: '卡通', match: en('Toon', 'Manga Ryu-Ran', 'Comic Hand') },
   { id: 'crystal', name: '寶玉獸', match: en('Crystal Beast', 'Crystal ', 'Rainbow Dragon', 'Rainbow Ruins', 'Rare Value') },

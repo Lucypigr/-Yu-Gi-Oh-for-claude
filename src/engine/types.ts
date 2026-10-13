@@ -269,6 +269,10 @@ export interface CardScript {
     cost?: (duel: Duel, card: Card) => Promise<void>;
     /** 只能放在這些格子 */
     zones?: (duel: Duel, card: Card) => number[];
+    /** 也可以從墓地特殊召喚（火山帝皇） */
+    fromGrave?: boolean;
+    /** 在對方場上特殊召喚（火山女王） */
+    toOpponent?: boolean;
   };
   /** 只能用指定方式特殊召喚（例如：只能融合召喚） */
   spSummonOnly?: SummonType[];
