@@ -21,6 +21,8 @@ import './ancientgear';
 import './signers';
 import './shaddollsky';
 import './maidrock';
+import './branded';
+import './snakeeye';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

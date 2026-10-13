@@ -55,5 +55,8 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'sky-striker', name: '閃刀姬', match: en('Sky Striker') },
   { id: 'dragonmaid', name: '半龍女僕', match: en('Dragonmaid') },
   { id: 'adamancipator', name: '魔救', match: en('Adamancipator') },
+  { id: 'branded', name: '烙印・死獄鄉', match: (d) => /Branded|Despia|Albaz|Albion|Ecclesia|Quem|Mirrorjade|Titaniklad|Lubellion|Sprind|Rindbrumm|Alba-Lenatus|Mercourier/.test(d.nameEn) },
+  { id: 'snake-eye', name: '蛇眼・罪寶', match: (d) => /Snake-Eye|Diabellstar|Sinful Spoils|Promethean Princess/.test(d.nameEn) },
+  { id: 'fiendsmith', name: '刻魔', match: (d) => d.nameEn.includes('Fiendsmith') || d.id === 28803166 },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

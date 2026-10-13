@@ -456,7 +456,7 @@ def(48658295, {
       event: 'standby',
       label: '場上・除外的怪獸回到牌組：融合召喚龍族融合怪獸',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => ctx.card.isFaceUpMonster && fusionTargets(ctx.duel, ctx.player, ladyFusion(ctx)).length > 0,
       operation: async (ctx) => {
         await ladyFusionSummon(ctx);
@@ -630,7 +630,7 @@ const sendOffTargets = (ctx: EffectContext) =>
 def(40110009, {
   effects: [
     activate({
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => fusionTargets(ctx.duel, ctx.player, changeoverOpts(ctx)).length > 0,
       operation: async (ctx) => {
         await fusionSummon(ctx, changeoverOpts(ctx));

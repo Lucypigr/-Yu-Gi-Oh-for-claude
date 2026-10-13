@@ -790,6 +790,8 @@ export class Duel {
     }
 
     const base: GameEvent = { type: 'toGrave', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp };
+    // 「這個回合有融合怪獸被送去自己墓地的場合」
+    if (to === 'grave' && isMonster(card.data) && (card.data.type & TYPE.FUSION) !== 0) this.p(card.owner).turnFlags.fusionToGrave = true;
     if (to === 'grave') this.raise({ ...base, type: 'toGrave' });
     if (to === 'banished') this.raise({ ...base, type: 'banished' });
     if (to === 'hand' && from !== 'deck') this.raise({ ...base, type: 'toHand' });
@@ -1138,6 +1140,7 @@ export class Duel {
     if (!ok) return false;
     card.summonType = opts.summonType ?? 'special';
     card.summonedBy = opts.by ?? null;
+    if (card.summonType === 'fusion' && this.playerHas(p, 'fusionUnnegatable')) this.responseLock = other(p);
     if (card.summonType !== 'special') card.properlySummoned = true;
     card.turnPlaced = this.turn;
     if (opts.negateEffects) card.negated = true;
@@ -1469,8 +1472,16 @@ export class Duel {
 
   /** 讓連鎖中的發動無效 */
   negateLink(link: ChainLink) {
+    // 失烙印：包含融合召喚的效果的發動不會被無效
+    if (link.ctx.data.unnegatable) {
+      this.log(`「${link.card.name}」的發動不會被無效`);
+      return;
+    }
     link.negated = true;
   }
+
+  /** 這位玩家現在不能發動效果（失烙印：融合召喚成功時對方不能發動） */
+  private responseLock: PlayerId | null = null;
 
   get chainTop(): ChainLink | null {
     return this.chain.length ? this.chain[this.chain.length - 1] : null;
@@ -1499,6 +1510,7 @@ export class Duel {
     // 「對方不能對應這個效果的發動把卡的效果發動」
     const topLink = this.chainTop;
     if (topLink && topLink.player !== p && topLink.ctx.data.noResponse) return out;
+    if (this.responseLock === p) return out;
     // 閃刀機關－多任務戰刀機：這回合對方不能對應自己的魔法卡的發動
     if (topLink && topLink.player !== p && topLink.isCardActivation && isSpell(topLink.card.data) && this.p(topLink.player).turnFlags.spellsUnchainable)
       return out;
@@ -1615,6 +1627,7 @@ export class Duel {
   /** 發動效果並放上連鎖 */
   async activate(p: PlayerId, card: Card, effect: EffectDef, effectIndex: number, event?: GameEvent) {
     const ctx = this.makeCtx(card, effect, p, event);
+    if (effect.categories?.includes('fusion') && this.playerHas(p, 'fusionUnnegatable')) ctx.data.unnegatable = true;
     const isCardActivation = effect.kind === 'activate' && (isSpell(card.data) || isTrap(card.data));
     const ps = this.p(p);
     if (isCardActivation) ps.turnFlags.stActivated = true;
@@ -1768,6 +1781,11 @@ export class Duel {
       if (lock.fromExtraOnly && card.location !== 'extra') continue;
       if (!lock.allow(card)) return false;
     }
+    // 場上的怪獸造成的召喚限制（賜炎之咎姬：自己不是炎屬性怪獸不能特殊召喚）
+    for (const m of this.monsters()) {
+      const r = getScript(m.id).summonRestriction;
+      if (r && m.faceUp && !this.isNegated(m) && !r(this, m, p, card, kind)) return false;
+    }
     // 「○○在自己場上只能有 1 隻表側表示存在」
     if (getScript(card.id).uniqueOnField && this.faceUpMonsters(p).some((c) => c.id === card.id && c !== card)) return false;
     // 神影依・米德拉什：那個期間雙方 1 回合只能有 1 次把怪獸特殊召喚
@@ -1904,6 +1922,7 @@ export class Duel {
   }
 
   async performMainAction(p: PlayerId, a: MainAction) {
+    this.responseLock = null;
     switch (a.type) {
       case 'summon':
         return this.doNormalSummon(p, a.card, false);
@@ -2534,13 +2553,14 @@ export class Duel {
 
   /** 判斷 cards 是否能分配給所有素材條件 */
   matchMaterials(conds: FusionConds, cards: Card[]): boolean {
-    if (conds.length !== cards.length) return false;
+    if (conds.more ? cards.length < conds.length : conds.length !== cards.length) return false;
     if (conds.validate && !conds.validate(cards)) return false;
     const used = new Array(cards.length).fill(false);
     const rec = (i: number): boolean => {
-      if (i === conds.length) return true;
+      // 指定的素材都分配好後，剩下的必須符合「…1 隻以上」的條件
+      if (i === conds.length) return cards.every((c, j) => used[j] || (conds.more?.(c.data, c) ?? false));
       for (let j = 0; j < cards.length; j++) {
-        if (used[j] || !conds[i](cards[j].data, cards[j])) continue;
+        if (used[j] || !conds[i](cards[j].data, cards[j], this)) continue;
         used[j] = true;
         if (rec(i + 1)) return true;
         used[j] = false;
@@ -2567,7 +2587,7 @@ export class Duel {
     const rec = (i: number): boolean => {
       if (i === conds.length) return !conds.validate || conds.validate(chosen);
       for (const c of pool) {
-        if (chosen.includes(c) || !conds[i](c.data, c)) continue;
+        if (chosen.includes(c) || !conds[i](c.data, c, this)) continue;
         chosen.push(c);
         if (rec(i + 1)) return true;
         chosen.pop();
@@ -2794,6 +2814,8 @@ export class Duel {
       if (b.noDamage[dmgTo] || ps.turnFlags.noBattleDamage || this.playerHas(dmgTo, 'noBattleDamage')) {
         this.log(`${ps.name} 不受到戰鬥傷害`);
       } else {
+        // 刻魔的憐歌：自己受到的戰鬥傷害變成一半
+        if (ps.turnFlags.halfBattleDamageTaken) dmg = Math.floor(dmg / 2);
         this.damage(dmgTo, dmg, 'battle', dmgTo === opp ? attacker : target ?? undefined);
       }
     }
@@ -2886,6 +2908,7 @@ export class Duel {
 
   private async setPhase(phase: Phase) {
     this.phase = phase;
+    this.responseLock = null;
     this.log(`— ${PHASE_NAMES[phase]} —`, this.turnPlayer);
     await this.pause(250);
   }

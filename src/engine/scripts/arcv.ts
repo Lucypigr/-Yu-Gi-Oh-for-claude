@@ -1621,7 +1621,7 @@ def(35272499, {
       label: '送 1 隻手牌的怪獸去墓地：從牌組特殊召喚「捕食植物」',
       event: 'summoned',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) =>
         summonedSelf(ctx) &&
         ctx.duel.freeMZones(ctx.player) > 0 &&
@@ -1702,7 +1702,7 @@ def(89181134, {
       kind: 'ignition',
       label: '融合召喚暗屬性融合怪獸（可以使用對方有捕食指示物的怪獸）',
       once: 'name',
-      categories: ['summon'],
+      categories: ['summon', 'fusion'],
       condition: (ctx) => ctx.card.isFaceUpMonster && sundewTargets(ctx).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
