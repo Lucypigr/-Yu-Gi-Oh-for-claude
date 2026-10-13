@@ -1472,3 +1472,120 @@ describe('第十三彈：新宇俠・火山', () => {
     expect(duel.p(1).lp).toBe(7500);
   });
 });
+
+describe('第十四彈：古代的機械・5D\'s', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('古代的機械巨人不能特殊召喚；齒車街讓召喚需要的解放減少 1 隻', async () => {
+    const { duel } = setup();
+    const golem = put(duel, 0, 83104731, 'grave');
+    expect(duel.specialSummon(golem, 0)).toBe(false);
+    const g2 = put(duel, 0, 83104731, 'hand');
+    expect(duel.tributesNeeded(g2)).toBe(2);
+    const town = put(duel, 0, 37694547, 'szone');
+    duel.moveTo(town, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    expect(duel.tributesNeeded(g2)).toBe(1);
+  });
+
+  it('古代的進軍：解放 1 隻抽 1 張，這回合「古代的機械巨人」不用解放召喚；上級召喚記錄解放的怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const adv = put(duel, 0, 4064925, 'szone', { faceUp: true });
+    put(duel, 0, FILLER, 'mzone');
+    const golem = put(duel, 0, 83104731, 'hand');
+    const hand = duel.p(0).hand.length;
+    await activateMain(duel, 0, adv);
+    expect(duel.p(0).hand.length).toBe(hand + 1);
+    expect(duel.canSummonWithoutTribute(golem)).toBe(true);
+    await duel.performMainAction(0, { type: 'summon', card: golem });
+    expect(golem.location).toBe('mzone');
+    // 巨龍：解放綠色零件上級召喚時得到貫通
+    const green = put(duel, 0, 41172955, 'mzone');
+    const gad = put(duel, 0, 50933533, 'hand');
+    duel.p(0).normalSummons = 1;
+    duel.p(0).noTributeRules = [];
+    await duel.performMainAction(0, { type: 'summon', card: gad });
+    expect(gad.summonMaterials).toContain(green);
+    expect(duel.has(gad, 'piercing')).toBe(true);
+  });
+
+  it('雙調整同步：紅蓮魔龍・暴君需要調整 2 隻；真紅蓮新星龍只能用「紅蓮魔龍」為調整以外的素材', () => {
+    const { duel } = setup();
+    const tyrant = put(duel, 0, 16172067, 'extra');
+    const nova = put(duel, 0, 97489701, 'extra');
+    put(duel, 0, 40975574, 'mzone'); // 紅蓮共鳴者 2
+    put(duel, 0, 34761841, 'mzone'); // 深紅共鳴者 2
+    const rising = put(duel, 0, 66141736, 'mzone'); // 紅蓮升龍 6
+    expect(duel.synchroMaterialSets(0, tyrant).length).toBeGreaterThan(0);
+    expect(duel.synchroMaterialSets(0, nova).length).toBe(0);
+    duel.moveTo(rising, 'grave', { reason: 'rule' });
+    put(duel, 0, 70902743, 'mzone'); // 紅蓮魔龍 8
+    expect(duel.synchroMaterialSets(0, nova).length).toBeGreaterThan(0);
+  });
+
+  it('王道同調士當作等級下降 2 星（王道戰士以外）；調和支援士可以當作 2 星，作為素材抽 1 張', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const speeder = put(duel, 0, 77075360, 'extra'); // 廢品增速者 5
+    const roadW = put(duel, 0, 2322421, 'extra'); // 王道戰士 8
+    put(duel, 0, 71971554, 'mzone'); // 王道同調士 4
+    put(duel, 0, 56410040, 'mzone'); // 廢品前鋒 3
+    expect(duel.synchroMaterialSets(0, speeder).length).toBeGreaterThan(0);
+    expect(duel.synchroMaterialSets(0, roadW).length).toBe(0);
+    const { duel: d2, b: b2 } = setup();
+    b2.declineAll = true;
+    const jw = put(d2, 0, 60800381, 'extra'); // 廢品戰士 5
+    put(d2, 0, 63977008, 'mzone'); // 廢品同調士 3
+    const tw = put(d2, 0, 92676637, 'mzone'); // 調和支援士 1
+    const hand = d2.p(0).hand.length;
+    expect(d2.synchroMaterialSets(0, jw).length).toBeGreaterThan(0);
+    await d2.performMainAction(0, { type: 'synchro', card: jw });
+    expect(jw.location).toBe('mzone');
+    expect(tw.location).toBe('grave');
+    expect(d2.p(0).hand.length).toBe(hand + 1);
+  });
+
+  it('方程式同調士：對方主要階段用包含這張卡的怪獸同步召喚', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    duel.turnPlayer = 1;
+    const formula = put(duel, 0, 50091196, 'mzone');
+    put(duel, 0, 78922939, 'mzone'); // 廢品從者 4
+    const gaia = put(duel, 0, 97204936, 'extra'); // 大地之騎士 蓋亞騎士 6
+    const act = duel.getActivatable(0, { kind: 'free' } as never).find((x) => x.card === formula);
+    expect(act, '對方回合可以發動').toBeTruthy();
+    await duel.activate(0, formula, act!.effect, act!.effectIndex);
+    await (duel as unknown as { resolveChain: () => Promise<void> }).resolveChain();
+    expect(gaia.location).toBe('mzone');
+    expect(gaia.summonType).toBe('synchro');
+  });
+
+  it('動力工具龍：被破壞時可以把裝備魔法送去墓地代替', () => {
+    const { duel } = setup();
+    const ptd = put(duel, 0, 2403771, 'mzone');
+    const eq = put(duel, 0, 79068663, 'szone', { faceUp: true });
+    duel.equip(eq, ptd);
+    duel.destroy([ptd], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(ptd.location).toBe('mzone');
+    expect(eq.location).toBe('grave');
+  });
+
+  it('黑色花園：召喚的怪獸攻擊力變成一半，對方場上出現薔薇衍生物', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const garden = put(duel, 1, 71645242, 'szone');
+    duel.moveTo(garden, 'fzone', { reason: 'rule', player: 1, faceUp: true });
+    const blue = put(duel, 0, 89631139, 'hand');
+    duel.p(0).normalSummons = 1;
+    duel.p(0).noTributeRules.push(() => true);
+    await duel.performMainAction(0, { type: 'summon', card: blue });
+    expect(duel.getAtk(blue)).toBe(1500);
+    expect(duel.monsters(1).some((c) => c.id === 71645243)).toBe(true);
+  });
+});

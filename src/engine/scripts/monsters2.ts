@@ -146,7 +146,7 @@ def(64342551, { effects: [selfQuery('directAttack', (duel) => umiOnField(duel))]
 // 貫通
 def(1546123, { effects: [selfQuery('piercing')] }); // 電子終結龍
 def(65287621, { effects: [selfQuery('piercing')] }); // 暗黑三角怪鳥龍
-def(83104731, { effects: [selfQuery('piercing'), selfQuery('noSTDuringAttack')] }); // 古代的機械巨人
+def(83104731, { neverSpecialSummon: true, effects: [selfQuery('piercing'), selfQuery('noSTDuringAttack')] }); // 古代的機械巨人
 
 // 魔裝機關車 迪科伊奇
 def(87621407, {

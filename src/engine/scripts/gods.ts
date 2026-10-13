@@ -181,7 +181,7 @@ def(
 def(SPHERE, {
   tributes: 3,
   aiSummonValue: (duel, card) => ([...duel.p(card.owner).hand, ...duel.p(card.owner).deck].some((c) => c.id === RA) ? 5000 : 0),
-  cannotSpecialSummon: () => true,
+  neverSpecialSummon: true,
   effects: [
     selfQuery('cannotAttack'),
     selfQuery('untargetable'),

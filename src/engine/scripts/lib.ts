@@ -3,6 +3,7 @@ import type { Card } from '../card';
 import { type CardData, isMonster, isSpell, isTrap, isToken, cannotNormalSummon, ATTR } from '../cardDb';
 import type { Duel } from '../duel';
 import type { EffectContext, EffectDef, GameEvent, PlayerId, Position, SelectHint } from '../types';
+import { getScript } from './registry';
 
 export { ATTR };
 export { RACE } from '../cardDb';
@@ -58,6 +59,7 @@ export async function chooseTargets(
       !(
         ctx.duel.has(c, 'untargetable') ||
         (isMonster(ctx.card.data) && ctx.duel.has(c, 'untargetableByMonsters')) ||
+        (isMonster(ctx.card.data) && (ctx.card.data.type & 0x20) !== 0 && ctx.card.data.level <= 6 && ctx.duel.has(c, 'untargetableByL6Monsters')) ||
         (c.controller !== ctx.player && ctx.duel.has(c, 'untargetableByOpp'))
       ),
   );
@@ -288,6 +290,7 @@ export function monstersWithAtkAtMost(duel: Duel, n: number) {
 /** 可以被效果特殊召喚（蘇生）的怪獸 */
 export function canRevive(c: Card): boolean {
   if (!isMonster(c.data) || isToken(c.data)) return false;
+  if (getScript(c.id).neverSpecialSummon) return false;
   if (cannotNormalSummon(c.data)) return c.properlySummoned;
   return true;
 }

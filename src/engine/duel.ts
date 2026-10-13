@@ -86,6 +86,8 @@ export interface PlayerState {
   usedNames: Record<string, number>;
   /** 本回合的召喚限制（「自己不是○○怪獸不能特殊召喚」等，回合開始時清除） */
   summonLocks: SummonLock[];
+  /** 這回合召喚不需要解放的怪獸（古代的進軍） */
+  noTributeRules: ((c: Card) => boolean)[];
   /** 本回合召喚・特殊召喚成功的怪獸 */
   summonedThisTurn: { card: Card; kind: SummonKind }[];
   /** 本回合不能發動效果的怪獸（回傳 false 表示不能發動） */
@@ -215,6 +217,7 @@ export class Duel {
         turnFlags: {},
         usedNames: {},
         summonLocks: [],
+        noTributeRules: [],
         summonedThisTurn: [],
         activationLocks: [],
       };
@@ -512,6 +515,7 @@ export class Duel {
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
     if (selfQuery('immuneAll')) return true;
+    for (const { card: src, effect } of this.activeContinuous()) if (effect.immune?.(this, src, target, source)) return true;
     if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
     if ((source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOpp')) return true;
     if (isTrap(source.data) && selfQuery('immuneTraps')) return true;
@@ -850,6 +854,8 @@ export class Duel {
         if (hook && hook(this, f, c, reason)) return true;
       }
     }
+    const self = getScript(c.id).selfSubstitute;
+    if (self && c.onField && c.faceUp && !this.isNegated(c) && (reason === 'battle' || reason === 'effect') && self(this, c, reason)) return true;
     const sub = getScript(c.id).destroySubstitute;
     if (!sub || !c.faceUp || c.location !== 'mzone' || this.isNegated(c)) return false;
     const cands = sub(this, c, reason).filter((x) => x !== c && x.onField && !batch.includes(x));
@@ -1058,13 +1064,14 @@ export class Duel {
       return false;
     }
     // 不能特殊召喚的卡（拉之翼神龍），ignoreConditions 時無視
-    if (!opts.ignoreConditions && getScript(card.id).cannotSpecialSummon?.(this, card)) {
+    if (!opts.ignoreConditions && (getScript(card.id).neverSpecialSummon || getScript(card.id).cannotSpecialSummon?.(this, card))) {
       this.log(`「${card.name}」不能特殊召喚`);
       return false;
     }
     let zones = card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
     if (opts.zones) zones = zones.filter((z) => opts.zones!.includes(z));
     if (!zones.length) return false;
+    const fromLoc = card.location;
     const ok = this.moveTo(card, 'mzone', {
       zone: zones[0],
       reason: 'summon',
@@ -1085,7 +1092,7 @@ export class Duel {
       p,
     );
     if (!opts.faceDown) {
-      const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType, by: opts.by };
+      const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType, by: opts.by, from: fromLoc };
       this.raise(ev);
       if (this.resolvingChain) this.summonEventsDuringResolution.push(ev);
     }
@@ -1435,6 +1442,9 @@ export class Duel {
     // 「對方不能對應這個效果的發動把卡的效果發動」
     const topLink = this.chainTop;
     if (topLink && topLink.player !== p && topLink.ctx.data.noResponse) return out;
+    // 古代的機械要塞：對方不能對應「古代的機械」卡的效果的發動
+    if (topLink && topLink.player !== p && [...this.activeContinuous()].some(({ card: src, effect }) => effect.query?.(this, src, 'noOppResponse', topLink.card, topLink.player)))
+      return out;
     const isMainOpen =
       !win && this.turnPlayer === p && (this.phase === 'main1' || this.phase === 'main2') && !this.chain.length && !this.battle;
     const top = this.chainTop;
@@ -1505,6 +1515,9 @@ export class Duel {
     // 古代的機械巨人攻擊時，對方不能發動魔法・陷阱
     const b = this.battle;
     if ((isSpell(d) || isTrap(d)) && b && b.attacker.controller !== p && this.has(b.attacker, 'noSTDuringAttack')) return false;
+    if (isMonster(d) && effect.kind !== 'activate' && b && b.attacker.controller !== p && this.has(b.attacker, 'noMonDuringAttack')) return false;
+    // 古代的機械混沌巨人：對方在戰鬥階段中不能發動怪獸的效果
+    if (isMonster(d) && effect.kind !== 'activate' && this.phase === 'battle' && this.playerHas(p, 'noMonEffInBattlePhase')) return false;
     if (effect.kind === 'activate') {
       if (isSpell(d)) {
         const kind = spellKind(d);
@@ -1655,9 +1668,10 @@ export class Duel {
     const fixed = getScript(card.id).tributes;
     if (fixed !== undefined) return fixed;
     const lv = this.getLevel(card);
-    if (lv >= 7) return 2;
-    if (lv >= 5) return 1;
-    return 0;
+    const n = lv >= 7 ? 2 : lv >= 5 ? 1 : 0;
+    // 齒車街：「古代的機械」怪獸召喚需要的解放減少 1 隻
+    if (n > 0 && this.has(card, 'tributeMinus1')) return n - 1;
+    return n;
   }
 
   tributable(p: PlayerId): Card[] {
@@ -1668,8 +1682,11 @@ export class Duel {
 
   /** 可以不用解放召喚（怒怒怒戰士、銀河騎士） */
   canSummonWithoutTribute(card: Card): boolean {
+    if (this.tributesNeeded(card) <= 0) return false;
+    // 古代的進軍：這回合召喚需要的解放可以不用
+    if (this.p(card.owner).noTributeRules.some((f) => f(card))) return true;
     const nt = getScript(card.id).noTribute;
-    return !!nt && this.tributesNeeded(card) > 0 && nt.condition(this, card);
+    return !!nt && nt.condition(this, card);
   }
 
   /** 召喚限制下能不能召喚這張卡 */
@@ -1744,7 +1761,7 @@ export class Duel {
       if (isMonster(card.data)) {
         if (this.canNormalSummon(p, card)) {
           actions.push({ type: 'summon', card });
-          actions.push({ type: 'set', card });
+          if (!ps.turnFlags.noSet) actions.push({ type: 'set', card });
         }
         const sp = getScript(card.id).spSummon;
         if (
@@ -1758,7 +1775,7 @@ export class Duel {
         )
           actions.push({ type: 'spSummon', card });
       } else if (spellKind(card.data) !== 'field' || isTrap(card.data)) {
-        if (this.freeSZones(p) > 0) actions.push({ type: 'setST', card });
+        if (this.freeSZones(p) > 0 && !ps.turnFlags.noSet) actions.push({ type: 'setST', card });
       }
     }
     // 墓地用規則特殊召喚的怪獸（火山帝皇）
@@ -1811,6 +1828,7 @@ export class Duel {
       case 'summon':
         return this.doNormalSummon(p, a.card, false);
       case 'set':
+        this.p(p).turnFlags.didSet = true;
         return this.doNormalSummon(p, a.card, true);
       case 'flipSummon':
         return this.doFlipSummon(p, a.card);
@@ -1824,6 +1842,7 @@ export class Duel {
       }
       case 'setST': {
         const c = a.card;
+        this.p(p).turnFlags.didSet = true;
         this.moveTo(c, 'szone', { reason: 'rule', player: p, faceUp: false });
         this.log(`${this.p(p).name} 蓋放 1 張魔法・陷阱卡`, p);
         await this.pause(250);
@@ -1923,6 +1942,7 @@ export class Duel {
     }
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk' });
     card.summonType = need > 0 ? 'tribute' : 'normal';
+    card.summonMaterials = tributes;
     if (usedOptional) this.setFlag(card, `tributed${need}`, true);
     if (noTribute) {
       this.setFlag(card, 'noTributeSummon', true);
@@ -1946,6 +1966,30 @@ export class Duel {
     } else await this.settle({ kind: 'summon', event: ev });
   }
 
+  /** 效果處理中進行通常召喚（古代的機械司令：「進行 1 隻『古代的機械』怪獸的召喚」），不消耗通常召喚次數 */
+  async normalSummonByEffect(p: PlayerId, card: Card): Promise<boolean> {
+    if (card.location !== 'hand' || !this.summonAllowed(p, card, 'normal')) return false;
+    let need = this.tributesNeeded(card);
+    if (need > 0 && this.canSummonWithoutTribute(card) && this.freeMZones(p) > 0) need = 0;
+    let tributes: Card[] = [];
+    if (need > 0) {
+      if (this.tributable(p).length < need) return false;
+      tributes = await this.select({ player: p, title: `選擇 ${need} 隻要解放的怪獸`, cards: this.tributable(p), min: need, max: need, hint: 'cost' });
+      if (tributes.length < need) return false;
+      for (const t of tributes) this.moveTo(t, 'grave', { reason: 'tribute' });
+      this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
+    } else if (this.freeMZones(p) <= 0) return false;
+    if (!this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: 'atk' })) return false;
+    card.summonType = need > 0 ? 'tribute' : 'normal';
+    card.summonMaterials = tributes;
+    this.p(p).turnFlags.summoned = true;
+    this.log(`${this.p(p).name} ${need > 0 ? '上級召喚' : '召喚'}「${card.name}」`, p);
+    const ev: GameEvent = { type: 'summoned', card, cards: [card], player: p, summonType: card.summonType };
+    this.raise(ev);
+    if (this.resolvingChain) this.summonEventsDuringResolution.push(ev);
+    return true;
+  }
+
   private async doFlipSummon(p: PlayerId, card: Card) {
     card.faceUp = true;
     card.position = 'atk';
@@ -1967,7 +2011,7 @@ export class Duel {
   private async doProcedureSummon(p: PlayerId, card: Card) {
     const sp = getScript(card.id).spSummon!;
     if (sp.cost) await sp.cost(this, card);
-    const pos = await this.choosePosition(p, card);
+    const pos = sp.position ?? (await this.choosePosition(p, card));
     const target = sp.toOpponent ? other(p) : p;
     const zones = sp.zones ? sp.zones(this, card) : card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(target);
     if (!zones.length) return;
@@ -1990,24 +2034,40 @@ export class Duel {
     await this.settle({ kind: 'summon', event: ev });
   }
 
-  /** 列出所有合法的同步素材組合 */
-  synchroMaterialSets(p: PlayerId, synchro: Card): Card[][] {
+  /** 作為同步素材時可以當作的等級 */
+  private synchroLevels(m: Card, synchro: Card): number[] {
+    const alt = getScript(m.id).synchroLevel;
+    if (alt && !this.isNegated(m)) return alt(this, m, synchro);
+    return [this.getLevel(m)];
+  }
+
+  /** 列出所有合法的同步素材組合（include：必須包含的怪獸） */
+  synchroMaterialSets(p: PlayerId, synchro: Card, include?: Card): Card[][] {
     const script = getScript(synchro.id);
     const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data));
     const level = synchro.data.level;
+    const tunerCount = script.synchro?.tuners ?? 1;
     const out: Card[][] = [];
     const n = mons.length;
     for (let mask = 1; mask < 1 << n; mask++) {
       const set = mons.filter((_, i) => mask & (1 << i));
       if (set.length < 2) continue;
+      if (include && !set.includes(include)) continue;
+      // 調整剛好是指定的數量，其餘是調整以外的怪獸
       const tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
-      if (tuners.length !== 1) continue;
-      const tuner = tuners[0];
-      const nonTuners = set.filter((c) => c !== tuner);
+      if (tuners.length !== tunerCount) continue;
+      const nonTuners = set.filter((c) => !tuners.includes(c));
       if (nonTuners.length < (script.synchro?.nonTunerMin ?? 1)) continue;
-      if (set.reduce((s, c) => s + this.getLevel(c), 0) !== level) continue;
-      if (script.synchro?.tuner && !script.synchro.tuner(tuner, this)) continue;
+      if (nonTuners.length > (script.synchro?.nonTunerMax ?? Infinity)) continue;
+      if (script.synchro?.tuner && !tuners.every((t) => script.synchro!.tuner!(t, this))) continue;
       if (script.synchro?.nonTuner && !nonTuners.every((c) => script.synchro!.nonTuner!(c, this))) continue;
+      let sums = new Set([0]);
+      for (const c of set) {
+        const next = new Set<number>();
+        for (const v of sums) for (const l of this.synchroLevels(c, synchro)) if (v + l <= level) next.add(v + l);
+        sums = next;
+      }
+      if (!sums.has(level)) continue;
       if (!set.every((m) => getScript(m.id).synchroMaterialRestriction?.(synchro.data, set.filter((x) => x !== m), this) ?? true))
         continue;
       if (!this.extraZones(p, synchro, set).length) continue;
@@ -2116,6 +2176,7 @@ export class Duel {
       if (src) this.p(p).usedNames[`${src.id}:sameNameLink`] = this.turn;
     }
     this.lastLinkMaterials = mats;
+    this.lastSynchroMaterials = [];
     this.lastLinkSummon = card;
     const reincarnated = mats.some((m) => m.id === card.id);
     for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
@@ -2186,10 +2247,9 @@ export class Duel {
     await this.settle({ kind: 'summon', event: ev });
   }
 
-  private async doSynchroSummon(p: PlayerId, card: Card) {
-    const sets = this.synchroMaterialSets(p, card);
-    if (!sets.length) return;
+  private async pickSynchroMaterials(p: PlayerId, card: Card, sets: Card[][]): Promise<Card[] | null> {
     const pool = [...new Set(sets.flat())];
+    const same = (s: Card[], sel: Card[]) => s.length === sel.length && s.every((c) => sel.includes(c));
     const mats = await this.select({
       player: p,
       title: `選擇「${card.name}」的同步素材（等級合計 ${card.data.level}）`,
@@ -2197,11 +2257,19 @@ export class Duel {
       min: 2,
       max: pool.length,
       hint: 'cost',
-      validate: (sel) => sets.some((s) => s.length === sel.length && s.every((c) => sel.includes(c))),
+      validate: (sel) => sets.some((s) => same(s, sel)),
     });
-    if (!sets.some((s) => s.length === mats.length && s.every((c) => mats.includes(c)))) return;
+    return sets.some((s) => same(s, mats)) ? mats : null;
+  }
+
+  private async doSynchroSummon(p: PlayerId, card: Card) {
+    const sets = this.synchroMaterialSets(p, card);
+    if (!sets.length) return;
+    const mats = await this.pickSynchroMaterials(p, card, sets);
+    if (!mats) return;
     this.lastSynchroMaterials = mats;
     this.lastSynchroSummon = card;
+    card.summonMaterials = mats;
     for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     const pos = await this.choosePosition(p, card);
@@ -2210,7 +2278,35 @@ export class Duel {
     this.p(p).turnFlags.summoned = true;
     this.log(`同步召喚「${card.name}」！`, p);
     await this.pause(500);
+    for (const m of mats) getScript(m.id).asSynchroMaterial?.(this, card, m);
     await this.finishProcedureSummon(p, card, 'synchro');
+  }
+
+  /** 可以用效果同步召喚的同步怪獸（include：必須包含的素材） */
+  synchroCandidates(p: PlayerId, include?: Card): Card[] {
+    if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return [];
+    return this.p(p).extra.filter(
+      (c) => c.data.type & 0x2000 && this.summonAllowed(p, c, 'special') && this.synchroMaterialSets(p, c, include).length > 0,
+    );
+  }
+
+  /** 用效果進行同步召喚（方程式同調士等）：在效果處理中使用 */
+  async synchroSummonByEffect(p: PlayerId, card: Card, include?: Card): Promise<boolean> {
+    const sets = this.synchroMaterialSets(p, card, include);
+    if (!sets.length) return false;
+    const mats = await this.pickSynchroMaterials(p, card, sets);
+    if (!mats) return false;
+    this.lastSynchroMaterials = mats;
+    this.lastSynchroSummon = card;
+    card.summonMaterials = mats;
+    for (const m of mats) this.moveTo(m, 'grave', { reason: 'material' });
+    this.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
+    if (!this.specialSummon(card, p, { summonType: 'synchro', position: 'atk' })) {
+      card.summonMaterials = [];
+      return false;
+    }
+    for (const m of mats) getScript(m.id).asSynchroMaterial?.(this, card, m);
+    return true;
   }
 
   private async doXyzSummon(p: PlayerId, card: Card) {
@@ -2391,7 +2487,8 @@ export class Duel {
 
   canAttack(c: Card): boolean {
     if (c.location !== 'mzone' || !c.faceUp || c.position !== 'atk') return false;
-    if (c.attacks >= 1 + c.extraAttacks + (this.has(c, 'doubleAttack') ? 1 : 0)) return false;
+    const more = this.isNegated(c) ? 0 : getScript(c.id).extraAttackCount?.(this, c) ?? 0;
+    if (c.attacks >= 1 + c.extraAttacks + more + (this.has(c, 'doubleAttack') ? 1 : 0)) return false;
     if (this.has(c, 'cannotAttack')) return false;
     return true;
   }
@@ -2690,6 +2787,7 @@ export class Duel {
     for (const pl of this.players) {
       pl.turnFlags = {};
       pl.summonLocks = [];
+      pl.noTributeRules = [];
       pl.summonedThisTurn = [];
       pl.activationLocks = [];
     }

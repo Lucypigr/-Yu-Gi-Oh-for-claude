@@ -1216,3 +1216,104 @@
 21420702  # Tri-Blaze Accelerator
 69537999  # Blaze Accelerator
 52198054  # Blaze Accelerator Reload
+# ---- GX 古代的機械（第十四彈）----
+95735217  # Ancient Gear Golem - Ultimate Pound
+64603182  # Ancient Gear Dark Golem
+1278431  # Ancient Gear Frame
+32762201  # Ancient Gear Statue
+27483935  # Ancient Gear Commander
+91098230  # Ancient Gear Tanker
+17663375  # Ancient Gear Wyvern
+75892194  # Ancient Gear Dragon
+42878636  # Ancient Gear Hunting Hound
+60953949  # Ancient Gear Box
+56094445  # Ancient Gear Soldier
+10509340  # Ancient Gear Beast
+31557782  # Ancient Gear
+50933533  # Ancient Gear Gadjiltron Dragon
+44874522  # Ancient Gear Reactor Dragon
+41172955  # Green Gadget
+86445415  # Red Gadget
+13839120  # Yellow Gadget
+12652643  # Ultimate Ancient Gear Golem
+51788412  # Chaos Ancient Gear Giant
+37663536  # Ancient Gear Megaton Golem
+87182127  # Ancient Gear Howitzer
+10547580  # Ancient Gear Ballista
+64061284  # Ancient Gear Fusion
+37694547  # Geartown
+59811955  # Ancient Gear Workshop
+4064925  # Ancient Gear Advance
+44052074  # Ancient Gear Catapult
+47482043  # Ancient Gear Reborn
+53541822  # Ancient Gear Duel
+70147689  # Ancient Gear Fortress
+37457534  # Ancient Gear Tank
+# ---- 5D's 紅蓮魔龍・共鳴者（第十四彈）----
+40975574  # Red Resonator
+5780210  # Creation Resonator
+13708425  # Flare Resonator
+13764881  # Chain Resonator
+34761841  # Crimson Resonator
+14886469  # Red Sprinter
+72318602  # Red Gardna
+66141736  # Red Rising Dragon
+76547525  # Red Wyvern
+80666118  # Scarlight Red Dragon Archfiend
+39765958  # Hot Red Dragon Archfiend
+16172067  # Tyrant Red Dragon Archfiend
+97489701  # Red Nova Dragon
+77336644  # Red Dragon Archfiend/Assault Mode
+80280737  # Assault Mode Activate
+23008320  # Resonator Call
+87614611  # Red Dragon Vase
+# ---- 5D's 黑薔薇龍・薔薇（第十四彈）----
+17720747  # Witch of the Black Rose
+2986553  # Twilight Rose Knight
+29107423  # Ruddy Rose Witch
+12213463  # White Rose Dragon
+26118970  # Red Rose Dragon
+98884569  # Blue Rose Dragon
+12469386  # Revival Rose
+49674183  # Fallen Angel of Roses
+41160533  # Rose Tentacles
+40320754  # Lord Poison
+89252157  # Rose Lover
+53325667  # Garden Rose Maiden
+33698022  # Black Rose Moonlight Dragon
+4290468  # Splendid Rose
+40139997  # Ruddy Rose Dragon
+72218246  # Crossrose Dragon
+45247637  # Mark of the Rose
+69053263  # Black Rose Garden
+71645242  # Black Garden
+80196387  # Rose Bell of Revelation
+53503015  # Frozen Rose
+69167267  # Basal Rose Shoot
+# ---- 5D's 動力工具龍・廢品（第十四彈）----
+2403771  # Power Tool Dragon
+25165047  # Life Stream Dragon
+53855409  # Doppelwarrior
+78922939  # Junk Servant
+11069680  # Junk Converter
+56410040  # Junk Forward
+59771339  # Junk Berserker
+37993923  # Junk Gardna
+74860293  # Junk Destroyer
+77075360  # Junk Speeder
+96182448  # Nitro Synchron
+18013090  # Nitro Warrior
+67270095  # Turbo Synchron
+46195773  # Turbo Warrior
+71971554  # Road Synchron
+2322421  # Road Warrior
+57421866  # Level Eater
+92676637  # Tuningware
+40348946  # Hyper Synchron
+50091196  # Formula Synchron
+24696097  # Shooting Star Dragon
+61257789  # Stardust Dragon/Assault Mode
+63730624  # Double Tool C&D
+63851864  # Break! Draw!
+79068663  # Junk Barrage
+1003840  # Starlight Junktion

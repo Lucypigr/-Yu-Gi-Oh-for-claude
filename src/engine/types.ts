@@ -125,6 +125,11 @@ export type Query =
   | 'forceDefense' // 強制變成守備表示
   | 'cannotSpecialSummon' // 玩家不能特殊召喚（全域）
   | 'noSTDuringAttack' // 這張卡攻擊時對方不能發動魔法・陷阱
+  | 'noMonDuringAttack' // 這張卡攻擊時對方不能發動怪獸的效果
+  | 'noMonEffInBattlePhase' // 戰鬥階段中不能發動怪獸的效果（全域，player 為被限制方）
+  | 'untargetableByL6Monsters' // 不會成為 6 星以下的效果怪獸的效果的對象（渦輪戰士）
+  | 'tributeMinus1' // 召喚需要的解放減少 1 隻（齒車街）
+  | 'noOppResponse' // 對方不能對應這張卡的效果的發動（target 為發動的卡，player 為發動者）
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
   | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
   | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
@@ -184,6 +189,8 @@ export interface EffectDef {
   onEvent?: (duel: Duel, self: Card, ev: GameEvent) => void;
   statMod?: (duel: Duel, self: Card, target: Card) => { atk?: number; def?: number } | null | undefined;
   query?: (duel: Duel, self: Card, q: Query, target: Card | null, player: PlayerId | null) => boolean;
+  /** 永續效果：target 不受 source 的效果影響（古代的機械競鬥：不受對方發動的怪獸效果影響） */
+  immune?: (duel: Duel, self: Card, target: Card, source: Card) => boolean;
   /** 永續效果在哪些位置有效（預設：怪獸在怪獸區表側、魔陷在魔陷/場地區表側） */
   activeIn?: Loc[];
   // ---- AI ----
@@ -202,7 +209,15 @@ export interface CardScript {
     nonTuner?: (c: Card, duel: Duel) => boolean;
     /** 調整以外的怪獸最少幾隻（預設 1） */
     nonTunerMin?: number;
+    /** 調整以外的怪獸最多幾隻 */
+    nonTunerMax?: number;
+    /** 調整的數量（預設 1；「調整 2 隻＋…」） */
+    tuners?: number;
   };
+  /** 作為同步素材時可以當作的等級（王道同調士、調和支援士） */
+  synchroLevel?: (duel: Duel, self: Card, synchro: Card) => number[];
+  /** 同 1 次戰鬥階段可以追加的攻擊次數（古代的機械超巨人等） */
+  extraAttackCount?: (duel: Duel, self: Card) => number;
   /** 表側表示從場上離開時除外 */
   banishOnLeave?: boolean;
   /** 連結素材 */
@@ -250,6 +265,8 @@ export interface CardScript {
   graveSubstitute?: (duel: Duel, self: Card, destroyed: Card, reason: Reason) => boolean;
   /** 「自己對這張卡 1 回合只能有 1 次特殊召喚」 */
   ssOncePerTurn?: boolean;
+  /** 「這張卡不能特殊召喚」（無視召喚條件時除外） */
+  neverSpecialSummon?: boolean;
   /** 不能特殊召喚（無視召喚條件時除外） */
   cannotSpecialSummon?: (duel: Duel, card: Card) => boolean;
   /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
@@ -258,6 +275,10 @@ export interface CardScript {
   destroySubstitute?: (duel: Duel, self: Card, reason: Reason) => Card[];
   /** 控制者受到效果傷害時的代替處理，回傳 true 表示不受到傷害（黑翼龍） */
   replaceEffectDamage?: (duel: Duel, self: Card, amount: number) => boolean;
+  /** 作為同步素材時，對同步怪獸的處理（火焰共鳴者、高超同調士） */
+  asSynchroMaterial?: (duel: Duel, synchro: Card, self: Card) => void;
+  /** 這張卡被破壞時的代替處理（動力工具龍：把裝備魔法送去墓地），回傳是否代替 */
+  selfSubstitute?: (duel: Duel, self: Card, reason: Reason) => boolean;
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
   asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
   /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */
@@ -273,6 +294,8 @@ export interface CardScript {
     fromGrave?: boolean;
     /** 在對方場上特殊召喚（火山女王） */
     toOpponent?: boolean;
+    /** 只能用這個表示形式特殊召喚（古代的齒車：攻擊表示） */
+    position?: Position;
   };
   /** 只能用指定方式特殊召喚（例如：只能融合召喚） */
   spSummonOnly?: SummonType[];

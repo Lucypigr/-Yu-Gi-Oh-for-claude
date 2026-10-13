@@ -316,7 +316,8 @@ def(97204936, {});
 
 // 廢品戰士
 def(60800381, {
-  synchro: { tuner: (c) => c.id === 63977008 },
+  // 速攻同調士可以代替「同調士」調整
+  synchro: { tuner: (c) => c.id === 63977008 || c.id === 20932152 },
   effects: [
     {
       kind: 'trigger',
