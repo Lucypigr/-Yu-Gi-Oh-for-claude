@@ -650,6 +650,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.sacredbeasts,
   },
   {
+    id: 'chaosritual',
+    name: '超戰士的劍鬥士',
+    title: '開闢與宵暗的繼承者',
+    avatar: '⚔️',
+    desc: '開闢之騎士與宵暗之騎士化為儀式的祭品，超戰士 混沌戰士帶著騎士的力量除外你的怪獸與手牌！',
+    level: 4,
+    reward: 480,
+    randomness: 0.05,
+    requires: 'dracotail',
+    deck: OPPONENT_DECKS.chaosritual,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

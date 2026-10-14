@@ -65,5 +65,6 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'elfnote', name: '耀聖', match: (d) => d.nameEn.includes('Elfnote') || d.id === 10266279 || d.id === 37279096 },
   { id: 'power-patron', name: '獄神・無垢大藝術', match: (d) => /Power Patron|Ars Magna|Medius|Theorealiz/.test(d.nameEn) },
   { id: 'sacred-beasts', name: '三幻魔', match: (d) => d.name.includes('三幻魔') || [6007213, 32491822, 69890967, 43378048, 60110982].includes(d.id) },
+  { id: 'super-soldier', name: '超戰士', match: (d) => d.name.includes('混沌戰士') || [6628343, 32013448, 79234734, 14094090, 40089744, 73694478, 799183, 38695361, 45948430, 32360466, 33599853, 53871273, 99266988, 7841921].includes(d.id) },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

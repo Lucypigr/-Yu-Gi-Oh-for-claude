@@ -28,6 +28,7 @@ import './mitsudraco';
 import './elfnote';
 import './staples2';
 import './sacredbeasts';
+import './chaos';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
