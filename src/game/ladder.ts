@@ -382,6 +382,7 @@ const THEME_NAMES: Record<string, string> = {
   elfnote: '耀聖',
   sacredbeasts: '三幻魔',
   chaosritual: '超戰士',
+  kewltune: '殺手級調整曲',
 };
 
 function themeDecks(): ThemeDeck[] {

@@ -183,6 +183,7 @@ export class Duel {
   /** 直到回合結束時有效、不依附在場上卡片的效果（例如：自己的○○怪獸不會被戰鬥破壞） */
   /** 正在作為融合召喚的素材移動的卡（「成為融合召喚的素材送去墓地的場合」用） */
   private fusionMoving: Set<Card> | null = null;
+  private synchroMoving: Set<Card> | null = null;
   /** 同時送去墓地的怪獸（「怪獸 2 隻以上同時被送去墓地的場合」用） */
   private graveBatchDepth = 0;
   private graveBatchCards: Card[] = [];
@@ -692,7 +693,13 @@ export class Duel {
   getLevel(c: Card): number {
     if (isLink(c.data)) return 0;
     let lv = c.data.level;
-    if (c.location === 'mzone' && c.faceUp) for (const m of c.mods) lv += m.level ?? 0;
+    if (c.location === 'mzone' && c.faceUp) {
+      for (const m of c.mods) lv += m.level ?? 0;
+      for (const { card: src, effect } of this.activeContinuous()) {
+        if (!effect.levelMod || this.isImmune(c, src)) continue;
+        lv += effect.levelMod(this, src, c);
+      }
+    }
     // 捕食指示物：2 星以上的怪獸等級變成 1 星
     if (c.location === 'mzone' && this.hasFlag(c, 'predator') && lv >= 2 && !isXyz(c.data)) return 1;
     return Math.max(1, lv);
@@ -907,6 +914,7 @@ export class Duel {
 
     const base: GameEvent = { type: 'toGrave', card, from, fromZone, reason: opts.reason, by: opts.by, prevController, wasFaceUp };
     if (opts.reason === 'material' && this.fusionMoving?.has(card)) base.asFusion = true;
+    if (opts.reason === 'material' && this.synchroMoving?.has(card)) base.asSynchro = true;
     // 「這個回合有融合怪獸被送去自己墓地的場合」
     if (to === 'grave' && isMonster(card.data) && (card.data.type & TYPE.FUSION) !== 0) this.p(card.owner).turnFlags.fusionToGrave = true;
     if (to === 'grave' && this.graveBatchDepth > 0 && isMonster(card.data)) this.graveBatchCards.push(card);
@@ -2034,10 +2042,15 @@ export class Duel {
     return !!this.p(p).turnFlags.normalSummonDone;
   }
 
+  /** 「在通常召喚外加上只有 1 次」的召喚還可以使用（點唱機酒吧「殺手級調整曲」） */
+  extraSummonAvailable(p: PlayerId, card: Card): boolean {
+    return !this.p(p).turnFlags.extraSummonUsed && this.has(card, 'extraNormalSummon');
+  }
+
   canNormalSummon(p: PlayerId, card: Card): boolean {
     const ps = this.p(p);
     if (card.location !== 'hand' || !isMonster(card.data) || cannotNormalSummon(card.data)) return false;
-    if (ps.normalSummons <= 0 || ps.turnFlags.noSummon) return false;
+    if ((ps.normalSummons <= 0 && !this.extraSummonAvailable(p, card)) || ps.turnFlags.noSummon) return false;
     if (!this.summonAllowed(p, card, 'normal')) return false;
     const need = this.tributesNeeded(card);
     if (need === 0 || this.canSummonWithoutTribute(card)) return this.freeMZones(p) > 0 || this.tributable(p, true).length >= need;
@@ -2234,7 +2247,8 @@ export class Duel {
       this.summonTributing = false;
       this.log(`解放 ${tributes.map((t) => `「${t.name}」`).join('、')}`, p);
     }
-    ps.normalSummons--;
+    if (this.extraSummonAvailable(p, card)) ps.turnFlags.extraSummonUsed = true;
+    else ps.normalSummons--;
     ps.turnFlags.normalSummonDone = true;
     if (set) {
       this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: false, position: 'def' });
@@ -2350,7 +2364,11 @@ export class Duel {
   /** 列出所有合法的同步素材組合（include：必須包含的怪獸） */
   synchroMaterialSets(p: PlayerId, synchro: Card, include?: Card): Card[][] {
     const script = getScript(synchro.id);
-    const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data) && this.canBeMaterial(c));
+    const field = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data) && this.canBeMaterial(c));
+    const handTunerSrc = (c: Card) => !!getScript(c.id).handTunerMaterial && !this.isNegated(c);
+    // 殺手級調整曲：場上的這張卡為素材的場合，手牌 1 隻調整也能作為同步素材
+    const hand = field.some(handTunerSrc) ? this.p(p).hand.filter((c) => isMonster(c.data) && isTuner(c.data) && c.data.level > 0) : [];
+    const mons = [...field, ...hand];
     const level = synchro.data.level;
     const tunerCount = script.synchro?.tuners ?? 1;
     const out: Card[][] = [];
@@ -2359,6 +2377,11 @@ export class Duel {
       const set = mons.filter((_, i) => mask & (1 << i));
       if (set.length < 2) continue;
       if (include && !set.includes(include)) continue;
+      const fromHand = set.filter((c) => c.location === 'hand');
+      if (fromHand.length > 1 || (fromHand.length && !set.some((c) => c.location === 'mzone' && handTunerSrc(c)))) continue;
+      if (script.synchro?.custom) {
+        if (!script.synchro.custom(set, this)) continue;
+      } else {
       // 調整剛好是指定的數量，其餘是調整以外的怪獸
       let tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
       // 調狱神 朱諾拉：可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用
@@ -2366,12 +2389,16 @@ export class Duel {
         const center = set.find((c) => c.controller === p && c.zone === 2 && !tuners.includes(c));
         if (center) tuners = [...tuners, center];
       }
+      // 鎖縛龍 鎖鐮：可以當作調整以外的怪獸使用
+      for (const z of tuners.filter((c) => c.location === 'mzone' && getScript(c.id).synchroAsNonTuner && !this.isNegated(c)))
+        if (tuners.length > tunerCount) tuners = tuners.filter((c) => c !== z);
       if (tuners.length !== tunerCount) continue;
       const nonTuners = set.filter((c) => !tuners.includes(c));
       if (nonTuners.length < (script.synchro?.nonTunerMin ?? 1)) continue;
       if (nonTuners.length > (script.synchro?.nonTunerMax ?? Infinity)) continue;
       if (script.synchro?.tuner && !tuners.every((t) => script.synchro!.tuner!(t, this))) continue;
       if (script.synchro?.nonTuner && !nonTuners.every((c) => script.synchro!.nonTuner!(c, this))) continue;
+      }
       let sums = new Set([0]);
       for (const c of set) {
         const next = new Set<number>();
@@ -2584,7 +2611,12 @@ export class Duel {
     this.lastSynchroMaterials = mats;
     this.lastSynchroSummon = card;
     card.summonMaterials = mats;
-    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
+    this.synchroMoving = new Set(mats);
+    try {
+      this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
+    } finally {
+      this.synchroMoving = null;
+    }
     this.log(`${this.p(p).name} 以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     const pos = await this.choosePosition(p, card);
     this.moveTo(card, 'mzone', { reason: 'summon', player: p, faceUp: true, position: pos, zone: this.extraZones(p, card)[0] });
@@ -2613,7 +2645,12 @@ export class Duel {
     this.lastSynchroMaterials = mats;
     this.lastSynchroSummon = card;
     card.summonMaterials = mats;
-    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
+    this.synchroMoving = new Set(mats);
+    try {
+      this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
+    } finally {
+      this.synchroMoving = null;
+    }
     this.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 同步召喚`, p);
     if (!this.specialSummon(card, p, { summonType: 'synchro', position: 'atk' })) {
       card.summonMaterials = [];

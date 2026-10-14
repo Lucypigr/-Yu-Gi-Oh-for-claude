@@ -87,6 +87,8 @@ export interface GameEvent {
   link?: ChainLink;
   /** 作為融合召喚的素材移動 */
   asFusion?: boolean;
+  /** 作為同步素材 */
+  asSynchro?: boolean;
 }
 
 // ---- 效果 ----
@@ -141,6 +143,7 @@ export type Query =
   | 'cannotActivateSpells' // 不能發動魔法卡（全域，player 為被限制方）
   | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
   | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
+  | 'extraNormalSummon' // 在通常召喚外加上只有 1 次可以召喚（target 為要召喚的手牌怪獸）
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
   | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象
@@ -206,6 +209,8 @@ export interface EffectDef {
   /** 永續效果：每次發生事件時處理（「每次…給予對方 200 傷害」，不用發動） */
   onEvent?: (duel: Duel, self: Card, ev: GameEvent) => void;
   statMod?: (duel: Duel, self: Card, target: Card) => { atk?: number; def?: number } | null | undefined;
+  /** 永續效果：等級增減（殺手級調整曲 B2B：對方場上的怪獸等級上升 2 星） */
+  levelMod?: (duel: Duel, self: Card, target: Card) => number;
   query?: (duel: Duel, self: Card, q: Query, target: Card | null, player: PlayerId | null) => boolean;
   /** 永續效果：target 不受 source 的效果影響（古代的機械競鬥：不受對方發動的怪獸效果影響） */
   immune?: (duel: Duel, self: Card, target: Card, source: Card) => boolean;
@@ -243,7 +248,13 @@ export interface CardScript {
     tuners?: number;
     /** 可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用 */
     centerAsTuner?: boolean;
+    /** 自訂素材條件（取代調整／調整以外的分配；「調整＋調整 1 隻以上」等） */
+    custom?: (set: Card[], duel: Duel) => boolean;
   };
+  /** 把自己場上的這張卡作為同步素材的場合，可以當作調整以外的怪獸使用（鎖縛龍 鎖鐮） */
+  synchroAsNonTuner?: boolean;
+  /** 場上的這張卡為素材作同步召喚的場合，手牌 1 隻調整也能作為同步素材（殺手級調整曲） */
+  handTunerMaterial?: boolean;
   /** 作為同步素材時可以當作的等級（王道同調士、調和支援士） */
   synchroLevel?: (duel: Duel, self: Card, synchro: Card) => number[];
   /** 抽卡階段的抽卡前：代替通常抽卡（傳說的劍鬥士 混沌戰士） */

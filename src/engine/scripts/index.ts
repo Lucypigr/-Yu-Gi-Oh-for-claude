@@ -29,6 +29,7 @@ import './elfnote';
 import './staples2';
 import './sacredbeasts';
 import './chaos';
+import './kewltune';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
