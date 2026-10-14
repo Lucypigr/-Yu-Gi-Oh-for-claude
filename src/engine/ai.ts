@@ -76,10 +76,10 @@ export class AIController implements Controller {
           break;
         }
         case 'summon':
-          s = summonDone ? 0 : this.scoreSummon(duel, p, a.card, oppMax, false);
+          s = summonDone && !duel.extraSummonAvailable(p, a.card) ? 0 : this.scoreSummon(duel, p, a.card, oppMax, false);
           break;
         case 'set':
-          s = summonDone ? 0 : this.scoreSummon(duel, p, a.card, oppMax, true);
+          s = summonDone && !duel.extraSummonAvailable(p, a.card) ? 0 : this.scoreSummon(duel, p, a.card, oppMax, true);
           break;
         case 'spSummon':
           s = getScript(a.card.id).spSummon?.ai?.(duel, a.card) ?? 65 + a.card.data.atk / 100;
@@ -199,6 +199,9 @@ export class AIController implements Controller {
     }
     const flip = isFlip(card.data);
     const hasSummonTrigger = getScript(card.id).effects?.some((e) => e.kind === 'trigger' && e.event === 'summoned');
+    // 手牌陷阱（從手牌發動的誘發即時效果）留在手牌比召喚更有價值
+    const handTrap = getScript(card.id).effects?.some((e) => e.kind === 'quick' && e.range?.includes('hand'));
+    if (handTrap && !hasSummonTrigger && need === 0 && atk < 1500) return 0;
     const strongEnough = atk >= oppMax || duel.monsters(other(p)).length === 0;
     const base = 40 + atk / 100 + need * 10;
     if (set) {

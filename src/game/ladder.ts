@@ -383,6 +383,8 @@ const THEME_NAMES: Record<string, string> = {
   sacredbeasts: '三幻魔',
   chaosritual: '超戰士',
   kewltune: '殺手級調整曲',
+  toon2026: '完美世界 卡通',
+  dmld: '黑魔術師・光與暗',
 };
 
 function themeDecks(): ThemeDeck[] {

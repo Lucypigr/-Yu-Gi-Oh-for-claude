@@ -144,6 +144,8 @@ export type Query =
   | 'doubleBattleDamage' // 給予對方的戰鬥傷害變成 2 倍
   | 'halfBattleDamage' // 給予對方的戰鬥傷害變成一半
   | 'extraNormalSummon' // 在通常召喚外加上只有 1 次可以召喚（target 為要召喚的手牌怪獸）
+  | 'cannotActivateEffect' // 這隻怪獸不能把效果發動（災厄之星 提・豐：攻擊力 3000 以上）
+  | 'oppEffectUnbanishable' // 不能用對方的效果除外
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
   | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象
@@ -253,6 +255,8 @@ export interface CardScript {
   };
   /** 把自己場上的這張卡作為同步素材的場合，可以當作調整以外的怪獸使用（鎖縛龍 鎖鐮） */
   synchroAsNonTuner?: boolean;
+  /** 把自己場上的這張卡作為連結素材的場合，對方場上符合條件的 1 隻怪獸也能作為連結素材（W：P變幻舞夜） */
+  oppLinkMaterialWith?: (c: Card, duel: Duel) => boolean;
   /** 場上的這張卡為素材作同步召喚的場合，手牌 1 隻調整也能作為同步素材（殺手級調整曲） */
   handTunerMaterial?: boolean;
   /** 作為同步素材時可以當作的等級（王道同調士、調和支援士） */
@@ -274,6 +278,10 @@ export interface CardScript {
     filter?: (c: Card, duel: Duel) => boolean;
     /** 整組素材的條件（例如：包含衍生物、卡名不同） */
     validate?: (set: Card[], duel: Duel) => boolean;
+    /** 對方場上符合條件的 1 隻怪獸也能作為連結素材（閉鎖世界的冥神） */
+    oppMaterial?: (c: Card, duel: Duel) => boolean;
+    /** 手牌 1 隻怪獸也能作為連結素材（禪那之追儺儀姬） */
+    handMaterial?: boolean;
   };
   /** 靈擺刻度的變化（星讀・時讀之魔術師） */
   scaleOverride?: (duel: Duel, self: Card) => number | undefined;
@@ -290,7 +298,9 @@ export interface CardScript {
     max?: number;
     filter?: (c: Card) => boolean;
     /** 也可以在符合條件的 1 隻怪獸上面重叠來超量召喚 */
-    over?: (c: Card) => boolean;
+    over?: (c: Card, duel: Duel) => boolean;
+    /** 用重叠的方法超量召喚之後（災厄之星 提・豐：這個回合自己不能召喚・特殊召喚） */
+    onOver?: (duel: Duel, card: Card) => void;
   };
   /** AI 評估召喚這張卡的價值（攻擊力會變動的怪獸用） */
   aiSummonValue?: (duel: Duel, card: Card) => number;
@@ -334,9 +344,17 @@ export interface CardScript {
   replaceEffectDamage?: (duel: Duel, self: Card, amount: number) => boolean;
   /** 作為同步素材時，對同步怪獸的處理（火焰共鳴者、高超同調士） */
   asSynchroMaterial?: (duel: Duel, synchro: Card, self: Card) => void;
+  /** 8 星等儀式怪獸 1 隻儀式召喚的場合，可以由這 1 張卡作為需要的數值的解放使用（栗球獸衛） */
+  ritualFullFor?: (ritual: Card) => boolean;
+  /** 作為連結素材時（I：P百變萊娜：那隻連結怪獸不會被對方的效果破壞） */
+  asLinkMaterial?: (duel: Duel, link: Card, self: Card) => void;
+  /** 自己場上沒有怪獸存在的場合，可以從自己手牌以及對方場上把怪獸解放上級召喚（天下獨步之大義賊） */
+  tributeFromHandAndOpp?: boolean;
   /** 這張卡被破壞時的代替處理（動力工具龍：把裝備魔法送去墓地），回傳是否代替 */
   selfSubstitute?: (duel: Duel, self: Card, reason: Reason) => SubstituteApply;
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
+  /** 連鎖的效果處理之前（完美世界 卡通世界③）；回傳處理後要執行的函式 */
+  beforeResolve?: (duel: Duel, self: Card, link: ChainLink) => Promise<(() => void) | void>;
   /** 連鎖處理時，可以讓那個效果無效（雷火沸動交界機③）；回傳 true 表示無效 */
   resolveNegate?: (duel: Duel, self: Card, link: ChainLink) => Promise<boolean>;
   /** 墓地的這張卡可以除外，作為儀式召喚需要的等級數值的怪獸之內的 1 隻（球形栗子球） */

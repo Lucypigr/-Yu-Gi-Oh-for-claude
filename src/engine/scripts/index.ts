@@ -30,6 +30,9 @@ import './staples2';
 import './sacredbeasts';
 import './chaos';
 import './kewltune';
+import './staples3';
+import './toon2026';
+import './dmld';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

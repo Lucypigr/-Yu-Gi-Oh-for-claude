@@ -67,5 +67,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'sacred-beasts', name: '三幻魔', match: (d) => d.name.includes('三幻魔') || [6007213, 32491822, 69890967, 43378048, 60110982].includes(d.id) },
   { id: 'super-soldier', name: '超戰士', match: (d) => d.name.includes('混沌戰士') || [6628343, 32013448, 79234734, 14094090, 40089744, 73694478, 799183, 38695361, 45948430, 32360466, 33599853, 53871273, 99266988, 7841921].includes(d.id) },
   { id: 'kewl-tune', name: '殺手級調整曲', match: (d) => d.name.includes('殺手級調整曲') },
+  { id: 'perfect-toon', name: '完美世界 卡通', match: (d) => [45536531, 72921536, 8915275, 34314989, 7293697, 34298391, 71808988].includes(d.id) },
+  { id: 'azamina', name: '薊花・罪寶', match: (d) => [94845588, 73391962, 46396218, 66328392].includes(d.id) },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];
