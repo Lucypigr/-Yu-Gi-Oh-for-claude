@@ -150,6 +150,7 @@ export type Query =
   | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
   | 'immuneOpp' // 不受對方的效果影響
   | 'untargetableByOppExtraMonsters' // 對方不能作為從額外牌組特殊召喚的怪獸的效果的對象
+  | 'noOppEffectsInBattle' // 自己的戰鬥階段中對方不能把效果發動（全域，player 為被限制方）
   | 'monsterGraveBanish' // 被送去這位玩家墓地的怪獸不去墓地而除外（全域，player 為墓地的持有者）
   | 'swapBaseAtkDef' // 原本攻擊力和原本守備力交換（碼麗絲<王后>紅棋勒索）
   | 'banishBattleKills' // 這張卡戰鬥破壞的怪獸不去墓地而除外
@@ -245,6 +246,8 @@ export interface CardScript {
   };
   /** 作為同步素材時可以當作的等級（王道同調士、調和支援士） */
   synchroLevel?: (duel: Duel, self: Card, synchro: Card) => number[];
+  /** 抽卡階段的抽卡前：代替通常抽卡（傳說的劍鬥士 混沌戰士） */
+  replaceDraw?: { condition: (duel: Duel, card: Card) => boolean; apply: (duel: Duel, card: Card) => Promise<void> };
   /** 原本攻擊力（「原本攻擊力變成○○」的條件式效果），undefined 表示照卡片資料 */
   baseAtk?: (duel: Duel, self: Card) => number | undefined;
   /** 同 1 次戰鬥階段可以追加的攻擊次數（古代的機械超巨人等） */
@@ -325,6 +328,10 @@ export interface CardScript {
   /** 作為超量素材時，賦予超量怪獸的效果（超量召喚成功後處理） */
   /** 連鎖處理時，可以讓那個效果無效（雷火沸動交界機③）；回傳 true 表示無效 */
   resolveNegate?: (duel: Duel, self: Card, link: ChainLink) => Promise<boolean>;
+  /** 墓地的這張卡可以除外，作為儀式召喚需要的等級數值的怪獸之內的 1 隻（球形栗子球） */
+  ritualGraveMaterial?: boolean;
+  /** 作為儀式召喚的素材時（開闢之騎士：賦予效果） */
+  asRitualMaterial?: (duel: Duel, ritual: Card, self: Card) => void;
   asXyzMaterial?: (duel: Duel, xyz: Card, self: Card) => Promise<void>;
   /** 可以不用解放召喚的條件，以及這樣召喚時的處理 */
   noTribute?: { condition: (duel: Duel, card: Card) => boolean; apply?: (duel: Duel, card: Card) => void };

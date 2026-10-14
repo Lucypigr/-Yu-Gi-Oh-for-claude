@@ -2516,3 +2516,87 @@ describe('第二十四彈：三幻魔', () => {
     expect(duel.getAtk(uria)).toBe(3000);
   });
 });
+
+describe('第二十五彈：超戰士', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('超戰士的儀式：用開闢之騎士＋宵暗之騎士儀式召喚，超戰士得到騎士的效果', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ss = put(duel, 0, 54484652, 'hand');
+    const k1 = put(duel, 0, 6628343, 'hand');
+    const k2 = put(duel, 0, 32013448, 'hand');
+    const rit = put(duel, 0, 14094090, 'hand');
+    await activateCard(duel, 0, rit);
+    expect(ss.location).toBe('mzone');
+    expect(k1.location).toBe('grave');
+    expect(k2.location).toBe('grave');
+    expect(ss.granted.length).toBe(4);
+  });
+
+  it('超戰士的萌芽：手牌光屬性＋牌組暗屬性送去墓地儀式召喚', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ss = put(duel, 0, 54484652, 'hand');
+    const k1 = put(duel, 0, 6628343, 'hand'); // 光
+    const k2 = put(duel, 0, 32013448, 'deck'); // 暗
+    const syn = put(duel, 0, 45948430, 'hand');
+    await activateCard(duel, 0, syn);
+    expect(ss.location).toBe('mzone');
+    expect(k1.location).toBe('grave');
+    expect(k2.location).toBe('grave');
+  });
+
+  it('球形栗子球：儀式召喚時可以從墓地除外代替解放', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ss = put(duel, 0, 54484652, 'hand');
+    const gaia = put(duel, 0, 7841921, 'hand'); // 7 星
+    const sphere = put(duel, 0, 33245030, 'grave'); // 1 星
+    const rit = put(duel, 0, 14094090, 'hand');
+    await activateCard(duel, 0, rit);
+    expect(ss.location).toBe('mzone');
+    expect(gaia.location).toBe('grave');
+    expect(sphere.location).toBe('banished');
+  });
+
+  it('超戰士 混沌戰士：戰鬥破壞對方怪獸給予原本攻擊力的傷害', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ss = put(duel, 0, 54484652, 'mzone');
+    const foe = put(duel, 1, 46986414, 'mzone'); // 2500
+    await duel.performAttack(ss, foe);
+    await duel.settle();
+    expect(foe.location).toBe('grave');
+    expect(duel.p(1).lp).toBe(8000 - 500 - 2500);
+  });
+
+  it('光與暗之戰士 混沌戰士：不會被戰鬥破壞', () => {
+    const { duel } = setup();
+    const c = put(duel, 0, 70405001, 'mzone');
+    expect(duel.has(c, 'battleIndestructible')).toBe(true);
+  });
+
+  it('傳說的劍鬥士 混沌戰士：自己戰鬥階段中對方不能發動效果', () => {
+    const { duel } = setup();
+    put(duel, 0, 70551291, 'mzone');
+    const imp = put(duel, 1, 10045474, 'szone', { faceUp: false });
+    imp.turnPlaced = 1;
+    duel.phase = 'battle';
+    expect(duel.getActivatable(1).some((a) => a.card === imp)).toBe(false);
+  });
+
+  it('疾走的暗黑騎士 蓋亞：可以不解放召喚，原本攻擊力變成 1900', async () => {
+    const { duel } = setup();
+    const g = put(duel, 0, 7841921, 'hand');
+    const act = duel.getMainActions(0).find((x) => x.type === 'summon' && x.card === g);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(g.location).toBe('mzone');
+    expect(duel.getAtk(g)).toBe(1900);
+  });
+});

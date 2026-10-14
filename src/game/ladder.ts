@@ -381,6 +381,7 @@ const THEME_NAMES: Record<string, string> = {
   dracotail: '星辰',
   elfnote: '耀聖',
   sacredbeasts: '三幻魔',
+  chaosritual: '超戰士',
 };
 
 function themeDecks(): ThemeDeck[] {

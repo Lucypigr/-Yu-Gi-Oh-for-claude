@@ -543,8 +543,9 @@ export class Duel {
   /** 卡片目前的效果：自己的效果，加上暫時得到的其他卡的效果 */
   effectsOf(card: Card): EffectDef[] | undefined {
     const own = getScript(card.id).effects;
-    if (!card.copied || card.location !== 'mzone') return own;
-    return [...(own ?? []), ...(getScript(card.copied.id).effects ?? [])];
+    const granted = card.location === 'mzone' ? card.granted : [];
+    if (!card.copied || card.location !== 'mzone') return granted.length ? [...(own ?? []), ...granted] : own;
+    return [...(own ?? []), ...(getScript(card.copied.id).effects ?? []), ...granted];
   }
 
   /** 目前有效的永續效果 */
@@ -1770,6 +1771,8 @@ export class Duel {
     const b = this.battle;
     if ((isSpell(d) || isTrap(d)) && b && b.attacker.controller !== p && this.has(b.attacker, 'noSTDuringAttack')) return false;
     if (isMonster(d) && effect.kind !== 'activate' && b && b.attacker.controller !== p && this.has(b.attacker, 'noMonDuringAttack')) return false;
+    // 傳說的劍鬥士 混沌戰士：對方的戰鬥階段中不能把效果發動
+    if (this.phase === 'battle' && this.turnPlayer !== p && this.playerHas(p, 'noOppEffectsInBattle')) return false;
     // 古代的機械混沌巨人：對方在戰鬥階段中不能發動怪獸的效果
     if (isMonster(d) && effect.kind !== 'activate' && this.phase === 'battle' && this.playerHas(p, 'noMonEffInBattlePhase')) return false;
     if (effect.kind === 'activate') {
@@ -3180,7 +3183,19 @@ export class Duel {
     // 抽牌階段
     await this.setPhase('draw');
     if (this.turn > 1) {
-      this.draw(tp, 1);
+      // 「作為這個回合進行通常抽卡的代替」（傳說的劍鬥士 混沌戰士）
+      let replaced = false;
+      for (const c of [...ps.hand]) {
+        const r = getScript(c.id).replaceDraw;
+        if (!r || !r.condition(this, c) || this.p(tp).usedNames[`replaceDraw:${c.id}`] === this.turn) continue;
+        if (!(await this.confirm({ player: tp, title: `要把「${c.name}」給對方觀看，代替通常抽卡嗎？`, ai: true }))) continue;
+        this.p(tp).usedNames[`replaceDraw:${c.id}`] = this.turn;
+        this.log(`${ps.name} 給對方觀看「${c.name}」，代替通常抽卡`, tp);
+        await r.apply(this, c);
+        replaced = true;
+        break;
+      }
+      if (!replaced) this.draw(tp, 1);
       await this.pause(300);
     }
     await this.settle({ kind: 'phase' });

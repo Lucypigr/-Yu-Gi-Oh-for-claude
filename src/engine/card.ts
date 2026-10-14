@@ -1,6 +1,6 @@
 // 決鬥中的一張卡（實體）
 import type { CardData } from './cardDb';
-import type { Loc, PlayerId, Position, StatMod, SummonType } from './types';
+import type { EffectDef, Loc, PlayerId, Position, StatMod, SummonType } from './types';
 
 let nextUid = 1;
 
@@ -49,6 +49,8 @@ export class Card {
   trapData: CardData | null = null;
   /** 暫時得到的卡名・效果（凶飢毒融合龍），回合開始時清除 */
   copied: { id: number; name: string } | null = null;
+  /** 被賦予的效果（開闢之騎士：使用這張卡儀式召喚的怪獸得到效果），離場時重置 */
+  granted: EffectDef[] = [];
   /** 這回合攻擊過的怪獸（「向對方怪獸全部各作 1 次攻擊」用） */
   attackedTargets: Card[] = [];
   posChangedTurn = 0;
@@ -99,6 +101,7 @@ export class Card {
     this.extraAttacks = 0;
     this.attackedTargets = [];
     this.copied = null;
+    this.granted = [];
     this.reincarnated = false;
     this.summonMaterials = [];
     this.summonedFrom = null;

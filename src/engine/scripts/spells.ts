@@ -780,7 +780,8 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
     [
       ...ctx.duel.p(ctx.player).hand,
       ...ctx.duel.monsters(ctx.player),
-      ...(opts.graveBanish ? ctx.duel.p(ctx.player).grave.filter(opts.graveBanish) : []),
+      // 混沌形態的除外代替、球形栗子球（墓地的這張卡可以除外作為儀式召喚需要的怪獸）
+      ...ctx.duel.p(ctx.player).grave.filter((c) => opts.graveBanish?.(c) || getScript(c.id).ritualGraveMaterial),
     ].filter((c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0 && !(c.data.type & 0x4000000));
   const canRitual = (ctx: EffectContext) =>
     ritualMons(ctx).some((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level) &&
@@ -801,6 +802,7 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
           const level = ritual.data.level;
           const pool = tributePool(ctx, ritual);
           const valid = (sel: Card[]) =>
+            sel.filter((c) => c.location === 'grave' && getScript(c.id).ritualGraveMaterial && !opts.graveBanish?.(c)).length <= 1 &&
             sum(sel.map((c) => c.data.level)) >= level &&
             // 不能多選不需要的卡
             sel.every((x) => sum(sel.filter((y) => y !== x).map((c) => c.data.level)) < level) &&
@@ -823,7 +825,9 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
           if (fromGrave.length) d.banish(fromGrave, 'cost', ctx.card);
           d.log(`解放 ${sel.map((c) => `「${c.name}」`).join('、')}，儀式召喚！`);
           const pos = await d.choosePosition(ctx.player, ritual);
-          d.specialSummon(ritual, ctx.player, { position: pos, summonType: 'ritual', by: ctx.card });
+          if (!d.specialSummon(ritual, ctx.player, { position: pos, summonType: 'ritual', by: ctx.card })) return;
+          ritual.summonMaterials = sel;
+          for (const m of sel) getScript(m.id).asRitualMaterial?.(d, ritual, m);
         },
         ai: () => 75,
       }),
