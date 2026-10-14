@@ -27,6 +27,7 @@ import './ryzealmaliss';
 import './mitsudraco';
 import './elfnote';
 import './staples2';
+import './sacredbeasts';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

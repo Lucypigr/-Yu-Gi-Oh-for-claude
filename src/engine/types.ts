@@ -150,6 +150,7 @@ export type Query =
   | 'effectIndesOnce' // 1 回合 1 次不會被效果破壞
   | 'immuneOpp' // 不受對方的效果影響
   | 'untargetableByOppExtraMonsters' // 對方不能作為從額外牌組特殊召喚的怪獸的效果的對象
+  | 'monsterGraveBanish' // 被送去這位玩家墓地的怪獸不去墓地而除外（全域，player 為墓地的持有者）
   | 'swapBaseAtkDef' // 原本攻擊力和原本守備力交換（碼麗絲<王后>紅棋勒索）
   | 'banishBattleKills' // 這張卡戰鬥破壞的怪獸不去墓地而除外
   | 'noBattleDamageToController' // 這張卡的戰鬥發生的對控制者的戰鬥傷害變成 0
@@ -307,6 +308,10 @@ export interface CardScript {
   neverSpecialSummon?: boolean;
   /** 不能特殊召喚（無視召喚條件時除外） */
   cannotSpecialSummon?: (duel: Duel, card: Card) => boolean;
+  /** 「用○○卡的效果才能特殊召喚」：回傳這張卡（by）的效果能不能特殊召喚 */
+  ssOnlyBy?: (by: Card | undefined) => boolean;
+  /** 1 回合最多 N 次不會被效果破壞 */
+  effectIndesTimes?: number;
   /** 表側在怪獸區域被破壞時，改為當作永續魔法放到魔法・陷阱區域（寶玉獸） */
   placeAsSpellOnDestroy?: boolean;
   /** 被破壞時可以改為破壞的卡（六武眾等）；回傳候補 */

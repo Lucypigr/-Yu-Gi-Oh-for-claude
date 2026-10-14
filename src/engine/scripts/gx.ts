@@ -856,8 +856,11 @@ def(99075257, {
 // =====================================================================
 
 const TOON_WORLD = 15259703;
+const TOON_KINGDOM = 43175858;
 const isToon = (c: Card) => isMonster(c.data) && (c.data.type & 0x400000) !== 0;
-const toonWorldOn = (duel: Duel, p: PlayerId) => duel.spellTraps(p).some((c) => c.faceUp && c.id === TOON_WORLD);
+/** 「卡通世界」（卡通王國在場地區域時卡名當作「卡通世界」使用） */
+const isToonWorldCard = (c: Card, wasFzone = c.location === 'fzone') => c.id === TOON_WORLD || (c.id === TOON_KINGDOM && wasFzone);
+const toonWorldOn = (duel: Duel, p: PlayerId) => duel.spellTraps(p).some((c) => c.faceUp && isToonWorldCard(c));
 
 /** 卡通怪獸共通的規則 */
 function toonRules(opts: { pay500?: boolean } = {}): EffectDef[] {
@@ -873,7 +876,8 @@ function toonRules(opts: { pay500?: boolean } = {}): EffectDef[] {
       categories: ['destroy'],
       condition: (ctx) =>
         ctx.card.isFaceUpMonster &&
-        ctx.event?.card?.id === TOON_WORLD &&
+        !!ctx.event?.card &&
+        isToonWorldCard(ctx.event.card, ctx.event.from === 'fzone') &&
         ctx.event.prevController === ctx.player &&
         !toonWorldOn(ctx.duel, ctx.player),
       operation: async (ctx) => {
@@ -1259,7 +1263,7 @@ def(33453260, {
       kind: 'trigger',
       event: 'destroyed',
       mandatory: true,
-      condition: (ctx) => ctx.card.onField && ctx.event?.card?.id === TOON_WORLD && !toonWorldOn(ctx.duel, ctx.player),
+      condition: (ctx) => ctx.card.onField && !!ctx.event?.card && isToonWorldCard(ctx.event.card, ctx.event.from === 'fzone') && !toonWorldOn(ctx.duel, ctx.player),
       operation: async (ctx) => {
         if (ctx.card.onField) await ctx.duel.destroy([ctx.card], 'effect', ctx.card);
       },
@@ -1713,6 +1717,230 @@ def(60876124, {
         d.draw(ctx.player, 2);
       },
       ai: () => 50,
+    }),
+  ],
+});
+
+// =====================================================================
+// 第二十三彈：卡通補完
+// =====================================================================
+
+/** 新卡通怪獸：有「卡通世界」、對方沒有卡通怪獸時可以直接攻擊 */
+const toonDirect = () =>
+  selfQuery('directAttack', (duel, self) => toonWorldOn(duel, self.controller) && !duel.faceUpMonsters(opp(self.controller)).some(isToon));
+/** 記述「卡通世界」的卡 */
+const mentionsToonWorld = (d: { id: number; desc: string }) => d.id === TOON_WORLD || d.desc.includes('「卡通世界」');
+
+// 卡通王國
+def(TOON_KINGDOM, {
+  fieldSubstitute: (duel, self, destroyed, reason) => {
+    if (reason !== 'battle' && reason !== 'effect') return null;
+    if (self.location !== 'fzone' || !self.faceUp || destroyed.location !== 'mzone' || destroyed.controller !== self.controller || !isToon(destroyed)) return null;
+    if (!duel.p(self.controller).deck.length) return null;
+    return () => {
+      duel.log(`從牌組上面把 1 張卡裡側除外，代替「${destroyed.name}」的破壞`);
+      duel.banish(duel.p(self.controller).deck.slice(0, 1), 'effect', self, true);
+    };
+  },
+  effects: [
+    activate({
+      label: '從牌組上面把 3 張卡裡側除外',
+      condition: (ctx) => ctx.duel.p(ctx.player).deck.length >= 3,
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        d.banish(d.p(ctx.player).deck.slice(0, 3), 'effect', ctx.card, true);
+      },
+      ai: (ctx) => (ctx.duel.p(ctx.player).hand.some(isToon) || ctx.duel.monsters(ctx.player).some(isToon) ? 65 : 30),
+    }),
+    {
+      kind: 'continuous',
+      query: (_d, self, q, t) => q === 'untargetableByOpp' && self.location === 'fzone' && !!t && t.controller === self.controller && isToon(t),
+    },
+  ],
+});
+
+// 卡通倒帶
+def(70560957, {
+  effects: [
+    activate({
+      categories: ['stat'],
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.player).some(isToon),
+      target: async (ctx) => {
+        await chooseTargets(ctx, ctx.duel.faceUpMonsters(ctx.player).filter(isToon), { title: '選擇卡通怪獸', hint: 'benefit', aiValue: (c) => ctx.duel.getAtk(c) });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.isFaceUpMonster) {
+          ctx.duel.setFlag(t, 'doubleAttack');
+          ctx.duel.log(`「${t.name}」這回合可以作 2 次攻擊`);
+        }
+      },
+      ai: (ctx) => (ctx.duel.phase === 'main1' && ctx.duel.faceUpMonsters(ctx.player).some((c) => isToon(c) && ctx.duel.canAttack(c)) ? 60 : 0),
+    }),
+  ],
+});
+
+// 卡通手提箱
+def(5832914, {
+  effects: [
+    activate({
+      event: 'summoned',
+      categories: ['toDeck'],
+      condition: (ctx) =>
+        ctx.event?.player === ctx.opp && ctx.duel.faceUpMonsters(ctx.player).some(isToon) && (ctx.event.cards ?? []).some((c) => c.location === 'mzone'),
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const cs = (ctx.event?.cards ?? []).filter((c) => c.location === 'mzone' && c.controller === ctx.opp);
+        if (cs.length) d.returnToDeck(cs, false, 'effect', ctx.card);
+      },
+      ai: (ctx) => ((ctx.event?.cards ?? []).some((c) => cardValue(ctx.duel, c, ctx.player) >= 1500) ? 80 : 0),
+    }),
+  ],
+});
+
+// 卡通破壞之劍士
+def(61190918, {
+  effects: [
+    {
+      kind: 'continuous',
+      statMod: (duel, self, t) => {
+        if (t !== self) return null;
+        const o = opp(self.controller);
+        const n = [...duel.faceUpMonsters(o), ...duel.p(o).grave].filter((c) => isMonster(c.data) && (c.data.race & RACE.DRAGON) !== 0).length;
+        return n ? { atk: n * 500 } : null;
+      },
+    },
+    selfQuery('cannotAttack', (duel, self) => self.turnPlaced === duel.turn && !!self.summonType),
+    toonDirect(),
+  ],
+});
+
+// 卡通混沌戰士
+def(28711704, {
+  spSummon: {
+    label: '解放等級合計 8 以上的手牌・場上的卡通怪獸，從手牌特殊召喚',
+    condition: (duel, card) =>
+      [...duel.p(card.owner).hand.filter((c) => c !== card), ...duel.monsters(card.owner)]
+        .filter((c) => isToon(c) && duel.canTribute(c, false))
+        .reduce((s, c) => s + c.data.level, 0) >= 8,
+    cost: async (duel, card) => {
+      const pool = [...duel.p(card.owner).hand.filter((c) => c !== card), ...duel.monsters(card.owner)].filter((c) => isToon(c) && duel.canTribute(c, false));
+      const lv = (s: Card[]) => s.reduce((t, c) => t + c.data.level, 0);
+      const valid = (s: Card[]) => lv(s) >= 8 && s.every((x) => lv(s.filter((y) => y !== x)) < 8);
+      const sel = await duel.select({
+        player: card.owner,
+        title: '選擇要解放的卡通怪獸（等級合計 8 以上）',
+        cards: pool,
+        min: 1,
+        max: pool.length,
+        hint: 'cost',
+        validate: valid,
+        aiValue: (c) => (c.location === 'hand' ? 0 : -cardValue(duel, c, card.owner)),
+      });
+      duel.sendToGrave(sel, 'tribute', card);
+    },
+  },
+  effects: [
+    toonDirect(),
+    {
+      kind: 'ignition',
+      label: '有「卡通世界」：場上 1 張卡除外（這個回合這張卡不能攻擊）',
+      once: 'turn',
+      categories: ['banish'],
+      condition: (ctx) => ctx.card.isFaceUpMonster && toonWorldOn(ctx.duel, ctx.player) && ctx.duel.fieldCards().some((c) => c !== ctx.card),
+      cost: async (ctx) => {
+        ctx.duel.setFlag(ctx.card, 'cannotAttack');
+      },
+      target: async (ctx) => {
+        const d = ctx.duel;
+        await chooseTargets(ctx, d.fieldCards().filter((c) => c !== ctx.card), {
+          title: '選擇要除外的卡',
+          aiValue: (c) => (c.controller === ctx.opp ? cardValue(d, c, ctx.player) : -5000),
+        });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.onField) ctx.duel.banish([t], 'effect', ctx.card);
+      },
+      ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) || ctx.card.attacks > 0 ? 80 : 0),
+    },
+  ],
+});
+
+// 卡通書籤
+def(91500017, {
+  graveSubstitute: (duel, self, destroyed, reason) =>
+    reason === 'effect' && destroyed.controller === self.owner && destroyed.faceUp && isToonWorldCard(destroyed) ? () => {} : null,
+  effects: [
+    activate({
+      once: 'name',
+      categories: ['search'],
+      condition: (ctx) => deckFilter(ctx, (x) => x.id !== 91500017 && mentionsToonWorld(x)).length > 0,
+      operation: async (ctx) => {
+        await searchDeck(ctx, (x) => x.id !== 91500017 && mentionsToonWorld(x));
+      },
+      ai: () => 85,
+    }),
+  ],
+});
+
+// 卡通翻閱
+def(27699122, {
+  effects: [
+    activate({
+      once: 'name',
+      categories: ['summon'],
+      condition: (ctx) =>
+        toonWorldOn(ctx.duel, ctx.player) && ctx.duel.freeMZones(ctx.player) > 0 && new Set(ctx.duel.p(ctx.player).deck.filter(isToon).map((c) => c.id)).size >= 3,
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const toons = d.p(ctx.player).deck.filter(isToon);
+        if (new Set(toons.map((c) => c.id)).size < 3) return;
+        const sel = await d.select({
+          player: ctx.player,
+          title: '選擇 3 隻卡名不同的卡通怪獸給對方觀看',
+          cards: toons,
+          min: 3,
+          max: 3,
+          hint: 'benefit',
+          validate: (s) => s.length === 3 && new Set(s.map((c) => c.id)).size === 3,
+          aiValue: (c) => c.data.atk,
+        });
+        if (sel.length < 3 || new Set(sel.map((c) => c.id)).size < 3) return;
+        d.log(`給對方觀看 ${sel.map((c) => `「${c.name}」`).join('、')}`);
+        const pick = sel[Math.floor(d.rng() * sel.length)];
+        d.log(`對方隨機選了「${pick.name}」`);
+        d.specialSummon(pick, ctx.player, { position: 'atk', by: ctx.card, ignoreConditions: true });
+        d.shuffleDeck(ctx.player);
+      },
+      ai: () => 85,
+    }),
+  ],
+});
+
+// 卡通恐怖
+def(53094821, {
+  effects: [
+    activate({
+      once: 'name',
+      categories: ['negate', 'destroy'],
+      condition: (ctx) => {
+        const top = ctx.duel.chainTop;
+        if (!top || top.negated || top.card === ctx.card) return false;
+        const kind = isMonster(top.card.data) ? !top.isCardActivation : top.isCardActivation;
+        return kind && toonWorldOn(ctx.duel, ctx.player) && ctx.duel.faceUpMonsters(ctx.player).some(isToon);
+      },
+      target: async (ctx) => {
+        ctx.data.link = ctx.duel.chainTop;
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const link = ctx.data.link;
+        if (!link) return;
+        d.negateLink(link);
+        if (link.negated && link.card.onField) await d.destroy([link.card], 'effect', ctx.card);
+      },
+      ai: (ctx) => (ctx.duel.chainTop?.player === ctx.opp ? 80 : 0),
     }),
   ],
 });

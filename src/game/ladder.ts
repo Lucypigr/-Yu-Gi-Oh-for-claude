@@ -380,6 +380,7 @@ const THEME_NAMES: Record<string, string> = {
   mitsurugi: '巳劍',
   dracotail: '星辰',
   elfnote: '耀聖',
+  sacredbeasts: '三幻魔',
 };
 
 function themeDecks(): ThemeDeck[] {

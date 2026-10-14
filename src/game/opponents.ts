@@ -638,6 +638,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.elfnote,
   },
   {
+    id: 'sacredbeasts',
+    name: '三幻魔的守門人',
+    title: '幻魔之扉的看守',
+    avatar: '👹',
+    desc: '劫火・罪禍・無窮的三幻魔接連降臨，融合成混沌之三幻魔；小心三幻魔的失樂園無限展開！',
+    level: 4,
+    reward: 470,
+    randomness: 0.05,
+    requires: 'dracotail',
+    deck: OPPONENT_DECKS.sacredbeasts,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

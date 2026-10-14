@@ -2386,3 +2386,133 @@ describe('第二十二彈：泛用卡', () => {
     expect(duel.p(1).hand.length).toBe(hand + 1);
   });
 });
+
+describe('第二十三彈：卡通補完', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('卡通王國：發動時牌組上面 3 張裡側除外，卡名當作「卡通世界」，卡通怪獸被破壞時可以除外牌組上面的卡代替', async () => {
+    const { duel, a, b } = setup();
+    b.declineAll = true;
+    const kingdom = put(duel, 0, 43175858, 'hand');
+    const deck = duel.p(0).deck.length;
+    await activateMain(duel, 0, kingdom);
+    expect(kingdom.location).toBe('fzone');
+    expect(duel.p(0).deck.length).toBe(deck - 3);
+    expect(duel.p(0).banished.every((c) => !c.faceUp)).toBe(true);
+    // 卡通破壞之劍士：有「卡通世界」、對方沒有卡通怪獸時可以直接攻擊
+    const tbb = put(duel, 0, 61190918, 'mzone');
+    put(duel, 1, 89631139, 'mzone');
+    expect(duel.has(tbb, 'directAttack')).toBe(true);
+    expect(duel.getAtk(tbb)).toBe(2600 + 500); // 對方場上 1 隻龍族
+    a.optionPick = 1;
+    await duel.destroy([tbb], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(tbb.location).toBe('mzone');
+    expect(duel.p(0).banished.length).toBe(4);
+  });
+
+  it('卡通混沌戰士：解放等級合計 8 以上的卡通怪獸特殊召喚；有卡通世界時除外場上 1 張卡', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 15259703, 'szone', { faceUp: true });
+    put(duel, 0, 53183600, 'hand'); // 青眼卡通龍 8 星
+    const bls = put(duel, 0, 28711704, 'hand');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === bls);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(bls.location).toBe('mzone');
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await activateMain(duel, 0, bls);
+    expect(foe.location).toBe('banished');
+    expect(duel.has(bls, 'cannotAttack')).toBe(true);
+  });
+
+  it('卡通恐怖：有卡通世界與卡通怪獸時，讓魔法卡的發動無效並破壞', async () => {
+    const { duel, a, b } = setup();
+    b.declineAll = true;
+    a.respondWith = [53094821];
+    put(duel, 0, 15259703, 'szone', { faceUp: true });
+    put(duel, 0, 61190918, 'mzone');
+    put(duel, 0, 53094821, 'szone', { faceUp: false });
+    duel.turnPlayer = 1;
+    const pot = put(duel, 1, 55144522, 'hand');
+    const hand = duel.p(1).hand.length;
+    const act = duel.getActivatable(1).find((x) => x.card === pot)!;
+    await duel.performMainAction(1, { type: 'activate', card: pot, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.p(1).hand.length).toBe(hand - 1);
+    expect(pot.location).toBe('grave');
+  });
+});
+
+describe('第二十四彈：三幻魔', () => {
+
+  it('混沌幻魔 阿米泰爾：除外場上的三幻魔從額外牌組特殊召喚，自己回合攻擊力上升 10000，不會被戰鬥破壞', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const beasts = [6007213, 32491822, 69890967].map((id) => put(duel, 0, id, 'mzone'));
+    const arm = put(duel, 0, 43378048, 'extra');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === arm);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(arm.location).toBe('mzone');
+    expect(beasts.every((c) => c.location === 'banished')).toBe(true);
+    expect(duel.getAtk(arm)).toBe(10000);
+    duel.turnPlayer = 1;
+    expect(duel.getAtk(arm)).toBe(0);
+    expect(duel.has(arm, 'battleIndestructible')).toBe(true);
+  });
+
+  it('劫火之三幻魔：只能用「三幻魔」卡的效果特殊召喚（死者蘇生不行）', () => {
+    const { duel } = setup();
+    const uria = put(duel, 0, 23856331, 'grave');
+    expect(duel.specialSummon(uria, 0, { position: 'atk', by: put(duel, 0, 83764718, 'grave') })).toBe(false);
+    expect(duel.specialSummon(uria, 0, { position: 'def', by: put(duel, 0, 22734799, 'mzone') })).toBe(true);
+  });
+
+  it('覺醒的三幻魔：三種都在場上時，被送去對方墓地的怪獸改為除外', async () => {
+    const { duel } = setup();
+    put(duel, 0, 53701259, 'szone', { faceUp: true });
+    for (const id of [6007213, 32491822, 69890967]) put(duel, 0, id, 'mzone');
+    const foe = put(duel, 1, 89631139, 'mzone');
+    await duel.destroy([foe], 'effect', put(duel, 0, 12580477, 'grave'));
+    expect(foe.location).toBe('banished');
+  });
+
+  it('幻魔皇 拉比艾爾：對方召喚成功時特殊召喚不能攻擊的幻魔衍生物', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 69890967, 'mzone');
+    duel.turnPlayer = 1;
+    const m = put(duel, 1, FILLER, 'mzone');
+    duel.raise({ type: 'summoned', card: m, cards: [m], player: 1, summonType: 'normal' });
+    await duel.settle();
+    const tok = duel.monsters(0).find((c) => c.id === 69890968);
+    expect(tok).toBeTruthy();
+    expect(duel.has(tok!, 'cannotAttack')).toBe(true);
+  });
+
+  it('混沌之三幻魔：1 回合最多 2 次不會被效果破壞', async () => {
+    const { duel } = setup();
+    const c = put(duel, 0, 7894706, 'mzone');
+    const src = put(duel, 1, 12580477, 'grave');
+    await duel.destroy([c], 'effect', src);
+    await duel.destroy([c], 'effect', src);
+    expect(c.location).toBe('mzone');
+    await duel.destroy([c], 'effect', src);
+    expect(c.location).toBe('grave');
+  });
+
+  it('神炎皇 烏利亞：把 3 張表側表示的陷阱卡送去墓地特殊召喚，攻擊力上升墓地永續陷阱×1000', async () => {
+    const { duel } = setup();
+    const uria = put(duel, 0, 6007213, 'hand');
+    for (let i = 0; i < 3; i++) put(duel, 0, 53701259, 'szone', { faceUp: true });
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === uria);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(uria.location).toBe('mzone');
+    expect(duel.getAtk(uria)).toBe(3000);
+  });
+});
