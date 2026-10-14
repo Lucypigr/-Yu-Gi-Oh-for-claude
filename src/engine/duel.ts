@@ -583,6 +583,14 @@ export class Duel {
       return !!effects?.some((e) => e.kind === 'continuous' && e.query?.(this, target, q, target, null));
     };
     if (selfQuery('immuneAll')) return true;
+    // 不受對方發動的魔法・陷阱卡的效果影響（三幻魔的失樂園）
+    if (
+      this.hasFlag(target, 'immuneOppActivatedST') &&
+      (isSpell(source.data) || isTrap(source.data)) &&
+      (source.onField ? source.controller : source.owner) !== target.controller &&
+      this.resolvingLink?.card === source
+    )
+      return true;
     for (const { card: src, effect } of this.activeContinuous()) if (effect.immune?.(this, src, target, source)) return true;
     if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
     if ((source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOpp')) return true;
@@ -791,6 +799,8 @@ export class Duel {
       ((wasFaceUp && getScript(card.id).banishOnLeave) || this.hasFlag(card, 'banishOnLeave'))
     )
       to = 'banished';
+    // 覺醒的三幻魔：被送去對方墓地的怪獸不去墓地而除外
+    if (to === 'grave' && isMonster(card.data) && !isToken(card.data) && this.playerHas(card.owner, 'monsterGraveBanish')) to = 'banished';
     // 場上的靈擺怪獸送去墓地時，改為表側加入額外牌組
     let pendulumToExtra = false;
     if (wasOnField && to === 'grave' && isPendulum(card.data)) {
@@ -1052,6 +1062,19 @@ export class Duel {
       if (reason === 'effect' && by && this.isImmune(c, by)) continue;
       if (reason === 'effect' && this.has(c, 'effectIndestructible')) continue;
       if (reason === 'effect' && by && by.controller !== c.controller && this.has(c, 'oppEffectIndestructible')) continue;
+      // 1 回合最多 N 次不會被效果破壞（混沌之三幻魔）
+      const times = getScript(c.id).effectIndesTimes;
+      if (reason === 'effect' && times && c.faceUp && !this.isNegated(c)) {
+        if (c.flags.effectIndesCountTurn !== this.turn) {
+          c.flags.effectIndesCountTurn = this.turn;
+          c.flags.effectIndesCount = 0;
+        }
+        if ((c.flags.effectIndesCount as number) < times) {
+          c.flags.effectIndesCount = (c.flags.effectIndesCount as number) + 1;
+          this.log(`「${c.name}」不會被效果破壞`);
+          continue;
+        }
+      }
       if (reason === 'effect' && this.has(c, 'effectIndesOnce') && c.flags.effectIndesUsed !== this.turn) {
         c.flags.effectIndesUsed = this.turn;
         this.log(`「${c.name}」這回合 1 次不會被效果破壞`);
@@ -1243,6 +1266,16 @@ export class Duel {
       this.log(`「${card.name}」不能特殊召喚`);
       return false;
     }
+    // 「用○○卡的效果才能特殊召喚」：正規出場過的卡可以蘇生
+    const onlyBy = getScript(card.id).ssOnlyBy;
+    let properBy = false;
+    if (onlyBy && !opts.ignoreConditions) {
+      if (onlyBy(opts.by)) properBy = true;
+      else if (!(card.properlySummoned && card.location !== 'extra')) {
+        this.log(`「${card.name}」不能用這個方法特殊召喚`);
+        return false;
+      }
+    }
     let zones = card.location === 'extra' ? this.extraZones(p, card) : this.freeMainZones(p);
     if (opts.zones) zones = zones.filter((z) => opts.zones!.includes(z));
     if (!zones.length) return false;
@@ -1259,7 +1292,7 @@ export class Duel {
     card.summonType = opts.summonType ?? 'special';
     card.summonedBy = opts.by ?? null;
     if ((card.summonType === 'fusion' && this.playerHas(p, 'fusionUnnegatable')) || opts.noResponse) this.responseLock = other(p);
-    if (card.summonType !== 'special') card.properlySummoned = true;
+    if (card.summonType !== 'special' || properBy) card.properlySummoned = true;
     card.turnPlaced = this.turn;
     if (opts.negateEffects) card.negated = true;
     this.p(p).turnFlags.summoned = true;
@@ -1675,7 +1708,10 @@ export class Duel {
       ...ps.grave,
     ];
 
+    // 「不能對應這個發動讓魔法・陷阱卡發動」（神炎皇 烏利亞）
+    const noST = !!topLink && topLink.player !== p && !!topLink.ctx.data.noSTResponse;
     for (const card of candidates) {
+      if (noST && (isSpell(card.data) || isTrap(card.data))) continue;
       const effects = this.effectsOf(card);
       if (!effects) continue;
       effects.forEach((effect, effectIndex) => {
@@ -2803,7 +2839,7 @@ export class Duel {
     for (const c of this.monsters(p)) {
       if (!this.canAttack(c)) {
         // 「向對方怪獸全部各作 1 次攻擊」：還沒攻擊過的符合條件的怪獸
-        const each = getScript(c.id).attackEach;
+        const each = getScript(c.id).attackEach ?? (this.hasFlag(c, 'attackAllMonsters') ? () => true : undefined);
         if (!each || c.location !== 'mzone' || !c.faceUp || c.position !== 'atk' || this.has(c, 'cannotAttack') || this.isNegated(c)) continue;
         const rest = targets.filter((t) => !c.attackedTargets.includes(t) && each(this, c, t));
         if (rest.length) out.push({ attacker: c, targets: rest, canDirect: false });
