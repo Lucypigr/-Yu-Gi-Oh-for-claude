@@ -626,6 +626,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.dracotail,
   },
   {
+    id: 'elfnote',
+    name: '耀聖的詩人',
+    title: '獄神的代言者',
+    avatar: '🎼',
+    desc: '耀聖怪獸在中央的怪獸區域輪替，同步召喚調獄神 朱諾拉讓你的卡效果全部無效；還有灰流麗、增殖的 G 系列等手牌陷阱！',
+    level: 4,
+    reward: 460,
+    randomness: 0.05,
+    requires: 'dracotail',
+    deck: OPPONENT_DECKS.elfnote,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

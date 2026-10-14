@@ -379,6 +379,7 @@ const THEME_NAMES: Record<string, string> = {
   maliss: '碼麗絲',
   mitsurugi: '巳劍',
   dracotail: '星辰',
+  elfnote: '耀聖',
 };
 
 function themeDecks(): ThemeDeck[] {

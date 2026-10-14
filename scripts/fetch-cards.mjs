@@ -43,6 +43,18 @@ const MANUAL = [
     attribute: 0x10,
   },
   {
+    id: 27204312,
+    name: '原始生命態衍生物',
+    nameEn: 'Primal Being Token',
+    desc: '「原始生命態 尼比魯」的效果特殊召喚的衍生物。攻擊力・守備力變成這個效果解放的怪獸的原本的攻擊力・守備力各自合計數值。',
+    type: 0x4011,
+    atk: 0,
+    def: 0,
+    level: 11,
+    race: 0x100,
+    attribute: 0x10,
+  },
+  {
     id: 41458362,
     name: '奇石衍生物',
     nameEn: 'Adamancipator Token',
