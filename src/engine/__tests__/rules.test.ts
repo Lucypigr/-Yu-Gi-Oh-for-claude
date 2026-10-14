@@ -2140,3 +2140,162 @@ describe('第二十彈：巳劍・星辰', () => {
     expect(arth.location).toBe('grave');
   });
 });
+
+describe('第二十一彈：耀聖・獄神・泛用卡', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+  const at = (duel: Duel, p: PlayerId, id: number, zone: number) => {
+    const c = new Card(getCard(id), p);
+    c.location = 'void';
+    duel.moveTo(c, 'mzone', { reason: 'rule', player: p, faceUp: true, position: 'atk', zone });
+    c.turnPlaced = 1;
+    return c;
+  };
+
+  it('灰流麗：讓「從牌組加入手牌」的效果無效；抽卡的效果不能對應', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.respondWith = [14558127];
+    put(duel, 1, 14558127, 'hand');
+    const warrior = put(duel, 0, 91152256, 'deck'); // 增援檢索 4 星以下的戰士族
+    const reinforce = put(duel, 0, 32807846, 'hand');
+    await activateMain(duel, 0, reinforce);
+    expect(warrior.location).toBe('deck');
+    expect(duel.p(1).grave.some((c) => c.id === 14558127)).toBe(true);
+    // 強欲之壺不是從牌組加入手牌的效果
+    const b2 = setup();
+    b2.b.respondWith = [14558127];
+    b2.a.declineAll = true;
+    const ash = put(b2.duel, 1, 14558127, 'hand');
+    const pot = put(b2.duel, 0, 55144522, 'hand');
+    const hand = b2.duel.p(0).hand.length;
+    await activateMain(b2.duel, 0, pot);
+    expect(ash.location).toBe('hand');
+    expect(b2.duel.p(0).hand.length).toBe(hand + 1);
+  });
+
+  it('小丑與鎖鳥：對方從牌組加入手牌後，這回合雙方不能從牌組把卡加入手牌', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = false;
+    const droll = put(duel, 1, 94145021, 'hand');
+    put(duel, 0, 91152256, 'deck');
+    await activateMain(duel, 0, put(duel, 0, 32807846, 'hand'));
+    expect(droll.location).toBe('grave');
+    const second = put(duel, 0, 91152256, 'deck');
+    await activateMain(duel, 0, put(duel, 0, 32807846, 'hand'));
+    expect(second.location).toBe('deck');
+  });
+
+  it('原始生命態 尼比魯：對方召喚・特殊召喚 5 隻以上，解放雙方的怪獸，給對方原本攻守合計的衍生物', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const mons = [put(duel, 0, 89631139, 'mzone'), put(duel, 0, 46986414, 'mzone')];
+    for (let i = 0; i < 5; i++) duel.p(0).summonedThisTurn.push({ card: mons[0], kind: 'special' });
+    const nib = put(duel, 1, 27204311, 'hand');
+    const act = duel.getActivatable(1, { kind: 'free' } as never).find((x) => x.card === nib);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(1, { type: 'activate', card: nib, effect: act!.effect, effectIndex: act!.effectIndex });
+    expect(mons.every((c) => c.location === 'grave')).toBe(true);
+    expect(nib.location).toBe('mzone');
+    const tok = duel.monsters(0).find((c) => c.id === 27204312)!;
+    expect(duel.getAtk(tok)).toBe(3000 + 2500);
+    expect(duel.getDef(tok)).toBe(2500 + 2100);
+  });
+
+  it('耀聖之花詩 盧西娜：從手牌往中央的主要怪獸區域特殊召喚；對方回合和中央的怪獸交換位置', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const lucina = put(duel, 0, 13597785, 'hand');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === lucina);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(lucina.zone).toBe(2);
+    const tinia = at(duel, 0, 59581480, 0);
+    duel.turnPlayer = 1;
+    const swap = duel.getActivatable(0, { kind: 'free' } as never).find((x) => x.card === tinia);
+    expect(swap).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: tinia, effect: swap!.effect, effectIndex: swap!.effectIndex });
+    expect(tinia.zone).toBe(2);
+    expect(lucina.zone).toBe(0);
+  });
+
+  it('調獄神 朱諾拉：可以把中央的主要怪獸區域的怪獸當作調整同步召喚', () => {
+    // 調整＋調整以外 2 隻＝10 星
+    const a = setup().duel;
+    const ja = put(a, 0, 5914858, 'extra');
+    at(a, 0, 12375297, 2); // 中央：1 星調整
+    at(a, 0, 13597785, 0); // 6 星
+    at(a, 0, 88819587, 1); // 3 星
+    expect(a.synchroMaterialSets(0, ja).length).toBe(1);
+    // 中央的 3 星通常怪獸當作調整
+    const b = setup().duel;
+    const jb = put(b, 0, 5914858, 'extra');
+    at(b, 0, 88819587, 2); // 中央：3 星，當作調整
+    at(b, 0, 40543231, 0); // 4 星
+    at(b, 0, 88819587, 1); // 3 星
+    expect(b.synchroMaterialSets(0, jb).length).toBe(1);
+    // 不在中央的話不能當作調整
+    const c = setup().duel;
+    const jc = put(c, 0, 5914858, 'extra');
+    at(c, 0, 40543231, 2); // 中央：4 星
+    at(c, 0, 88819587, 0); // 3 星
+    at(c, 0, 88819587, 1); // 3 星
+    expect(c.synchroMaterialSets(0, jc).length).toBe(1); // 中央的 4 星當作調整：4＋3＋3
+    const d = setup().duel;
+    const jd = put(d, 0, 5914858, 'extra');
+    at(d, 0, 88819587, 0); // 3 星
+    at(d, 0, 40543231, 1); // 4 星
+    at(d, 0, 88819587, 3); // 3 星（中央空著）
+    expect(d.synchroMaterialSets(0, jd).length).toBe(0);
+  });
+
+  it('獄神影精－朱諾白化精：破壞後表側加入額外牌組，墓地的「耀聖」卡加入手牌', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const jun = put(duel, 0, 10266279, 'mzone');
+    const regina = put(duel, 0, 56651978, 'grave');
+    await duel.destroy([jun], 'effect', put(duel, 1, 12580477, 'grave'));
+    await duel.settle();
+    expect(jun.location).toBe('extra');
+    expect(jun.faceUp).toBe(true);
+    expect(regina.location).toBe('hand');
+  });
+
+  it('耀聖詩之獄神精：存在期間自己不能從額外牌組特殊召喚同步怪獸以外', () => {
+    const { duel } = setup();
+    put(duel, 0, 12375297, 'mzone');
+    expect(duel.summonAllowed(0, put(duel, 0, 5914858, 'extra'), 'special')).toBe(true);
+    expect(duel.summonAllowed(0, put(duel, 0, 4063756, 'extra'), 'special')).toBe(false);
+  });
+
+  it('耀聖之詩～回鄉之平行體～：中央的怪獸不會被效果破壞', async () => {
+    const { duel } = setup();
+    put(duel, 0, 64491754, 'szone', { faceUp: true });
+    const center = at(duel, 0, 13597785, 2);
+    const side = at(duel, 0, 59581480, 0);
+    await duel.destroy([center, side], 'effect', put(duel, 1, 12580477, 'grave'));
+    expect(center.location).toBe('mzone');
+    expect(side.location).toBe('grave');
+  });
+
+  it('歡聚友伴・茸茸長尾山雀：這回合對方每次從牌組・額外牌組特殊召喚，自己抽 1 張', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const fuwa = put(duel, 1, 42141493, 'hand');
+    const act = duel.getActivatable(1, { kind: 'free' } as never).find((x) => x.card === fuwa);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(1, { type: 'activate', card: fuwa, effect: act!.effect, effectIndex: act!.effectIndex });
+    const hand = duel.p(1).hand.length;
+    const m = put(duel, 0, 89631139, 'deck');
+    duel.specialSummon(m, 0, { position: 'atk' });
+    expect(duel.p(1).hand.length).toBe(hand + 1);
+    duel.specialSummon(put(duel, 0, 46986414, 'hand'), 0, { position: 'atk' });
+    expect(duel.p(1).hand.length).toBe(hand + 1); // 從手牌特殊召喚不抽
+  });
+});

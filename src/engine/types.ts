@@ -59,7 +59,8 @@ export type EventType =
   | 'activated'
   | 'drawn' // 抽卡（cards：抽到的卡）
   | 'placedAsSpell' // 怪獸卡當作永續魔法放到魔法・陷阱區域
-  | 'toGraveMulti'; // 怪獸 2 隻以上同時被送去墓地（cards：那些怪獸）
+  | 'toGraveMulti' // 怪獸 2 隻以上同時被送去墓地（cards：那些怪獸）
+  | 'toExtraFaceUp'; // 靈擺怪獸表側加入額外牌組
 
 export interface GameEvent {
   type: EventType;
@@ -236,9 +237,13 @@ export interface CardScript {
     nonTunerMax?: number;
     /** 調整的數量（預設 1；「調整 2 隻＋…」） */
     tuners?: number;
+    /** 可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用 */
+    centerAsTuner?: boolean;
   };
   /** 作為同步素材時可以當作的等級（王道同調士、調和支援士） */
   synchroLevel?: (duel: Duel, self: Card, synchro: Card) => number[];
+  /** 原本攻擊力（「原本攻擊力變成○○」的條件式效果），undefined 表示照卡片資料 */
+  baseAtk?: (duel: Duel, self: Card) => number | undefined;
   /** 同 1 次戰鬥階段可以追加的攻擊次數（古代的機械超巨人等） */
   extraAttackCount?: (duel: Duel, self: Card) => number;
   /** 表側表示從場上離開時除外 */

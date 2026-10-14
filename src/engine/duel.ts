@@ -213,10 +213,24 @@ export class Duel {
 
   lingering: {
     turn: number;
+    /** 持續到這個回合結束（「直到下個回合的結束時」）；省略時只有 turn 這個回合 */
+    until?: number;
     query?: (card: Card, q: Query) => boolean;
     /** 「這個回合中，○○的攻擊力上升」：之後出場的怪獸也適用 */
     stat?: (card: Card) => { atk?: number; def?: number } | null;
+    /** 1 回合最多幾次不會被戰鬥破壞 */
+    battleIndes?: (card: Card) => number;
+    /** 同 1 次戰鬥階段中最多幾次可以向怪獸攻擊 */
+    monsterAttacks?: (card: Card) => number;
   }[] = [];
+
+  /** 這個回合有效的持續效果 */
+  activeLingering() {
+    return this.lingering.filter((l) => l.turn === this.turn || (l.until !== undefined && this.turn >= l.turn && this.turn <= l.until));
+  }
+
+  /** 「雙方不能從牌組把卡加入手牌」的回合（小丑與鎖鳥） */
+  deckToHandLockTurn = -1;
   /** 一次性的事件監聽（回傳 true 表示處理完畢、移除）：「那次傷害步驟結束時…」等 */
   listeners: ((ev: GameEvent) => boolean)[] = [];
   /** 這張卡的效果給予對方的傷害變成 2 倍（陰雲栗仔球@火靈天星），連鎖處理完時清除 */
@@ -602,13 +616,47 @@ export class Duel {
   /** 卡片是否具有某性質 */
   has(card: Card, q: Query): boolean {
     if (this.hasFlag(card, q)) return true;
-    for (const l of this.lingering) if (l.turn === this.turn && l.query?.(card, q)) return true;
+    for (const l of this.activeLingering()) if (l.query?.(card, q)) return true;
     for (const { card: src, effect } of this.activeContinuous()) {
       if (!effect.query) continue;
       if (this.isImmune(card, src)) continue;
       if (effect.query(this, src, q, card, null)) return true;
     }
     return false;
+  }
+
+  /** 能不能作為融合・同步・超量・連結召喚的素材（調狱神 朱諾拉②） */
+  canBeMaterial(c: Card): boolean {
+    return !this.hasFlag(c, 'cannotBeMaterial');
+  }
+
+  /** 用效果進行連結召喚：在效果處理中使用 */
+  async linkSummonByEffect(p: PlayerId, card: Card, include?: Card): Promise<boolean> {
+    const sets = this.linkMaterialSets(p, card).filter((s) => !include || s.includes(include));
+    if (!sets.length) return false;
+    const same = (a: Card[], b: Card[]) => a.length === b.length && a.every((c) => b.includes(c));
+    const pool = [...new Set(sets.flat())];
+    let mats = await this.select({
+      player: p,
+      title: `選擇「${card.name}」的連結素材（LINK-${card.data.level}）`,
+      cards: pool,
+      min: 1,
+      max: pool.length,
+      hint: 'cost',
+      validate: (sel) => sets.some((s) => same(s, sel)),
+    });
+    if (!sets.some((s) => same(s, mats))) mats = sets[0];
+    this.lastLinkMaterials = mats;
+    this.lastLinkSummon = card;
+    card.summonMaterials = mats;
+    this.graveBatch(() => mats.forEach((m) => this.moveTo(m, 'grave', { reason: 'material' })));
+    this.log(`以 ${mats.map((m) => `「${m.name}」`).join('、')} 連結召喚`, p);
+    if (!this.specialSummon(card, p, { summonType: 'link', position: 'atk' })) {
+      card.summonMaterials = [];
+      return false;
+    }
+    this.p(p).turnFlags.linkSummoned = true;
+    return true;
   }
 
   /** 對玩家關於某張卡的限制（target 為那張卡，player 為被限制方） */
@@ -649,6 +697,7 @@ export class Duel {
   private stat(c: Card, which: 'atk' | 'def'): number {
     if (which === 'def' && isLink(c.data)) return 0;
     let base = which === 'atk' ? c.data.atk : c.data.def;
+    if (which === 'atk' && c.location === 'mzone' && c.faceUp && !this.isNegated(c)) base = getScript(c.id).baseAtk?.(this, c) ?? base;
     if (c.location === 'mzone' && c.faceUp && !isLink(c.data) && this.has(c, 'swapBaseAtkDef')) base = which === 'atk' ? c.data.def : c.data.atk;
     if (base < 0) base = 0;
     if (c.location !== 'mzone' || !c.faceUp) return base;
@@ -660,7 +709,7 @@ export class Duel {
     }
     let delta = 0;
     for (const m of c.mods) delta += (which === 'atk' ? m.atk : m.def) ?? 0;
-    for (const l of this.lingering) if (l.turn === this.turn && l.stat) delta += l.stat(c)?.[which] ?? 0;
+    for (const l of this.activeLingering()) if (l.stat) delta += l.stat(c)?.[which] ?? 0;
     for (const { card: src, effect } of this.activeContinuous()) {
       if (!effect.statMod) continue;
       if (this.isImmune(c, src)) continue;
@@ -718,6 +767,11 @@ export class Duel {
       return false;
     }
     const from = card.location;
+    // 小丑與鎖鳥：這個回合雙方不能從牌組把卡加入手牌（抽卡除外）
+    if (to === 'hand' && from === 'deck' && opts.reason !== 'draw' && this.deckToHandLockTurn === this.turn) {
+      this.log(`這個回合不能從牌組把卡加入手牌`);
+      return false;
+    }
     const fromZone = card.zone;
     const wasOnField = card.onField;
     const prevController = card.controller;
@@ -828,7 +882,7 @@ export class Duel {
         break;
       case 'banished':
         card.controller = card.owner;
-        card.faceUp = true;
+        card.faceUp = opts.faceUp ?? true;
         this.p(card.owner).banished.push(card);
         break;
       case 'overlay':
@@ -844,6 +898,7 @@ export class Duel {
     if (to === 'grave' && this.graveBatchDepth > 0 && isMonster(card.data)) this.graveBatchCards.push(card);
     if (to === 'grave') this.raise({ ...base, type: 'toGrave' });
     if (to === 'banished') this.raise({ ...base, type: 'banished' });
+    if (pendulumToExtra) this.raise({ ...base, type: 'toExtraFaceUp' });
     if (to === 'hand' && from !== 'deck') this.raise({ ...base, type: 'toHand' });
     if (to === 'hand' && from === 'deck' && opts.reason !== 'draw') this.raise({ ...base, type: 'toHand' });
     this.update();
@@ -1046,14 +1101,14 @@ export class Duel {
     });
   }
 
-  banish(cards: Card[], reason: Reason, by?: Card): Card[] {
+  banish(cards: Card[], reason: Reason, by?: Card, faceDown = false): Card[] {
     const done: Card[] = [];
     for (const c of cards) {
       if (c.location === 'banished') continue;
       if (reason === 'effect' && c.onField && by && this.isImmune(c, by)) continue;
-      if (this.moveTo(c, 'banished', { reason, by })) done.push(c);
+      if (this.moveTo(c, 'banished', { reason, by, faceUp: !faceDown })) done.push(c);
     }
-    if (done.length) this.log(`${done.map((c) => `「${c.name}」`).join('、')} 被除外`);
+    if (done.length) this.log(`${done.map((c) => `「${c.name}」`).join('、')} 被${faceDown ? '裡側' : ''}除外`);
     return done;
   }
 
@@ -1165,6 +1220,8 @@ export class Duel {
       zones?: number[];
       /** 無視召喚條件 */
       ignoreConditions?: boolean;
+      /** 在那次特殊召喚成功時對方不能把卡的效果發動 */
+      noResponse?: boolean;
     } = {},
   ): boolean {
     if (this.p(p).turnFlags.noSpecialSummon || this.playerHas(p, 'cannotSpecialSummon')) return false;
@@ -1198,7 +1255,7 @@ export class Duel {
     if (!ok) return false;
     card.summonType = opts.summonType ?? 'special';
     card.summonedBy = opts.by ?? null;
-    if (card.summonType === 'fusion' && this.playerHas(p, 'fusionUnnegatable')) this.responseLock = other(p);
+    if ((card.summonType === 'fusion' && this.playerHas(p, 'fusionUnnegatable')) || opts.noResponse) this.responseLock = other(p);
     if (card.summonType !== 'special') card.properlySummoned = true;
     card.turnPlaced = this.turn;
     if (opts.negateEffects) card.negated = true;
@@ -2241,7 +2298,7 @@ export class Duel {
   /** 列出所有合法的同步素材組合（include：必須包含的怪獸） */
   synchroMaterialSets(p: PlayerId, synchro: Card, include?: Card): Card[][] {
     const script = getScript(synchro.id);
-    const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data));
+    const mons = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data) && this.canBeMaterial(c));
     const level = synchro.data.level;
     const tunerCount = script.synchro?.tuners ?? 1;
     const out: Card[][] = [];
@@ -2251,7 +2308,12 @@ export class Duel {
       if (set.length < 2) continue;
       if (include && !set.includes(include)) continue;
       // 調整剛好是指定的數量，其餘是調整以外的怪獸
-      const tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
+      let tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
+      // 調狱神 朱諾拉：可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用
+      if (tuners.length === tunerCount - 1 && script.synchro?.centerAsTuner) {
+        const center = set.find((c) => c.controller === p && c.zone === 2 && !tuners.includes(c));
+        if (center) tuners = [...tuners, center];
+      }
       if (tuners.length !== tunerCount) continue;
       const nonTuners = set.filter((c) => !tuners.includes(c));
       if (nonTuners.length < (script.synchro?.nonTunerMin ?? 1)) continue;
@@ -2281,7 +2343,7 @@ export class Duel {
     // 雷火沸動交界機：同名卡不在自己場上存在的怪獸才能超量召喚
     if (this.playerHasFor(p, 'cannotXyzSummon', xyz)) return [];
     const mons = this.faceUpMonsters(p).filter(
-      (c) => !isToken(c.data) && !isXyz(c.data) && !isLink(c.data) && this.getLevel(c) === xyz.data.level && filter(c),
+      (c) => !isToken(c.data) && !isXyz(c.data) && !isLink(c.data) && this.getLevel(c) === xyz.data.level && filter(c) && this.canBeMaterial(c),
     );
     const out: Card[][] = [];
     // 在超量怪獸上面重叠來超量召喚（混沌No.39 希望皇 霍普雷等）
@@ -2314,7 +2376,7 @@ export class Duel {
     const rating = link.data.level;
     const min = spec.min ?? 2;
     const max = Math.min(spec.max ?? rating, rating);
-    const mons = this.faceUpMonsters(p).filter((c) => !spec.filter || spec.filter(c, this));
+    const mons = this.faceUpMonsters(p).filter((c) => this.canBeMaterial(c) && (!spec.filter || spec.filter(c, this)));
     const out: Card[][] = [];
     const n = mons.length;
     for (let mask = 1; mask < 1 << n; mask++) {
@@ -2645,6 +2707,7 @@ export class Duel {
   /** 判斷 cards 是否能分配給所有素材條件 */
   matchMaterials(conds: FusionConds, cards: Card[]): boolean {
     if (conds.more ? cards.length < conds.length : conds.length !== cards.length) return false;
+    if (cards.some((c) => !this.canBeMaterial(c))) return false;
     if (conds.validate && !conds.validate(cards)) return false;
     const used = new Array(cards.length).fill(false);
     const rec = (i: number): boolean => {
@@ -2674,6 +2737,7 @@ export class Duel {
   }
 
   findMaterialSet(conds: FusionConds, pool: Card[]): Card[] | null {
+    pool = pool.filter((c) => this.canBeMaterial(c));
     const chosen: Card[] = [];
     const rec = (i: number): boolean => {
       if (i === conds.length) return !conds.validate || conds.validate(chosen);
@@ -2692,10 +2756,20 @@ export class Duel {
   // 戰鬥
   // =====================================================================
 
+  /** 這次戰鬥階段可以攻擊的次數（不限對象） */
+  attackAllowance(c: Card): number {
+    const more = this.isNegated(c) ? 0 : getScript(c.id).extraAttackCount?.(this, c) ?? 0;
+    return 1 + c.extraAttacks + more + (this.has(c, 'doubleAttack') ? 1 : 0);
+  }
+
+  /** 「最多 N 次可以向怪獸攻擊」 */
+  monsterAttackAllowance(c: Card): number {
+    return Math.max(0, ...this.activeLingering().map((l) => l.monsterAttacks?.(c) ?? 0));
+  }
+
   canAttack(c: Card): boolean {
     if (c.location !== 'mzone' || !c.faceUp || c.position !== 'atk') return false;
-    const more = this.isNegated(c) ? 0 : getScript(c.id).extraAttackCount?.(this, c) ?? 0;
-    if (c.attacks >= 1 + c.extraAttacks + more + (this.has(c, 'doubleAttack') ? 1 : 0)) return false;
+    if (c.attacks >= Math.max(this.attackAllowance(c), this.monsterAttackAllowance(c))) return false;
     if (this.has(c, 'cannotAttack')) return false;
     return true;
   }
@@ -2728,7 +2802,9 @@ export class Duel {
         if (targets.includes(only)) out.push({ attacker: c, targets: [only], canDirect: false });
         continue;
       }
-      const canDirect = (oppMons.length === 0 || this.has(c, 'directAttack')) && !this.has(c, 'cannotDirectAttack');
+      // 超過一般的攻擊次數時，只能向怪獸攻擊
+      const monsterOnly = c.attacks >= this.attackAllowance(c);
+      const canDirect = !monsterOnly && (oppMons.length === 0 || this.has(c, 'directAttack')) && !this.has(c, 'cannotDirectAttack');
       if (!targets.length && !canDirect) continue;
       out.push({ attacker: c, targets, canDirect });
     }
@@ -2928,6 +3004,19 @@ export class Duel {
       if (this.p(c.controller).turnFlags.battleIndestructible) return false;
       // 神影依・文迪戈：這回合不會被和特殊召喚的對方怪獸的戰鬥破壞
       if (foe && this.hasFlag(c, 'indesVsSpecial') && foe.summonType && !['normal', 'tribute', 'flip'].includes(foe.summonType)) return false;
+      // 1 回合最多 N 次不會被戰鬥破壞（淨化與腐敗之無垢大藝術）
+      const times = Math.max(0, ...this.activeLingering().map((l) => l.battleIndes?.(c) ?? 0));
+      if (times > 0) {
+        if (c.flags.battleIndesCountTurn !== this.turn) {
+          c.flags.battleIndesCountTurn = this.turn;
+          c.flags.battleIndesCount = 0;
+        }
+        if ((c.flags.battleIndesCount as number) < times) {
+          c.flags.battleIndesCount = (c.flags.battleIndesCount as number) + 1;
+          this.log(`「${c.name}」不會被戰鬥破壞`);
+          return false;
+        }
+      }
       // 1 回合 1 次不會被戰鬥破壞（暗黑共鳴者）
       if (this.has(c, 'battleIndesOnce') && c.flags.battleIndesUsed !== this.turn) {
         c.flags.battleIndesUsed = this.turn;
@@ -3029,7 +3118,7 @@ export class Duel {
       pl.summonedThisTurn = [];
       pl.activationLocks = [];
     }
-    this.lingering = this.lingering.filter((l) => l.turn >= this.turn);
+    this.lingering = this.lingering.filter((l) => (l.until ?? l.turn) >= this.turn);
     ps.normalSummons = 1;
     for (const c of this.monsters()) {
       c.attacks = 0;

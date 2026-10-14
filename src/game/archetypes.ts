@@ -62,5 +62,7 @@ export const ARCHETYPES: Archetype[] = [
   { id: 'maliss', name: '碼麗絲', match: en('Maliss') },
   { id: 'mitsurugi', name: '巳劍', match: en('Mitsurugi') },
   { id: 'dracotail', name: '星辰', match: en('Dracotail') },
+  { id: 'elfnote', name: '耀聖', match: (d) => d.nameEn.includes('Elfnote') || d.id === 10266279 || d.id === 37279096 },
+  { id: 'power-patron', name: '獄神・無垢大藝術', match: (d) => /Power Patron|Ars Magna|Medius|Theorealiz/.test(d.nameEn) },
   { id: 'cyberse', name: '電子界族', match: (d) => (d.race & 0x1000000) !== 0 },
 ];

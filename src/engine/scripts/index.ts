@@ -25,6 +25,8 @@ import './branded';
 import './snakeeye';
 import './ryzealmaliss';
 import './mitsudraco';
+import './elfnote';
+import './staples2';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
