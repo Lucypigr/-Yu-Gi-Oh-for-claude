@@ -2600,3 +2600,68 @@ describe('第二十五彈：超戰士', () => {
     expect(duel.getAtk(g)).toBe(1900);
   });
 });
+
+describe('第二十六彈：殺手級調整曲', () => {
+  it('手牌的調整也能作為同步素材（調整＋調整）', () => {
+    const { duel } = setup();
+    put(duel, 0, 43904702, 'mzone'); // 削波手 2 星
+    put(duel, 0, 43904702, 'hand'); // 削波手 2 星
+    const tm = put(duel, 0, 42781164, 'extra'); // 音軌制作人 4 星
+    const sets = duel.synchroMaterialSets(0, tm);
+    expect(sets.length).toBe(1);
+    expect(sets[0].some((c) => c.location === 'hand')).toBe(true);
+  });
+
+  it('調整以外的怪獸不能作為「調整＋調整」的素材', () => {
+    const { duel } = setup();
+    put(duel, 0, 43904702, 'mzone');
+    put(duel, 0, 96851799, 'mzone'); // 2 星非調整
+    const tm = put(duel, 0, 42781164, 'extra');
+    expect(duel.synchroMaterialSets(0, tm).length).toBe(0);
+  });
+
+  it('作為同步素材送去墓地：混音手破壞對方怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 16509007, 'mzone'); // 混音手 2 星
+    put(duel, 0, 16509007, 'mzone');
+    const foe = put(duel, 1, FILLER, 'mzone');
+    const tm = put(duel, 0, 42781164, 'extra');
+    const act = duel.getMainActions(0).find((x) => x.type === 'synchro' && x.card === tm);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(tm.location).toBe('mzone');
+    expect(foe.location).toBe('grave');
+  });
+
+  it('點唱機酒吧：在通常召喚外加上可以召喚 1 隻調整', async () => {
+    const { duel } = setup();
+    put(duel, 0, 14442329, 'szone', { faceUp: true });
+    duel.moveTo(duel.p(0).szone.find((c) => c?.id === 14442329)!, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const t1 = put(duel, 0, 17209452, 'hand');
+    const t2 = put(duel, 0, 17209452, 'hand');
+    await duel.performMainAction(0, { type: 'summon', card: t1 });
+    expect(t1.location).toBe('mzone');
+    expect(duel.canNormalSummon(0, t2)).toBe(true);
+    await duel.performMainAction(0, { type: 'summon', card: t2 });
+    expect(t2.location).toBe('mzone');
+    expect(duel.canNormalSummon(0, put(duel, 0, 17209452, 'hand'))).toBe(false);
+  });
+
+  it('殺手級調整曲 B2B：對方場上的怪獸等級上升 2 星', () => {
+    const { duel } = setup();
+    put(duel, 0, 65961304, 'mzone');
+    const foe = put(duel, 1, FILLER, 'mzone');
+    expect(duel.getLevel(foe)).toBe(getCard(FILLER).level + 2);
+  });
+
+  it('鎖縛龍 鎖鐮：可以當作調整以外的怪獸作為同步素材', () => {
+    const { duel } = setup();
+    put(duel, 0, 4891376, 'mzone'); // 7 星
+    put(duel, 0, 17209452, 'mzone'); // 1 星調整
+    const b2b = put(duel, 0, 65961304, 'extra'); // 10 星：調整＋同步怪獸
+    expect(duel.synchroMaterialSets(0, b2b).length).toBe(0);
+    put(duel, 0, 16387555, 'mzone'); // 3 星調整
+    expect(duel.synchroMaterialSets(0, b2b).length).toBe(1);
+  });
+});

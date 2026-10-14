@@ -662,6 +662,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.chaosritual,
   },
   {
+    id: 'kewltune',
+    name: '點唱機酒吧的 DJ',
+    title: '殺手級調整曲的主理人',
+    avatar: '🎧',
+    desc: '只用調整就能同步召喚！手牌的調整也能當素材，對方回合也會同步召喚，素材送去墓地時破壞你的卡、除外你的額外牌組！',
+    level: 4,
+    reward: 500,
+    randomness: 0.05,
+    requires: 'dracotail',
+    deck: OPPONENT_DECKS.kewltune,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',
