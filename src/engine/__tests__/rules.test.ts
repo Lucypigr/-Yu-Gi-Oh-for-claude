@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AIController } from '../ai';
 import { Card } from '../card';
-import { getCard } from '../cardDb';
+import { getCard, isNamed } from '../cardDb';
+import { isToon as isToonCard } from '../scripts/gx';
 import { Duel, DuelEnd } from '../duel';
 import type { Activation, PlayerId, Position } from '../types';
 
@@ -2663,5 +2664,218 @@ describe('第二十六彈：殺手級調整曲', () => {
     expect(duel.synchroMaterialSets(0, b2b).length).toBe(0);
     put(duel, 0, 16387555, 'mzone'); // 3 星調整
     expect(duel.synchroMaterialSets(0, b2b).length).toBe(1);
+  });
+});
+
+describe('第二十七彈：泛用卡', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('聖王的粉碎：從手牌發動無效檢索，之後不能發動暗・水・炎屬性怪獸的效果', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [97045737];
+    put(duel, 1, FILLER, 'mzone');
+    put(duel, 1, 97045737, 'hand');
+    const field = put(duel, 0, 14442329, 'deck');
+    const tf = put(duel, 0, 73628505, 'hand');
+    await activateCard(duel, 0, tf);
+    expect(field.location).toBe('deck');
+    expect(duel.p(1).duelLocks.length).toBe(1);
+  });
+
+  it('PSY骨架裝備・γ：自己場上沒有怪獸，對方發動怪獸效果時特殊召喚並無效破壞', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [38814750];
+    const gamma = put(duel, 1, 38814750, 'hand');
+    const drv = put(duel, 1, 49036338, 'deck');
+    put(duel, 0, 16509007, 'deck');
+    const reco = put(duel, 0, 89392810, 'hand');
+    await duel.performMainAction(0, { type: 'summon', card: reco });
+    expect(gamma.location).toBe('mzone');
+    expect(drv.location).toBe('mzone');
+    expect(reco.location).toBe('grave');
+  });
+
+  it('增殖的G：這回合對方每次特殊召喚，自己抽 1 張', async () => {
+    const { duel, b } = setup();
+    b.respondWith = [23434538];
+    put(duel, 1, 23434538, 'hand');
+    put(duel, 0, 14442329, 'deck');
+    await activateCard(duel, 0, put(duel, 0, 73628505, 'hand'));
+    const before = duel.p(1).hand.length;
+    duel.specialSummon(put(duel, 0, FILLER, 'hand'), 0, { position: 'atk' });
+    await duel.settle();
+    expect(duel.p(1).hand.length).toBe(before + 1);
+  });
+
+  it('超融合：可以用對方場上的怪獸作為融合素材', async () => {
+    const { duel, a } = setup();
+    a.declineAll = true;
+    put(duel, 0, 89631139, 'mzone');
+    put(duel, 0, 89631139, 'mzone');
+    put(duel, 1, 89631139, 'mzone');
+    const ult = put(duel, 0, 23995346, 'extra');
+    put(duel, 0, FILLER, 'hand');
+    await activateCard(duel, 0, put(duel, 0, 48130397, 'hand'));
+    expect(ult.location).toBe('mzone');
+    expect(duel.monsters(1).length).toBe(0);
+  });
+
+  it('閉鎖世界的冥神：對方場上 1 隻怪獸也能作為連結素材', () => {
+    const { duel } = setup();
+    for (let i = 0; i < 4; i++) put(duel, 0, 16509007, 'mzone');
+    const g = put(duel, 0, 98127546, 'extra');
+    expect(duel.linkMaterialSets(0, g).length).toBe(0);
+    put(duel, 1, 16509007, 'mzone');
+    expect(duel.linkMaterialSets(0, g).length).toBe(1);
+  });
+
+  it('次元吸引者：直到下個回合的結束時，被送去墓地的卡除外', async () => {
+    const { duel } = setup();
+    duel.lingering.push({ turn: duel.turn, until: duel.turn + 1, graveToBanish: true });
+    const m = put(duel, 1, FILLER, 'mzone');
+    await duel.destroy([m], 'effect', put(duel, 0, 12580477, 'hand'));
+    expect(m.location).toBe('banished');
+  });
+
+  it('天下獨步之大義賊：自己場上沒有怪獸時可以解放手牌・對方場上的怪獸上級召喚', () => {
+    const { duel } = setup();
+    const bandit = put(duel, 0, 24203749, 'hand');
+    put(duel, 0, FILLER, 'hand');
+    expect(duel.canNormalSummon(0, bandit)).toBe(false);
+    put(duel, 1, FILLER, 'mzone');
+    expect(duel.canNormalSummon(0, bandit)).toBe(true);
+  });
+
+  it('災厄之星 提・豐：對方從額外牌組特殊召喚 2 隻以上的回合可以重叠超量召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, FILLER, 'mzone');
+    const ty = put(duel, 0, 93039339, 'extra');
+    expect(duel.xyzMaterialSets(0, ty).length).toBe(0);
+    duel.p(1).extraSummons[duel.turn] = 2;
+    expect(duel.xyzMaterialSets(0, ty).length).toBe(1);
+  });
+});
+
+describe('第二十八彈：卡通 2026', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+  const putField = (duel: Duel, p: PlayerId, id: number) => {
+    const c = put(duel, p, id, 'hand');
+    duel.moveTo(c, 'fzone', { reason: 'rule', player: p, faceUp: true });
+    return c;
+  };
+
+  it('漫畫貓：只要場上有「卡通世界」存在，當作卡通怪獸使用', () => {
+    const { duel } = setup();
+    const cat = put(duel, 0, 72921536, 'mzone');
+    expect(isToonCard(cat)).toBe(false);
+    putField(duel, 1, 7293697);
+    expect(isToonCard(cat)).toBe(true);
+  });
+
+  it('完美世界 卡通世界：從牌組把「卡通」卡加入手牌', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const ptw = putField(duel, 0, 7293697);
+    const rabbit = put(duel, 0, 45536531, 'deck');
+    const act = duel.getActivatable(0).find((a) => a.card === ptw && a.effect.kind === 'ignition');
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: ptw, effect: act!.effect, effectIndex: act!.effectIndex });
+    expect(rabbit.location).toBe('hand');
+  });
+
+  it('滑稽暗黑兔：召喚的回合，在通常召喚外加上可以召喚有「卡通世界」的卡名記述的怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const rabbit = put(duel, 0, 45536531, 'hand');
+    await duel.performMainAction(0, { type: 'summon', card: rabbit });
+    const cat = put(duel, 0, 72921536, 'hand');
+    expect(duel.canNormalSummon(0, cat)).toBe(true);
+    expect(duel.canNormalSummon(0, put(duel, 0, FILLER, 'hand'))).toBe(false);
+  });
+
+  it('青眼卡通究極龍：讓青眼卡通龍＋卡通怪獸×2 回到牌組特殊召喚', async () => {
+    const { duel } = setup();
+    put(duel, 0, 53183600, 'grave');
+    put(duel, 0, 42386471, 'grave');
+    put(duel, 0, 16392422, 'hand');
+    const ult = put(duel, 0, 71808988, 'extra');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === ult);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(ult.location).toBe('mzone');
+  });
+
+  it('看透心靈之眼：宣言的卡名發動的效果無效', async () => {
+    const { duel, b } = setup();
+    put(duel, 0, 65458948, 'grave'); // 卡通人魚
+    put(duel, 0, 91500017, 'grave'); // 卡通書籤
+    const eyes = put(duel, 0, 34298391, 'szone', { faceUp: true });
+    put(duel, 1, 14558127, 'hand'); // 灰流麗
+    const act = duel.getActivatable(0).find((a) => a.card === eyes && a.effect.kind === 'quick');
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, { type: 'activate', card: eyes, effect: act!.effect, effectIndex: act!.effectIndex });
+    b.respondWith = [14558127];
+    const field = put(duel, 0, 14442329, 'deck');
+    await activateCard(duel, 0, put(duel, 0, 73628505, 'hand'));
+    expect(field.location).toBe('hand');
+  });
+});
+
+describe('第二十九彈：黑魔術師・光與暗', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('栗球獸衛：8 星儀式怪獸可以只用這 1 張卡解放儀式召喚', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const bc = put(duel, 0, 44001993, 'hand');
+    const g = put(duel, 0, 97462632, 'hand');
+    await activateCard(duel, 0, put(duel, 0, 33599853, 'hand'));
+    expect(bc.location).toBe('mzone');
+    expect(g.location).toBe('grave');
+  });
+
+  it('毀滅之黑魔術師・王之僕人：卡名當作「黑魔術師」', () => {
+    expect(isNamed(getCard(59400890), 46986414)).toBe(true);
+    expect(isNamed(getCard(88570003), 46986414)).toBe(true);
+  });
+
+  it('超魔劍士 黑混沌：讓墓地的魔法師族儀式怪獸回到牌組特殊召喚', async () => {
+    const { duel } = setup();
+    put(duel, 0, 44001993, 'grave');
+    const bc = put(duel, 0, 98684220, 'hand');
+    const act = duel.getMainActions(0).find((x) => x.type === 'spSummon' && x.card === bc);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(0, act!);
+    expect(bc.location).toBe('mzone');
+  });
+
+  it('神聖薊花：把「罪寶」卡送去墓地，「薊花」融合怪獸當作融合召喚特殊召喚', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 80845034, 'hand');
+    const f = put(duel, 0, 73391962, 'extra');
+    await activateCard(duel, 0, put(duel, 0, 94845588, 'hand'));
+    expect(f.location).toBe('mzone');
+    expect(f.summonType).toBe('fusion');
+  });
+
+  it('黑色混沌之魔術師 黑混沌：自己場上的魔法・陷阱卡不會被對方的效果破壞', async () => {
+    const { duel } = setup();
+    put(duel, 0, 44001993, 'mzone');
+    const st = put(duel, 0, 24749710, 'szone', { faceUp: true });
+    await duel.destroy([st], 'effect', put(duel, 1, 12580477, 'hand'));
+    expect(st.location).toBe('szone');
   });
 });

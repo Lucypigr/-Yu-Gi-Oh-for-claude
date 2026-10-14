@@ -260,6 +260,8 @@ function chaosPool(ctx: EffectContext, o: { graveBanish?: boolean }, ritual: Car
 }
 function chaosValid(d: Duel, p: PlayerId, o: { exact: boolean; graveBanish?: boolean }, ritual: Card, sel: Card[]): boolean {
   if (!sel.length) return false;
+  // 栗球獸衛：由這 1 張卡作為需要的數值的解放
+  if (sel.length === 1 && sel[0].location !== 'grave' && getScript(sel[0].id).ritualFullFor?.(ritual)) return d.freeMZones(p) > 0 || sel[0].location === 'mzone';
   // 球形栗子球之類只能 1 隻
   if (!o.graveBanish && sel.filter((c) => c.location === 'grave').length > 1) return false;
   const lv = (c: Card) => (c.location === 'mzone' ? d.getLevel(c) : c.data.level);
@@ -859,7 +861,7 @@ def(70405001, {
 });
 
 // 光與暗的儀式
-const ldOpts = { ritual: (c: Card) => c.id === 70405001 || c.data.name.includes('黑混沌'), from: ['hand' as const], exact: false, graveBanish: true };
+const ldOpts = { ritual: (c: Card) => c.id === 70405001 || c.id === 44001993, from: ['hand' as const], exact: false, graveBanish: true };
 def(LD_RITUAL, {
   effects: [
     activate({

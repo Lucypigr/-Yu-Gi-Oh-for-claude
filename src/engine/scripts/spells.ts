@@ -783,8 +783,12 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
       // 混沌形態的除外代替、球形栗子球（墓地的這張卡可以除外作為儀式召喚需要的怪獸）
       ...ctx.duel.p(ctx.player).grave.filter((c) => opts.graveBanish?.(c) || getScript(c.id).ritualGraveMaterial),
     ].filter((c) => c !== ctx.card && c !== ritual && isMonster(c.data) && c.data.level > 0 && !(c.data.type & 0x4000000));
+  /** 栗球獸衛：由這 1 張卡作為需要的數值的解放 */
+  const full = (c: Card, r: Card) => c.location !== 'grave' && !!getScript(c.id).ritualFullFor?.(r);
+  const enough = (ctx: EffectContext, r: Card) =>
+    sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level || tributePool(ctx, r).some((c) => full(c, r));
   const canRitual = (ctx: EffectContext) =>
-    ritualMons(ctx).some((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level) &&
+    ritualMons(ctx).some((r) => enough(ctx, r)) &&
     (ctx.duel.freeMZones(ctx.player) > 0 || ctx.duel.monsters(ctx.player).length > 0);
   return {
     effects: [
@@ -793,7 +797,7 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
         condition: canRitual,
         operation: async (ctx) => {
           const d = ctx.duel;
-          const able = ritualMons(ctx).filter((r) => sum(tributePool(ctx, r).map((c) => c.data.level)) >= r.data.level);
+          const able = ritualMons(ctx).filter((r) => enough(ctx, r));
           const ritual =
             able.length > 1
               ? await d.selectOne({ player: ctx.player, title: '選擇要儀式召喚的怪獸', cards: able, hint: 'benefit', aiValue: (c) => c.data.atk })
@@ -802,6 +806,7 @@ export function ritualSpell(monsterIds: number | number[], opts: { graveBanish?:
           const level = ritual.data.level;
           const pool = tributePool(ctx, ritual);
           const valid = (sel: Card[]) =>
+            (sel.length === 1 && full(sel[0], ritual) && (d.freeMZones(ctx.player) > 0 || sel[0].location === 'mzone')) ||
             sel.filter((c) => c.location === 'grave' && getScript(c.id).ritualGraveMaterial && !opts.graveBanish?.(c)).length <= 1 &&
             sum(sel.map((c) => c.data.level)) >= level &&
             // 不能多選不需要的卡

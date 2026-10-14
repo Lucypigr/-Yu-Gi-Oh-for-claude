@@ -857,10 +857,17 @@ def(99075257, {
 
 const TOON_WORLD = 15259703;
 const TOON_KINGDOM = 43175858;
-const isToon = (c: Card) => isMonster(c.data) && (c.data.type & 0x400000) !== 0;
-/** 「卡通世界」（卡通王國在場地區域時卡名當作「卡通世界」使用） */
-const isToonWorldCard = (c: Card, wasFzone = c.location === 'fzone') => c.id === TOON_WORLD || (c.id === TOON_KINGDOM && wasFzone);
-const toonWorldOn = (duel: Duel, p: PlayerId) => duel.spellTraps(p).some((c) => c.faceUp && isToonWorldCard(c));
+const PERFECT_TOON_WORLD = 7293697;
+/** 只要場上有「卡通世界」存在，當作卡通怪獸使用（滑稽暗黑兔・漫畫貓・邪魔箱） */
+export const AS_TOON = new Set([45536531, 72921536, 8915275]);
+const currentDuel = () => (globalThis as { __ygoDuel?: Duel }).__ygoDuel;
+export const isToon = (c: Card) =>
+  isMonster(c.data) &&
+  ((c.data.type & 0x400000) !== 0 || (AS_TOON.has(c.id) && !!currentDuel() && (toonWorldOn(currentDuel()!, 0) || toonWorldOn(currentDuel()!, 1))));
+/** 「卡通世界」（卡通王國・完美世界 卡通世界在場地區域時卡名當作「卡通世界」使用） */
+export const isToonWorldCard = (c: Card, wasFzone = c.location === 'fzone') =>
+  c.id === TOON_WORLD || ((c.id === TOON_KINGDOM || c.id === PERFECT_TOON_WORLD) && wasFzone);
+export const toonWorldOn = (duel: Duel, p: PlayerId) => duel.spellTraps(p).some((c) => c.faceUp && isToonWorldCard(c));
 
 /** 卡通怪獸共通的規則 */
 function toonRules(opts: { pay500?: boolean } = {}): EffectDef[] {
@@ -1024,17 +1031,17 @@ def(21296502, {
       once: 'turn',
       categories: ['summon', 'search'],
       condition: (ctx) =>
-        ctx.duel.p(ctx.player).hand.some((c) => c.data.nameEn.includes('Toon')) &&
-        ctx.duel.p(ctx.player).deck.some((c) => (isToon(c) && c.id !== 21296502) || (!isMonster(c.data) && c.data.nameEn.includes('Toon'))),
+        ctx.duel.p(ctx.player).hand.some((c) => (c.data.nameEn.includes('Toon') || c.data.name.includes('卡通'))) &&
+        ctx.duel.p(ctx.player).deck.some((c) => (isToon(c) && c.id !== 21296502) || (!isMonster(c.data) && (c.data.nameEn.includes('Toon') || c.data.name.includes('卡通')))),
       cost: async (ctx) => {
         const d = ctx.duel;
-        const c = await d.selectOne({ player: ctx.player, title: '選擇要丟棄的「卡通」卡', cards: d.p(ctx.player).hand.filter((x) => x.data.nameEn.includes('Toon')), hint: 'cost' });
+        const c = await d.selectOne({ player: ctx.player, title: '選擇要丟棄的「卡通」卡', cards: d.p(ctx.player).hand.filter((x) => (x.data.nameEn.includes('Toon') || x.data.name.includes('卡通'))), hint: 'cost' });
         if (c) d.discard([c], 'cost', ctx.card);
       },
       operation: async (ctx) => {
         const d = ctx.duel;
         const mons = d.p(ctx.player).deck.filter((c) => isToon(c) && c.id !== 21296502);
-        const sts = d.p(ctx.player).deck.filter((c) => !isMonster(c.data) && c.data.nameEn.includes('Toon'));
+        const sts = d.p(ctx.player).deck.filter((c) => !isMonster(c.data) && (c.data.nameEn.includes('Toon') || c.data.name.includes('卡通')));
         const canSS = mons.length > 0 && d.freeMZones(ctx.player) > 0;
         const mode =
           canSS && sts.length
@@ -1052,7 +1059,7 @@ def(21296502, {
           if (c) d.specialSummon(c, ctx.player, { position: 'atk', by: ctx.card });
           d.shuffleDeck(ctx.player);
         } else {
-          await searchDeck(ctx, (dd) => !isMonster(dd) && dd.nameEn.includes('Toon'));
+          await searchDeck(ctx, (dd) => !isMonster(dd) && (dd.nameEn.includes('Toon') || dd.name.includes('卡通')));
         }
       },
       ai: () => 50,
@@ -1149,9 +1156,9 @@ def(89997728, {
   effects: [
     activate({
       categories: ['search'],
-      condition: (ctx) => deckFilter(ctx, (d) => d.nameEn.includes('Toon')).length > 0,
+      condition: (ctx) => deckFilter(ctx, (d) => (d.nameEn.includes('Toon') || d.name.includes('卡通'))).length > 0,
       operation: async (ctx) => {
-        await searchDeck(ctx, (d) => d.nameEn.includes('Toon'));
+        await searchDeck(ctx, (d) => (d.nameEn.includes('Toon') || d.name.includes('卡通')));
       },
       ai: () => 50,
     }),
@@ -1729,7 +1736,7 @@ def(60876124, {
 const toonDirect = () =>
   selfQuery('directAttack', (duel, self) => toonWorldOn(duel, self.controller) && !duel.faceUpMonsters(opp(self.controller)).some(isToon));
 /** 記述「卡通世界」的卡 */
-const mentionsToonWorld = (d: { id: number; desc: string }) => d.id === TOON_WORLD || d.desc.includes('「卡通世界」');
+export const mentionsToonWorld = (d: { id: number; desc: string }) => d.id === TOON_WORLD || d.desc.includes('「卡通世界」');
 
 // 卡通王國
 def(TOON_KINGDOM, {
