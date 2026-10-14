@@ -2661,3 +2661,55 @@ h4 {
 .response-link.opp {
   border-left-color: #ff5a4e;
 }
+
+/* 匯入牌組 */
+.import-deck {
+  width: min(560px, 82vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.import-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--bg2);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  resize: vertical;
+}
+.import-error {
+  color: #ff8a80;
+  margin: 0;
+}
+.import-sites h4 {
+  margin: 8px 0 4px;
+  color: var(--gold);
+}
+.import-sites ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+.import-sites a {
+  color: var(--gold);
+}
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.import-list {
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.import-list.bad {
+  background: rgba(255, 120, 100, 0.1);
+}

@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react';
 import { type CardData, allCards, getCard, isExtraDeckCard, isMonster, isSpell, isTrap } from '../../engine/cardDb';
 import { DECK_RULES, type DeckData, validateDeck } from '../../game/deckRules';
 import { type Profile, deleteDeck, saveDeck, setActiveDeck } from '../../game/profile';
+import { toYdke } from '../../game/deckImport';
 import { CardBrowser, sortCards } from '../components/CardBrowser';
+import { ImportDeckModal } from '../components/ImportDeckModal';
 import { CardDetail, CardView } from '../components/CardView';
 import { Modal } from '../duel/DuelScreen';
 
@@ -17,6 +19,7 @@ export function DeckEditor({ profile }: { profile: Profile }) {
   const [detail, setDetail] = useState<CardData | null>(null);
   const [msg, setMsg] = useState('');
   const [popup, setPopup] = useState<CardData | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const ownedCards = useMemo(
     () => allCards().filter((d) => (profile.collection[d.id] ?? 0) > 0),
@@ -58,6 +61,16 @@ export function DeckEditor({ profile }: { profile: Profile }) {
       : { id: newId(), name: `新牌組 ${profile.decks.length + 1}`, main: [], extra: [] };
     saveDeck(d);
     setDeckId(d.id);
+  };
+
+  const exportYdke = async () => {
+    const url = toYdke(deck.main, deck.extra);
+    try {
+      await navigator.clipboard.writeText(url);
+      setMsg('已複製 YDKE 網址，可以貼到其他網站或模擬器');
+    } catch {
+      prompt('複製這個 YDKE 網址：', url);
+    }
   };
 
   const mainCards = sortCards(deck.main.map(getCard));
@@ -107,6 +120,12 @@ export function DeckEditor({ profile }: { profile: Profile }) {
           }}
         >
           清空
+        </button>
+        <button className="btn small" onClick={() => setImporting(true)}>
+          匯入
+        </button>
+        <button className="btn small" disabled={!deck.main.length && !deck.extra.length} onClick={exportYdke}>
+          匯出 YDKE
         </button>
       </div>
 
@@ -188,6 +207,19 @@ export function DeckEditor({ profile }: { profile: Profile }) {
           />
         </section>
       </div>
+      {importing && (
+        <ImportDeckModal
+          collection={profile.collection}
+          onClose={() => setImporting(false)}
+          onImport={(d) => {
+            const nd: DeckData = { ...d, id: newId() };
+            saveDeck(nd);
+            setDeckId(nd.id);
+            setImporting(false);
+            setMsg(`已匯入「${nd.name}」`);
+          }}
+        />
+      )}
       {popup && (
         <Modal title={popup.name} onClose={() => setPopup(null)}>
           <CardDetail data={popup} layout="row">
