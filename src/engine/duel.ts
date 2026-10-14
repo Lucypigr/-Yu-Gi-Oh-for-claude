@@ -222,6 +222,8 @@ export class Duel {
     battleIndes?: (card: Card) => number;
     /** 同 1 次戰鬥階段中最多幾次可以向怪獸攻擊 */
     monsterAttacks?: (card: Card) => number;
+    /** 效果無效（無限泡影：相同縱列的魔法・陷阱卡；墓穴的指名者：同名怪獸） */
+    negate?: (card: Card) => boolean;
   }[] = [];
 
   /** 這個回合有效的持續效果 */
@@ -593,6 +595,7 @@ export class Duel {
   /** 效果無效（永久或「直到回合結束」） */
   isNegated(card: Card): boolean {
     if (card.negated || this.hasFlag(card, 'negated')) return true;
+    for (const l of this.activeLingering()) if (l.negate?.(card)) return true;
     // 龍魔王 魔道矢·靈擺：對方靈擺區域的卡效果無效
     if (card.location === 'szone' && isPendulum(card.data)) {
       const opp = this.p(other(card.controller)).szone;
@@ -1408,6 +1411,7 @@ export class Duel {
         if (!evs.includes(ev.type)) return;
         // 場上的卡效果無效時不能發動
         if (card.onField && (this.isNegated(card) || (isTrap(card.data) && this.trapsNegated()))) return;
+        if (!card.onField && isMonster(card.data) && this.isNegated(card)) return;
         if (card.location === 'mzone' && !card.faceUp && ev.type !== 'flipped') return;
         const player = card.onField ? card.controller : card.owner;
         if (!this.onceOk(card, effect, effectIndex, player)) return;
@@ -1720,6 +1724,8 @@ export class Duel {
     if (!this.activationAllowed(p, card)) return false;
     // 「這張卡不能發動」（淘氣仙星的燈光舞台等）
     if (this.hasFlag(card, 'cannotActivate')) return false;
+    // 手牌・墓地等場上以外的怪獸效果被無效（墓穴的指名者）
+    if (isMonster(d) && !card.onField && this.isNegated(card)) return false;
     if (isSpell(d) && effect.kind === 'activate' && this.playerHas(p, 'cannotActivateSpells')) return false;
     // 大將軍 紫炎：1 回合只能發動 1 次魔法・陷阱卡
     if ((isSpell(d) || isTrap(d)) && effect.kind === 'activate' && this.p(p).turnFlags.stActivated && this.playerHas(p, 'oneSpellTrapPerTurn'))
@@ -1745,6 +1751,11 @@ export class Duel {
         return false;
       }
       if (isTrap(d)) {
+        // 從手牌發動（颱風、無限泡影）
+        if (card.location === 'hand' && card.owner === p && effect.handActivation?.(this, card, p)) {
+          if (this.freeSZones(p) <= 0 || this.trapsNegated() || this.playerHas(p, 'cannotActivateTraps')) return false;
+          return true;
+        }
         if (card.location !== 'szone' || card.faceUp || card.controller !== p) return false;
         // 蓋放的回合不能發動（有些卡在條件下可以）
         if (card.turnPlaced === this.turn && !effect.setTurnActivation?.(this, card, p)) return false;
@@ -1769,6 +1780,8 @@ export class Duel {
     const ctx = this.makeCtx(card, effect, p, event);
     if (effect.categories?.includes('fusion') && this.playerHas(p, 'fusionUnnegatable')) ctx.data.unnegatable = true;
     const isCardActivation = effect.kind === 'activate' && (isSpell(card.data) || isTrap(card.data));
+    const origin = card.location;
+    ctx.data.activatedFrom = origin;
     const ps = this.p(p);
     if (isCardActivation) ps.turnFlags.stActivated = true;
     if (isCardActivation) {

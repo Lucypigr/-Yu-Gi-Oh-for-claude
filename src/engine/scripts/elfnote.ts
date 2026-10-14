@@ -1157,3 +1157,58 @@ def(THEO_MEDIUS, {
 
 void getCard;
 void Card;
+
+// 無垢大藝術－「幻創之賢者」
+def(90728287, {
+  effects: [
+    activate({
+      once: 'nameShared',
+      categories: ['banish', 'negate'],
+      condition: (ctx) => philosophorumTargets(ctx).length > 0,
+      target: async (ctx) => {
+        await chooseTargets(ctx, philosophorumTargets(ctx), { title: '選擇最多 3 隻「無垢大藝術」怪獸', max: 3, hint: 'benefit' });
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const ts = tgts(ctx).filter((c) => c.location === 'grave' || c.onField);
+        const n = d.banish(ts, 'effect', ctx.card).length;
+        if (!n) return;
+        const others = d.fieldCards().filter((c) => c.faceUp && c !== ctx.card);
+        if (!others.length || !(await d.confirm({ player: ctx.player, title: `要讓最多 ${n} 張場上的表側表示卡的效果直到回合結束時無效嗎？`, ai: d.fieldCards(ctx.opp).some((c) => c.faceUp) })))
+          return;
+        const sel = await d.select({
+          player: ctx.player,
+          title: `選擇最多 ${n} 張要無效的卡`,
+          cards: others,
+          min: 1,
+          max: n,
+          hint: 'harm',
+          aiValue: (c) => (c.controller === ctx.opp ? cardValue(d, c, ctx.player) : -5000),
+        });
+        for (const c of sel) if (!d.isImmune(c, ctx.card)) d.setFlag(c, 'negated');
+      },
+      ai: (ctx) => (ctx.duel.turnPlayer === ctx.player ? 60 : 70),
+    }),
+    {
+      kind: 'ignition',
+      label: '除外墓地的這張卡：墓地的「獄神」連結怪獸回到額外牌組，那之後可以特殊召喚',
+      range: ['grave'],
+      once: 'nameShared',
+      categories: ['summon'],
+      condition: (ctx) => ctx.duel.p(ctx.player).grave.some(isPatronLink),
+      cost: async (ctx) => {
+        ctx.duel.banish([ctx.card], 'cost', ctx.card);
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const c = await d.selectOne({ player: ctx.player, title: '選擇「獄神」連結怪獸', cards: d.p(ctx.player).grave.filter(isPatronLink), hint: 'benefit' });
+        if (!c || !d.returnToDeck([c], false, 'effect', ctx.card).length) return;
+        if (c.location === 'extra' && d.extraZones(ctx.player, c).length && (await d.confirm({ player: ctx.player, title: `要特殊召喚「${c.name}」嗎？`, ai: true })))
+          d.specialSummon(c, ctx.player, { position: 'atk', by: ctx.card });
+      },
+      ai: () => 75,
+    },
+  ],
+});
+const philosophorumTargets = (ctx: EffectContext) =>
+  [...ctx.duel.faceUpMonsters(ctx.player), ...ctx.duel.p(ctx.player).grave].filter((c) => isArsMagnaMon(c.data));

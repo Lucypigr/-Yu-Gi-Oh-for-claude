@@ -191,6 +191,8 @@ export interface EffectDef {
   once?: 'turn' | 'name' | 'nameShared' | 'duel';
   /** 陷阱卡在蓋放的回合也能發動的條件 */
   setTurnActivation?: (duel: Duel, card: Card, p: PlayerId) => boolean;
+  /** 陷阱卡：這張卡的發動從手牌也能用的條件（颱風、無限泡影） */
+  handActivation?: (duel: Duel, card: Card, p: PlayerId) => boolean;
   /** 可在傷害步驟發動 */
   damageStep?: boolean;
   categories?: Category[];
