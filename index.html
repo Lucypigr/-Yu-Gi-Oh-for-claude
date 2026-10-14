@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>遊戲王 決鬥場</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="./assets/index-DjPcdCzN.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-2IKiSJ5Q.css">
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #0b0d16; color: #e8d9a8; font-family: sans-serif">
+        <div style="font-size: 28px; font-weight: 900">遊戲王 決鬥場</div>
+        <div id="boot-msg" style="font-size: 15px; opacity: 0.85">載入中…（第一次開啟約需數秒）</div>
+      </div>
+    </div>
+    <script>
+      // 載入失敗（例如瀏覽器快取了舊版網頁，舊的程式檔已不存在）：自動重新整理一次，仍失敗就顯示提示
+      (function () {
+        var KEY = 'ygo-boot-retry';
+        function fail() {
+          var msg = document.getElementById('boot-msg');
+          var tried = false;
+          try {
+            tried = sessionStorage.getItem(KEY) === '1';
+            if (!tried) sessionStorage.setItem(KEY, '1');
+          } catch (e) {}
+          if (!tried) {
+            location.replace(location.pathname + '?v=' + Date.now());
+            return;
+          }
+          if (msg) msg.innerHTML = '載入失敗，請重新整理頁面<br><button onclick="location.replace(location.pathname + \'?v=\' + Date.now())" style="margin-top:10px;padding:8px 18px;font-size:15px">重新整理</button>';
+        }
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && document.getElementById('boot')) fail();
+          },
+          true,
+        );
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            if (document.getElementById('boot')) fail();
+            else
+              try {
+                sessionStorage.removeItem(KEY);
+              } catch (e) {}
+          }, 15000);
+        });
+      })();
+    </script>
+  </body>
+</html>
