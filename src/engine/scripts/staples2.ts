@@ -2,7 +2,7 @@
 import { Card } from '../card';
 import { type CardData, RACE, getCard, isExtraDeckCard, isLink, isMonster, isSpell, isTrap, isTuner, isXyz } from '../cardDb';
 import type { Duel } from '../duel';
-import type { ChainLink, EffectContext, PlayerId } from '../types';
+import type { ChainLink, EffectContext, GameEvent, PlayerId } from '../types';
 import { banishUntilEnd } from './elfnote';
 import { def } from './registry';
 import { canRevive, cardValue, chooseTargets, summonedSelf, tgt, tgts } from './lib';
@@ -93,54 +93,78 @@ def(27204311, {
 });
 
 // =====================================================================
-// 歡聚友伴・茸茸長尾山雀
+// 歡聚友伴
 // =====================================================================
 
-def(42141493, {
-  effects: [
-    {
-      kind: 'quick',
-      label: '從手牌丟棄：這回合對方每次從牌組・額外牌組特殊召喚，自己抽 1 張',
-      range: ['hand'],
-      once: 'turn',
-      categories: ['draw'],
-      condition: (ctx) => ctx.duel.fieldCards(ctx.player).length === 0 && !ctx.duel.p(ctx.player).turnFlags.mulcharmyUsed,
-      cost: async (ctx) => {
-        ctx.duel.discard([ctx.card], 'cost', ctx.card);
+const MULCHARMY = [42141493, 84192580, 87126721];
+/** 「這張卡的效果發動的回合，自己只能有 1 次把這張卡以外的『歡聚友伴』怪獸的效果發動」 */
+function mulcharmyOk(d: Duel, p: PlayerId, id: number): boolean {
+  const used = MULCHARMY.flatMap((m) => Array<number>(Number(d.p(p).turnFlags[`mulcharmy${m}`] ?? 0)).fill(m));
+  const next = [...used, id];
+  return used.every((x) => next.filter((y) => y !== x).length <= 1);
+}
+
+/** 歡聚友伴：這回合對方每次符合條件地召喚・特殊召喚，自己抽 1 張；結束階段手牌太多的話隨機回到牌組 */
+function mulcharmy(id: number, label: string, counts: (ev: GameEvent, opp: PlayerId) => boolean) {
+  def(id, {
+    effects: [
+      {
+        kind: 'quick',
+        label,
+        range: ['hand'],
+        categories: ['draw'],
+        condition: (ctx) => ctx.duel.fieldCards(ctx.player).length === 0 && mulcharmyOk(ctx.duel, ctx.player, id),
+        cost: async (ctx) => {
+          const d = ctx.duel;
+          const key = `mulcharmy${id}`;
+          d.p(ctx.player).turnFlags[key] = Number(d.p(ctx.player).turnFlags[key] ?? 0) + 1;
+          d.discard([ctx.card], 'cost', ctx.card);
+        },
+        operation: async (ctx) => {
+          const d = ctx.duel;
+          const p = ctx.player;
+          const opp = ctx.opp;
+          const turn = d.turn;
+          d.listeners.push((ev) => {
+            if (d.turn !== turn) return true;
+            if (counts(ev, opp)) {
+              d.log(`「${ctx.card.name}」的效果：抽 1 張`);
+              d.draw(p, 1);
+            }
+            return false;
+          });
+          d.delayed.push({
+            turn,
+            run: () => {
+              const hand = d.p(p).hand;
+              const over = hand.length - (d.fieldCards(opp).length + 6);
+              if (over <= 0) return;
+              const back: Card[] = [];
+              const pool = [...hand];
+              for (let i = 0; i < over; i++) back.push(...pool.splice(Math.floor(d.rng() * pool.length), 1));
+              d.returnToDeck(back, false, 'effect');
+              d.shuffleDeck(p);
+              d.log(`手牌隨機 ${over} 張回到牌組`);
+            },
+          });
+        },
+        ai: (ctx) => (ctx.duel.turnPlayer === ctx.opp && inMainPhase(ctx.duel) ? 85 : 0),
       },
-      operation: async (ctx) => {
-        const d = ctx.duel;
-        const p = ctx.player;
-        const opp = ctx.opp;
-        const turn = d.turn;
-        d.p(p).turnFlags.mulcharmyUsed = true;
-        d.listeners.push((ev) => {
-          if (d.turn !== turn) return true;
-          if (ev.type === 'summoned' && ev.player === opp && (ev.cards ?? []).some((c) => c.summonedFrom === 'deck' || c.summonedFrom === 'extra')) {
-            d.log('茸茸長尾山雀的效果：抽 1 張');
-            d.draw(p, 1);
-          }
-          return false;
-        });
-        d.delayed.push({
-          turn,
-          run: () => {
-            const hand = d.p(p).hand;
-            const over = hand.length - (d.fieldCards(opp).length + 6);
-            if (over <= 0) return;
-            const back: Card[] = [];
-            const pool = [...hand];
-            for (let i = 0; i < over; i++) back.push(...pool.splice(Math.floor(d.rng() * pool.length), 1));
-            d.returnToDeck(back, false, 'effect');
-            d.shuffleDeck(p);
-            d.log(`手牌隨機 ${over} 張回到牌組`);
-          },
-        });
-      },
-      ai: (ctx) => (ctx.duel.turnPlayer === ctx.opp && inMainPhase(ctx.duel) ? 85 : 0),
-    },
-  ],
-});
+    ],
+  });
+}
+const summonedFrom = (ev: GameEvent, opp: PlayerId, from: string[], kinds?: string[]) =>
+  ev.type === 'summoned' &&
+  ev.player === opp &&
+  (ev.cards ?? []).some((c) => !!c.summonedFrom && from.includes(c.summonedFrom)) &&
+  (!kinds || kinds.includes(ev.summonType === 'normal' || ev.summonType === 'tribute' ? 'normal' : ev.summonType === 'flip' ? 'flip' : 'special'));
+
+// 歡聚友伴・茸茸長尾山雀
+mulcharmy(42141493, '從手牌丟棄：這回合對方每次從牌組・額外牌組特殊召喚，自己抽 1 張', (ev, opp) => summonedFrom(ev, opp, ['deck', 'extra'], ['special']));
+// 歡聚友伴・抖抖海月水母
+mulcharmy(84192580, '從手牌丟棄：這回合對方每次從手牌召喚・特殊召喚，自己抽 1 張', (ev, opp) => summonedFrom(ev, opp, ['hand'], ['normal', 'special']));
+// 歡聚友伴・喵喵豹貓
+mulcharmy(87126721, '從手牌丟棄：這回合對方每次把墓地・除外的怪獸特殊召喚，自己抽 1 張', (ev, opp) => summonedFrom(ev, opp, ['grave', 'banished'], ['special']));
 
 // =====================================================================
 // 幽鬼兔
@@ -594,6 +618,171 @@ def(90953320, {
       operation: async (ctx) => {
         if (ctx.card.isFaceUpMonster) ctx.duel.draw(ctx.player, 1);
       },
+    },
+  ],
+});
+
+// =====================================================================
+// 泛用魔法・陷阱
+// =====================================================================
+
+/** 魔法・陷阱區域的縱列（0～4，從玩家 0 看過去的左邊開始） */
+const stColumn = (c: Card) => (c.controller === 0 ? c.zone : 4 - c.zone);
+const isST = (c: Card) => isSpell(c.data) || isTrap(c.data);
+
+// 颱風
+def(14883228, {
+  effects: [
+    {
+      kind: 'activate',
+      categories: ['destroy'],
+      handActivation: (d, _card, p) => d.spellTraps(p === 0 ? 1 : 0).length >= 2 && d.spellTraps(p).length === 0,
+      condition: (ctx) => ctx.duel.fieldCards().some((c) => c.faceUp && isST(c) && c !== ctx.card),
+      target: async (ctx) => {
+        const d = ctx.duel;
+        await chooseTargets(ctx, d.fieldCards().filter((c) => c.faceUp && isST(c) && c !== ctx.card), {
+          title: '選擇要破壞的表側表示魔法・陷阱卡',
+          aiValue: (c) => (c.controller === ctx.opp ? 500 + cardValue(d, c, ctx.player) : -5000),
+        });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.onField) await ctx.duel.destroy([t], 'effect', ctx.card);
+      },
+      ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => c.faceUp && isST(c)) ? 70 : 0),
+    },
+  ],
+});
+
+// 宇宙旋風
+def(8267140, {
+  effects: [
+    {
+      kind: 'activate',
+      categories: ['banish'],
+      condition: (ctx) => ctx.duel.p(ctx.player).lp > 1000 && ctx.duel.spellTraps().some((c) => c !== ctx.card),
+      cost: async (ctx) => ctx.duel.payLP(ctx.player, 1000),
+      target: async (ctx) => {
+        const d = ctx.duel;
+        await chooseTargets(ctx, d.spellTraps().filter((c) => c !== ctx.card), {
+          title: '選擇要除外的魔法・陷阱卡',
+          aiValue: (c) => (c.controller === ctx.opp ? 500 + cardValue(d, c, ctx.player) : -5000),
+        });
+      },
+      operation: async (ctx) => {
+        const t = tgt(ctx);
+        if (t?.onField) ctx.duel.banish([t], 'effect', ctx.card);
+      },
+      ai: (ctx) => (ctx.duel.spellTraps(ctx.opp).length && ctx.duel.p(ctx.player).lp > 3000 ? 65 : 0),
+    },
+  ],
+});
+
+// 墓穴的指名者
+def(24224830, {
+  effects: [
+    {
+      kind: 'activate',
+      categories: ['banish', 'negate'],
+      condition: (ctx) => ctx.duel.p(ctx.opp).grave.some((c) => isMonster(c.data)),
+      target: async (ctx) => {
+        const d = ctx.duel;
+        await chooseTargets(ctx, d.p(ctx.opp).grave.filter((c) => isMonster(c.data)), { title: '選擇對方墓地的怪獸', aiValue: (c) => cardValue(d, c, ctx.player) });
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const t = tgt(ctx);
+        if (!t || t.location !== 'grave' || !d.banish([t], 'effect', ctx.card).length) return;
+        const id = t.id;
+        d.lingering.push({ turn: d.turn, until: d.turn + 1, negate: (c) => isMonster(c.data) && c.id === id });
+        d.log(`直到下個回合的結束時，「${t.name}」以及同名怪獸的效果無效`);
+      },
+      ai: (ctx) => {
+        const top = ctx.duel.chainTop;
+        if (top && top.player === ctx.opp && top.card.location === 'grave' && isMonster(top.card.data)) return 90;
+        return 0;
+      },
+    },
+  ],
+});
+
+// 無限泡影
+def(10045474, {
+  effects: [
+    {
+      kind: 'activate',
+      categories: ['negate'],
+      handActivation: (d, _card, p) => d.fieldCards(p).length === 0,
+      condition: (ctx) => ctx.duel.faceUpMonsters(ctx.opp).length > 0,
+      target: async (ctx) => {
+        const d = ctx.duel;
+        ctx.data.column = ctx.card.location === 'szone' ? stColumn(ctx.card) : -1;
+        await chooseTargets(ctx, d.faceUpMonsters(ctx.opp), {
+          title: '選擇對方的表側表示怪獸',
+          aiValue: (c) => cardValue(d, c, ctx.player) + (d.chainTop?.card === c ? 3000 : 0),
+        });
+      },
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const t = tgt(ctx);
+        if (t?.isFaceUpMonster && !d.isImmune(t, ctx.card)) {
+          d.setFlag(t, 'negated');
+          d.log(`「${t.name}」的效果直到回合結束時無效`);
+        }
+        // 盖放的這張卡發動的場合：這個回合相同縱列的其他魔法・陷阱卡的效果無效
+        const col = ctx.data.column as number;
+        if (ctx.data.activatedFrom === 'szone' && col >= 0) {
+          const self = ctx.card;
+          d.lingering.push({ turn: d.turn, negate: (c) => c !== self && c.location === 'szone' && isST(c) && stColumn(c) === col });
+        }
+      },
+      ai: (ctx) => {
+        const top = ctx.duel.chainTop;
+        if (top && top.player === ctx.opp && top.card.isFaceUpMonster) return 85;
+        return ctx.duel.battle && ctx.duel.battle.attacker.controller === ctx.opp ? 50 : 0;
+      },
+    },
+  ],
+});
+
+// 宇宙性颶風
+def(2729965, {
+  effects: [
+    {
+      kind: 'activate',
+      once: 'name',
+      categories: ['toHand'],
+      condition: (ctx) => ctx.duel.fieldCards().some((c) => c !== ctx.card),
+      operation: async (ctx) => {
+        const d = ctx.duel;
+        const sel = await d.select({
+          player: ctx.player,
+          title: '選擇最多 2 張要回到手牌的場上的卡',
+          cards: d.fieldCards().filter((c) => c !== ctx.card),
+          min: 1,
+          max: 2,
+          hint: 'harm',
+          aiValue: (c) => (c.controller === ctx.opp ? cardValue(d, c, ctx.player) : -3000),
+        });
+        if (!sel.length) return;
+        const done = d.returnToHand(sel, 'effect', ctx.card).filter((c) => c.location === 'hand');
+        for (const q of [ctx.player, ctx.opp] as PlayerId[]) {
+          const n = done.filter((c) => c.owner === q).length;
+          if (!n) continue;
+          // 選回到自身手牌的數量的手牌，用喜歡的順序回到牌組下面
+          for (let i = 0; i < n && d.p(q).hand.length; i++) {
+            const c = await d.selectOne({
+              player: q,
+              title: `選擇要回到牌組最下面的手牌（${i + 1}/${n}）`,
+              cards: d.p(q).hand,
+              hint: 'cost',
+              aiValue: (x) => -cardValue(d, x, q),
+            });
+            if (c) d.returnToDeck([c], false, 'effect', ctx.card);
+          }
+        }
+      },
+      ai: (ctx) => (ctx.duel.fieldCards(ctx.opp).some((c) => cardValue(ctx.duel, c, ctx.player) >= 2000) ? 70 : 0),
     },
   ],
 });

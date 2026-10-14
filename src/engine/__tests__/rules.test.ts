@@ -2299,3 +2299,90 @@ describe('第二十一彈：耀聖・獄神・泛用卡', () => {
     expect(duel.p(1).hand.length).toBe(hand + 1); // 從手牌特殊召喚不抽
   });
 });
+
+describe('第二十二彈：泛用卡', () => {
+  const activateMain = async (duel: Duel, p: PlayerId, card: Card, index = 0) => {
+    const act = duel.getActivatable(p).filter((x) => x.card === card)[index];
+    expect(act, `${card.name} 可以發動`).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act.effect, effectIndex: act.effectIndex });
+  };
+
+  it('無限泡影：自己場上沒有卡時可以從手牌發動；蓋放發動的話相同縱列的魔法・陷阱也無效', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const blue = put(duel, 1, 70095154, 'mzone');
+    const imp = put(duel, 0, 10045474, 'hand');
+    await activateMain(duel, 0, imp);
+    expect(duel.isNegated(blue)).toBe(true);
+    // 場上有卡就不能從手牌發動
+    const s2 = setup();
+    put(s2.duel, 1, 70095154, 'mzone');
+    put(s2.duel, 0, FILLER, 'mzone');
+    const imp2 = put(s2.duel, 0, 10045474, 'hand');
+    expect(s2.duel.getActivatable(0).some((x) => x.card === imp2)).toBe(false);
+    // 蓋放發動：相同縱列的魔法・陷阱卡無效
+    const s3 = setup();
+    s3.b.declineAll = true;
+    put(s3.duel, 1, 70095154, 'mzone');
+    const set = put(s3.duel, 0, 10045474, 'szone', { faceUp: false });
+    const col = set.zone;
+    const foeST = new Card(getCard(44095762), 1);
+    foeST.location = 'void';
+    s3.duel.moveTo(foeST, 'szone', { reason: 'rule', player: 1, faceUp: false, zone: 4 - col });
+    await activateMain(s3.duel, 0, set);
+    expect(s3.duel.isNegated(foeST)).toBe(true);
+  });
+
+  it('墓穴的指名者：除外對方墓地的怪獸，直到下個回合結束時同名怪獸的效果無效（手牌也不能發動）', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    put(duel, 1, 14558127, 'grave');
+    const ashInHand = put(duel, 1, 14558127, 'hand');
+    await activateMain(duel, 0, put(duel, 0, 24224830, 'hand'));
+    expect(duel.p(1).banished.some((c) => c.id === 14558127)).toBe(true);
+    expect(duel.isNegated(ashInHand)).toBe(true);
+    duel.turn += 1;
+    expect(duel.isNegated(ashInHand)).toBe(true);
+    duel.turn += 1;
+    expect(duel.isNegated(ashInHand)).toBe(false);
+  });
+
+  it('颱風：對方的魔法・陷阱 2 張以上、自己沒有時可以從手牌發動', () => {
+    const { duel } = setup();
+    const ty = put(duel, 0, 14883228, 'hand');
+    put(duel, 1, 44095762, 'szone', { faceUp: true });
+    expect(duel.getActivatable(0).some((x) => x.card === ty)).toBe(false);
+    put(duel, 1, 5318639, 'szone', { faceUp: true });
+    expect(duel.getActivatable(0).some((x) => x.card === ty)).toBe(true);
+  });
+
+  it('歡聚友伴：發動後，這張卡以外的歡聚友伴這回合只能再發動 1 次', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    duel.turnPlayer = 1;
+    const cards = [42141493, 84192580, 87126721].map((id) => put(duel, 0, id, 'hand'));
+    const can = (c: Card) => duel.getActivatable(0, { kind: 'free' } as never).find((x) => x.card === c);
+    for (const c of cards.slice(0, 2)) {
+      const act = can(c)!;
+      expect(act).toBeTruthy();
+      await duel.performMainAction(0, { type: 'activate', card: c, effect: act.effect, effectIndex: act.effectIndex });
+    }
+    expect(can(cards[2])).toBeFalsy();
+  });
+
+  it('抖抖海月水母：對方每次從手牌召喚・特殊召喚，自己抽 1 張', async () => {
+    const { duel, a, b } = setup();
+    a.declineAll = true;
+    b.declineAll = true;
+    const pur = put(duel, 1, 84192580, 'hand');
+    const act = duel.getActivatable(1, { kind: 'free' } as never).find((x) => x.card === pur)!;
+    await duel.performMainAction(1, { type: 'activate', card: pur, effect: act.effect, effectIndex: act.effectIndex });
+    const hand = duel.p(1).hand.length;
+    duel.specialSummon(put(duel, 0, 46986414, 'hand'), 0, { position: 'atk' });
+    expect(duel.p(1).hand.length).toBe(hand + 1);
+    duel.specialSummon(put(duel, 0, 46986414, 'grave'), 0, { position: 'atk' });
+    expect(duel.p(1).hand.length).toBe(hand + 1);
+  });
+});
