@@ -210,6 +210,7 @@ export function DeckEditor({ profile }: { profile: Profile }) {
       {importing && (
         <ImportDeckModal
           collection={profile.collection}
+          coins={profile.coins}
           onClose={() => setImporting(false)}
           onImport={(d) => {
             const nd: DeckData = { ...d, id: newId() };

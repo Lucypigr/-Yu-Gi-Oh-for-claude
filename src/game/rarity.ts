@@ -432,6 +432,9 @@ export function rarityOf(id: number): Rarity {
 /** 分解重複卡片可以得到的金幣 */
 export const SELL_PRICE: Record<Rarity, number> = { N: 5, R: 15, SR: 40, UR: 100 };
 
+/** 用金幣換取 1 張卡片的價格 */
+export const BUY_PRICE: Record<Rarity, number> = { N: 30, R: 90, SR: 240, UR: 600 };
+
 // 第十八彈：蛇眼・刻魔
 UR.push(
   9674034, // 蛇眼梣樹靈

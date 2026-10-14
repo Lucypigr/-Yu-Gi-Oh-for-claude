@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { getCard } from '../../engine/cardDb';
 import { type ImportedDeck, importDeck } from '../../game/deckImport';
 import { type DeckData, countIds } from '../../game/deckRules';
+import { buyCards, buyPrice } from '../../game/profile';
 import { Modal } from '../duel/DuelScreen';
 
 const SITES = [
@@ -13,10 +14,12 @@ const SITES = [
 
 export function ImportDeckModal({
   collection,
+  coins,
   onImport,
   onClose,
 }: {
   collection: Record<number, number>;
+  coins: number;
   onImport: (deck: Omit<DeckData, 'id'>) => void;
   onClose: () => void;
 }) {
@@ -51,13 +54,16 @@ export function ImportDeckModal({
   };
 
   // 持有數量不足的卡
-  const shortage: { name: string; need: number; owned: number }[] = [];
+  const shortage: { id: number; name: string; need: number; owned: number }[] = [];
   if (result) {
     for (const [id, n] of countIds([...result.main, ...result.extra])) {
       const owned = collection[id] ?? 0;
-      if (owned < n) shortage.push({ name: getCard(id).name, need: n, owned });
+      if (owned < n) shortage.push({ id, name: getCard(id).name, need: n, owned });
     }
   }
+  /** 用金幣補齊不足的卡 */
+  const fillIds = shortage.flatMap((s) => Array<number>(s.need - s.owned).fill(s.id));
+  const fillCost = fillIds.reduce((t, id) => t + (buyPrice(id) ?? 0), 0);
 
   /** 只放入持有的卡：每張卡最多放持有的數量 */
   const limit = (ids: number[]) => {
@@ -138,6 +144,12 @@ export function ImportDeckModal({
               <div className="import-list">
                 <b>持有數量不足（可以在商店的卡包取得）：</b>
                 {shortage.map((s) => `${s.name}（${s.owned}/${s.need}）`).join('、')}
+                <div className="import-row">
+                  <button className="btn small primary" disabled={coins < fillCost} onClick={() => buyCards(fillIds)}>
+                    用金幣補齊 {fillIds.length} 張（🪙 {fillCost}）
+                  </button>
+                  <span className="modal-note">持有 🪙 {coins}</span>
+                </div>
                 <label className="import-row">
                   <input type="checkbox" checked={ownedOnly} onChange={(e) => setOwnedOnly(e.target.checked)} />
                   只放入持有的卡
