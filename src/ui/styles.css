@@ -2713,3 +2713,9 @@ h4 {
 .import-list.bad {
   background: rgba(255, 120, 100, 0.1);
 }
+
+.redeem-input {
+  flex: 1;
+  max-width: 260px;
+  text-transform: uppercase;
+}

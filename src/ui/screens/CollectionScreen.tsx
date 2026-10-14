@@ -1,7 +1,7 @@
 // 卡片圖鑑：查看所有卡片、分解多餘卡片
 import { useState } from 'react';
 import { type CardData, allCards } from '../../engine/cardDb';
-import { type Profile, sellCards, usedInDecks } from '../../game/profile';
+import { type Profile, buyCards, buyPrice, sellCards, usedInDecks } from '../../game/profile';
 import { SELL_PRICE, rarityOf } from '../../game/rarity';
 import { CardBrowser } from '../components/CardBrowser';
 import { CardDetail } from '../components/CardView';
@@ -17,6 +17,22 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
   const cards = allCards();
   const ownedKinds = cards.filter((d) => profile.collection[d.id]).length;
   const surplus = cards.filter((d) => (profile.collection[d.id] ?? 0) > keepCount(profile, d.id));
+  /** 用金幣換取 1 張 */
+  const buy = (d: CardData) => {
+    const price = buyPrice(d.id);
+    if (price === null) return;
+    if (profile.coins < price) return setMsg(`金幣不足（需要 🪙 ${price}）`);
+    if (buyCards([d.id])) setMsg(`用 🪙 ${price} 換取了「${d.name}」`);
+  };
+  const buyButton = (d: CardData) => {
+    const price = buyPrice(d.id);
+    if (price === null) return null;
+    return (
+      <button className="btn small primary" disabled={profile.coins < price} onClick={() => buy(d)}>
+        換取 1 張（🪙 {price}）
+      </button>
+    );
+  };
   const surplusValue = surplus.reduce(
     (s, d) => s + ((profile.collection[d.id] ?? 0) - keepCount(profile, d.id)) * SELL_PRICE[rarityOf(d.id)],
     0,
@@ -51,6 +67,7 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
                 <div>
                   分解價格：🪙 {SELL_PRICE[rarityOf(detail.id)]} / 張
                 </div>
+                {buyButton(detail)}
                 <button
                   className="btn small"
                   disabled={(profile.collection[detail.id] ?? 0) <= usedInDecks(profile, detail.id)}
@@ -83,7 +100,11 @@ export function CollectionScreen({ profile }: { profile: Profile }) {
       {popup && (
         <Modal title={popup.name} onClose={() => setPopup(null)}>
           <CardDetail data={popup} layout="row" dim={!profile.collection[popup.id]}>
-            <div className="detail-extra">持有 {profile.collection[popup.id] ?? 0} 張</div>
+            <div className="detail-extra">
+              <div>持有 {profile.collection[popup.id] ?? 0} 張</div>
+              {buyButton(popup)}
+              {msg && <div className="msg">{msg}</div>}
+            </div>
           </CardDetail>
         </Modal>
       )}

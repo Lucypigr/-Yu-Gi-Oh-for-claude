@@ -2,13 +2,15 @@
 import { useState } from 'react';
 import { getCard } from '../../engine/cardDb';
 import { STARTER_DECKS } from '../../game/decks';
-import { type Profile, claimStarter, exportSave, importSave, renamePlayer, resetProfile, updateSettings } from '../../game/profile';
+import { type Profile, claimStarter, exportSave, importSave, redeemCode, renamePlayer, resetProfile, updateSettings } from '../../game/profile';
 import { CardView } from '../components/CardView';
 
 export function SettingsScreen({ profile }: { profile: Profile }) {
   const [name, setName] = useState(profile.playerName);
   const [data, setData] = useState('');
   const [msg, setMsg] = useState('');
+  const [code, setCode] = useState('');
+  const [codeMsg, setCodeMsg] = useState('');
 
   return (
     <div className="screen settings-screen">
@@ -67,6 +69,22 @@ export function SettingsScreen({ profile }: { profile: Profile }) {
             );
           })}
         </div>
+
+        <h3>兌換碼</h3>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const coins = redeemCode(code);
+            setCodeMsg(coins ? `兌換成功！得到 🪙 ${coins}（目前 🪙 ${profile.coins + coins}）` : '兌換碼無效');
+          }}
+        >
+          <input className="redeem-input" value={code} maxLength={20} placeholder="輸入兌換碼" onChange={(e) => setCode(e.target.value)} />
+          <button className="btn primary" type="submit" disabled={!code.trim()}>
+            兌換
+          </button>
+        </form>
+        {codeMsg && <div className="msg">{codeMsg}</div>}
 
         <h3>存檔</h3>
         <p className="note">存檔儲存在這個瀏覽器中。換電腦或清除瀏覽器資料前，請先匯出存檔。</p>

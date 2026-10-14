@@ -6,7 +6,7 @@ import { STARTER_DECKS } from './decks';
 import { validateDeck } from './deckRules';
 import { OPPONENTS } from './opponents';
 import { PACKS, openPack } from './packs';
-import { buyPack, claimStarter, createProfile, getProfile, recordDuel, sellCards, setStorage } from './profile';
+import { buyCards, buyPack, buyPrice, claimStarter, createProfile, getProfile, recordDuel, redeemCode, sellCards, setStorage } from './profile';
 
 function memoryStorage() {
   const m = new Map<string, string>();
@@ -68,6 +68,25 @@ describe('存檔', () => {
     // 牌組中使用的卡不能分解（卡包可能抽到第 2 張青眼白龍，那張可以分解）
     const owned = getProfile()!.collection[89631139];
     expect(sellCards(89631139, owned)).toBe((owned - 1) * 100);
+  });
+  it('兌換碼 EVON 得到 5000 金幣，可以重複使用；無效的兌換碼沒有金幣', () => {
+    createProfile('測試', 'dragon');
+    expect(redeemCode('EVON')).toBe(5000);
+    expect(redeemCode(' evon ')).toBe(5000);
+    expect(redeemCode('NOPE')).toBe(0);
+    expect(getProfile()!.coins).toBe(500 + 10000);
+  });
+  it('用金幣換取卡片，金幣不足時不能換取', () => {
+    createProfile('測試', 'dragon');
+    const blue = 89631139; // 青眼白龍（UR）
+    const owned = getProfile()!.collection[blue] ?? 0;
+    expect(buyPrice(blue)).toBe(600);
+    expect(buyCards([blue])).toBe(false); // 500 金幣不夠
+    redeemCode('EVON');
+    expect(buyCards([blue, blue])).toBe(true);
+    expect(getProfile()!.collection[blue]).toBe(owned + 2);
+    expect(getProfile()!.coins).toBe(5500 - 1200);
+    expect(buyPrice(35552986)).toBeNull(); // 衍生物不能換取
   });
   it('領取另一套起始牌組（只能 1 次）', () => {
     setStorage(memoryStorage());

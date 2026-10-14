@@ -1,11 +1,11 @@
 // 玩家存檔：金幣、收藏、牌組、戰績（儲存在瀏覽器 localStorage）
-import { hasCard } from '../engine/cardDb';
+import { getCard, hasCard, isToken } from '../engine/cardDb';
 import { BLACKWING_STARTER_V1, STARTER_DECKS } from './decks';
 import { type DeckData, countIds } from './deckRules';
 import { type DeckStyle, type LadderOpponent, START_RATING, ladderCoins, ratingDelta } from './ladder';
 import { getOpponent } from './opponents';
 import { getPack, openPack } from './packs';
-import { SELL_PRICE, rarityOf } from './rarity';
+import { BUY_PRICE, SELL_PRICE, rarityOf } from './rarity';
 
 export const SAVE_VERSION = 1;
 const STORAGE_KEY = 'ygo-duel-save';
@@ -250,6 +250,41 @@ export function buyPack(packId: string, rng: () => number = Math.random): number
     for (const id of cards) q.collection[id] = (q.collection[id] ?? 0) + 1;
   });
   return cards;
+}
+
+/** 用金幣換取卡片的價格（衍生物不能換取） */
+export function buyPrice(id: number): number | null {
+  if (!hasCard(id) || isToken(getCard(id))) return null;
+  return BUY_PRICE[rarityOf(id)];
+}
+
+/** 用金幣換取卡片，金幣不足時回傳 false */
+export function buyCards(ids: number[]): boolean {
+  const p = getProfile();
+  if (!p || !ids.length) return false;
+  let total = 0;
+  for (const id of ids) {
+    const price = buyPrice(id);
+    if (price === null) return false;
+    total += price;
+  }
+  if (p.coins < total) return false;
+  update((q) => {
+    q.coins -= total;
+    for (const id of ids) q.collection[id] = (q.collection[id] ?? 0) + 1;
+  });
+  return true;
+}
+
+/** 兌換碼（可以重複使用） */
+const REDEEM_CODES: Record<string, number> = { EVON: 5000 };
+
+/** 輸入兌換碼，回傳得到的金幣（無效的兌換碼回傳 0） */
+export function redeemCode(code: string): number {
+  const coins = REDEEM_CODES[code.trim().toUpperCase()] ?? 0;
+  if (!coins || !getProfile()) return 0;
+  addCoins(coins);
+  return coins;
 }
 
 /** 某張卡被牌組使用的最大張數（分解時保留） */
