@@ -24,14 +24,14 @@ const QUAERITIS = 72272462;
 const PROSKENION = 18666161;
 
 /** 需以「阿不思的落胤」為融合素材的融合怪獸 */
-const FALLEN_FUSIONS = new Set([MIRRORJADE, ALBION, TITANIKLAD, LUBELLION, SPRIND, RINDBRUMM, ALBA_LENATUS, 38811586]);
+export const FALLEN_FUSIONS = new Set([76666602, MIRRORJADE, ALBION, TITANIKLAD, LUBELLION, SPRIND, RINDBRUMM, ALBA_LENATUS, 38811586]);
 const isFallenFusion = (c: Card | CardData) => FALLEN_FUSIONS.has('data' in c ? c.id : c.id);
 /** 卡名當作「阿不思的落胤」 */
-const isFallen = (c: Card) =>
+export const isFallen = (c: Card) =>
   c.id === FALLEN || c.id === WHITE_FALLEN || ((c.id === ASHEN || c.id === SHROUDED) && (c.onField || c.location === 'grave'));
 const isFallenData = (d: CardData) => d.id === FALLEN || d.id === WHITE_FALLEN;
 /** 有「阿不思的落胤」的卡名記述的卡 */
-const MENTIONS_FALLEN = new Set([
+export const MENTIONS_FALLEN = new Set([
   ...FALLEN_FUSIONS,
   ASHEN,
   SHROUDED,
@@ -47,6 +47,10 @@ const MENTIONS_FALLEN = new Set([
   29948294, // 烙印的氣炎
   18973184, // 失烙印
   72272462, // 死獄鄉演員・奎里蒂斯
+  78397661, // 黑龍之艾克莉西婭
+  30271097, // 落胤與聖女
+  76666602, // 吞食聖痕之龍
+  95515789, // 赫之聖女 卡爾特西婭
 ]);
 const fallenOrMention = (c: Card) => isFallen(c) || MENTIONS_FALLEN.has(c.id);
 const fallenOrMentionData = (d: CardData) => isFallenData(d) || MENTIONS_FALLEN.has(d.id);
@@ -55,7 +59,7 @@ const isBranded = (d: CardData) => d.nameEn.includes('Branded');
 const isBrandedST = (d: CardData) => (isSpell(d) || isTrap(d)) && isBranded(d);
 const isDespia = (d: CardData) => /Despia/.test(d.nameEn) || d.id === 45883110;
 const isDespiaMon = (d: CardData) => isMonster(d) && isDespia(d);
-const isL8Fusion = (c: Card | CardData) => {
+export const isL8Fusion = (c: Card | CardData) => {
   const d = 'data' in c ? c.data : c;
   return isFusion(d) && d.level >= 8;
 };

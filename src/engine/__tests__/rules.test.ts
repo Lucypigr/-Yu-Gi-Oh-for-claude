@@ -2879,3 +2879,83 @@ describe('第二十九彈：黑魔術師・光與暗', () => {
     expect(st.location).toBe('szone');
   });
 });
+
+describe('第三十彈：落胤・同調士', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('落胤與聖女：把額外牌組記述「阿不思的落胤」的怪獸送去墓地，破壞場上 1 張表側表示卡', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 87746184, 'extra'); // 阿不思的落胤記述的融合怪獸
+    const foe = put(duel, 1, FILLER, 'mzone');
+    await activateCard(duel, 0, put(duel, 0, 30271097, 'hand'));
+    expect(foe.location).toBe('grave');
+  });
+
+  it('赫之聖女 卡爾特西婭：場上或墓地有「阿不思的落胤」時從手牌特殊召喚', async () => {
+    const { duel } = setup();
+    const c = put(duel, 0, 95515789, 'hand');
+    expect(duel.getActivatable(0).some((a) => a.card === c)).toBe(false);
+    put(duel, 0, 68468459, 'grave');
+    await activateCard(duel, 0, c);
+    expect(c.location).toBe('mzone');
+  });
+
+  it('噴氣同調士：把 1 張手牌送去墓地，從墓地特殊召喚（離場時除外）', async () => {
+    const { duel } = setup();
+    const j = put(duel, 0, 9742784, 'grave');
+    put(duel, 0, FILLER, 'hand');
+    await activateCard(duel, 0, j);
+    expect(j.location).toBe('mzone');
+    expect(duel.hasFlag(j, 'banishOnLeave')).toBe(true);
+  });
+
+  it('謎式密碼大師・緊縮位壓縮員：同步召喚時把對方怪獸當作永續陷阱卡放置', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const foe = put(duel, 1, 89631139, 'mzone');
+    put(duel, 0, FILLER, 'hand');
+    const pb = put(duel, 0, 72444406, 'extra');
+    duel.specialSummon(pb, 0, { position: 'atk', summonType: 'synchro' });
+    await duel.settle();
+    expect(foe.location).toBe('szone');
+    expect(foe.controller).toBe(1);
+  });
+});
+
+describe('第三十一彈：泛用卡', () => {
+  it('超雷龍-雷龍：對方不能用抽卡以外的方法從牌組把卡加入手牌', () => {
+    const { duel } = setup();
+    put(duel, 0, 15291624, 'mzone');
+    const c = put(duel, 1, FILLER, 'deck');
+    duel.addToHandFromDeck(c);
+    expect(c.location).toBe('deck');
+  });
+
+  it('禁忌的聖冠：效果無效・不會被破壞・不受其他卡發動的效果影響', async () => {
+    const { duel, a } = setup();
+    a.declineAll = true;
+    const foe = put(duel, 1, 89631139, 'mzone');
+    const act = duel.getActivatable(0).find((x) => x.card.id === 98829635) ?? null;
+    void act;
+    const crown = put(duel, 0, 98829635, 'hand');
+    const a2 = duel.getActivatable(0).find((x) => x.card === crown)!;
+    await duel.performMainAction(0, { type: 'activate', card: crown, effect: a2.effect, effectIndex: a2.effectIndex });
+    expect(duel.hasFlag(foe, 'negated')).toBe(true);
+    await duel.destroy([foe], 'effect', put(duel, 0, 12580477, 'hand'));
+    expect(foe.location).toBe('mzone');
+  });
+
+  it('天霆號 阿宙斯：超量怪獸進行過戰鬥的回合可以在超量怪獸上面重叠超量召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 32530043, 'mzone');
+    const z = put(duel, 0, 90448279, 'extra');
+    expect(duel.xyzMaterialSets(0, z).length).toBe(0);
+    duel.xyzBattledTurn = duel.turn;
+    expect(duel.xyzMaterialSets(0, z).length).toBe(1);
+  });
+});

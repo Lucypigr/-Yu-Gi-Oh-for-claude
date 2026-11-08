@@ -33,6 +33,8 @@ import './kewltune';
 import './staples3';
 import './toon2026';
 import './dmld';
+import './wave30';
+import './wave31';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 
