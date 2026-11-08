@@ -611,6 +611,9 @@ export class Duel {
       this.resolvingLink?.card === source
     )
       return true;
+    // 這個回合不受對方發動的效果影響（加速同調星塵龍）
+    if (this.hasFlag(target, 'immuneOppActivated') && (source.onField ? source.controller : source.owner) !== target.controller && this.resolvingLink?.card === source)
+      return true;
     for (const { card: src, effect } of this.activeContinuous()) if (effect.immune?.(this, src, target, source)) return true;
     if (isMonster(source.data) && selfQuery('immuneMonsters')) return true;
     if ((source.onField ? source.controller : source.owner) !== target.controller && selfQuery('immuneOpp')) return true;
