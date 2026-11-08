@@ -35,6 +35,7 @@ import './toon2026';
 import './dmld';
 import './wave30';
 import './wave31';
+import './wave32';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

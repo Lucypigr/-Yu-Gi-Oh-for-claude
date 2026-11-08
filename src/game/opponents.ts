@@ -698,6 +698,18 @@ export const OPPONENTS: Opponent[] = [
     deck: OPPONENT_DECKS.dmld,
   },
   {
+    id: 'blitzclique',
+    name: '雷盟的指揮官',
+    title: '天空城塞的守護者',
+    avatar: '⚡',
+    desc: '把手牌的雷盟兵給你看，破壞場上的卡再從手牌特殊召喚雷族！每次破壞都會觸發連鎖檢索，還會在你的場上送上機獸衍生物！',
+    level: 5,
+    reward: 520,
+    randomness: 0.05,
+    requires: 'dracotail',
+    deck: OPPONENT_DECKS.blitzclique,
+  },
+  {
     id: 'chaos',
     name: '混沌之王',
     title: '最終決鬥者',

@@ -79,6 +79,18 @@ const MANUAL = [
     attribute: 0x20,
   },
   {
+    id: 37654624,
+    name: '機獸衍生物',
+    nameEn: 'Mechabeast Token',
+    desc: '「天空城塞 庫侖城寨」的效果特殊召喚的衍生物。',
+    type: 0x4011,
+    atk: 2000,
+    def: 2000,
+    level: 6,
+    race: 0x20,
+    attribute: 0x1,
+  },
+  {
     id: 41458362,
     name: '奇石衍生物',
     nameEn: 'Adamancipator Token',

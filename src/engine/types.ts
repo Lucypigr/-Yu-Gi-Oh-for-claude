@@ -347,6 +347,8 @@ export interface CardScript {
   asSynchroMaterial?: (duel: Duel, synchro: Card, self: Card) => void;
   /** 8 星等儀式怪獸 1 隻儀式召喚的場合，可以由這 1 張卡作為需要的數值的解放使用（栗球獸衛） */
   ritualFullFor?: (ritual: Card) => boolean;
+  /** 這張卡不能作為連結素材（閃刀姬=零露） */
+  cannotBeLinkMaterial?: boolean;
   /** 作為連結素材時（I：P百變萊娜：那隻連結怪獸不會被對方的效果破壞） */
   asLinkMaterial?: (duel: Duel, link: Card, self: Card) => void;
   /** 自己場上沒有怪獸存在的場合，可以從自己手牌以及對方場上把怪獸解放上級召喚（天下獨步之大義賊） */
