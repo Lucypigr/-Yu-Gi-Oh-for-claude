@@ -385,6 +385,7 @@ const THEME_NAMES: Record<string, string> = {
   kewltune: '殺手級調整曲',
   toon2026: '完美世界 卡通',
   dmld: '黑魔術師・光與暗',
+  blitzclique: '雷盟',
 };
 
 function themeDecks(): ThemeDeck[] {

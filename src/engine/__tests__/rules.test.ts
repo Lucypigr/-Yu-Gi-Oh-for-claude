@@ -2959,3 +2959,41 @@ describe('第三十一彈：泛用卡', () => {
     expect(duel.xyzMaterialSets(0, z).length).toBe(1);
   });
 });
+
+describe('第三十二～三十三彈：閃刀姬・絢嵐・雷盟', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('浪湧雷盟兵：給對方看手牌的這張卡，破壞場上的怪獸，從手牌特殊召喚雷族怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const surge = put(duel, 0, 22912101, 'hand');
+    const foe = put(duel, 1, FILLER, 'mzone');
+    await activateCard(duel, 0, surge);
+    expect(foe.location).toBe('grave');
+    expect(surge.location).toBe('mzone');
+  });
+
+  it('天空城塞 庫侖城寨：在對方場上特殊召喚機獸衍生物，從牌組檢索「雷盟」怪獸', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const f = put(duel, 0, 37654623, 'hand');
+    duel.moveTo(f, 'fzone', { reason: 'rule', player: 0, faceUp: true });
+    const m = put(duel, 0, 22912101, 'deck');
+    const act = duel.getActivatable(0).find((a) => a.card === f && a.effect.kind === 'ignition')!;
+    await duel.performMainAction(0, { type: 'activate', card: f, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.monsters(1).some((c) => c.id === 37654624)).toBe(true);
+    expect(m.location).toBe('hand');
+  });
+
+  it('閃刀姬=零露：不能作為連結素材', () => {
+    const { duel } = setup();
+    put(duel, 0, 76072561, 'mzone');
+    put(duel, 0, 26077387, 'mzone');
+    const cam = put(duel, 0, 63013339, 'extra');
+    expect(duel.linkMaterialSets(0, cam).length).toBe(0);
+  });
+});

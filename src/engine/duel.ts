@@ -240,6 +240,8 @@ export class Duel {
     return this.lingering.filter((l) => l.turn === this.turn || (l.until !== undefined && this.turn >= l.turn && this.turn <= l.until));
   }
 
+  /** 用效果破壞卡的紀錄 */
+  effectDestroyers: { turn: number; player: PlayerId; data: CardData }[] = [];
   /** 最近一次超量怪獸進行戰鬥的回合（天霆號 阿宙斯） */
   xyzBattledTurn = -1;
   /** 最近一次有魔法卡的效果發動的回合 */
@@ -1478,6 +1480,9 @@ export class Duel {
   // =====================================================================
 
   raise(ev: GameEvent) {
+    // 這個回合用效果破壞卡的卡（晶鬚雷盟兵：自己的「雷盟」卡的效果把卡破壞的回合）
+    if (ev.type === 'destroyed' && ev.reason === 'effect' && ev.by)
+      this.effectDestroyers.push({ turn: this.turn, player: ev.by.onField ? ev.by.controller : ev.by.owner, data: ev.by.data });
     if (this.listeners.length) this.listeners = this.listeners.filter((l) => !l(ev));
     if (ev.type === 'summoned') {
       for (const c of ev.cards ?? (ev.card ? [ev.card] : [])) {
@@ -1695,6 +1700,9 @@ export class Duel {
     } else if (link.isCardActivation && isTrap(card.data) && this.trapsNegated()) {
       // 魔陷卡被人造人無效
       this.log(`「${card.name}」的效果被無效`);
+    } else if (ctx.data.replacedOperation) {
+      // 試號閃刀姬-天津：那個效果變成「…」
+      await (ctx.data.replacedOperation as (c: EffectContext) => Promise<void>)(ctx);
     } else if (effect.operation) {
       await effect.operation(ctx);
     }
@@ -2207,6 +2215,8 @@ export class Duel {
 
   async performMainAction(p: PlayerId, a: MainAction) {
     this.responseLock = null;
+    // 強欲而金滿之壺：主要階段1開始時（這個階段還沒有其他行動）
+    this.p(p).turnFlags.mainActed = true;
     switch (a.type) {
       case 'summon':
         return this.doNormalSummon(p, a.card, false);
@@ -2534,7 +2544,7 @@ export class Duel {
     const rating = link.data.level;
     const min = spec.min ?? 2;
     const max = Math.min(spec.max ?? rating, rating);
-    const own = this.faceUpMonsters(p).filter((c) => this.canBeMaterial(c) && (!spec.filter || spec.filter(c, this)));
+    const own = this.faceUpMonsters(p).filter((c) => this.canBeMaterial(c) && !getScript(c.id).cannotBeLinkMaterial && (!spec.filter || spec.filter(c, this)));
     // 閉鎖世界的冥神：對方場上 1 隻怪獸也能作為連結素材；W：P變幻舞夜：對方的連結 2 以下的連結怪獸
     const lenders = own.filter((c) => getScript(c.id).oppLinkMaterialWith && !this.isNegated(c));
     const opp = this.faceUpMonsters(other(p)).filter(
