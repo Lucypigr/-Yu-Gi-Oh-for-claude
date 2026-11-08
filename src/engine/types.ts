@@ -146,6 +146,7 @@ export type Query =
   | 'extraNormalSummon' // 在通常召喚外加上只有 1 次可以召喚（target 為要召喚的手牌怪獸）
   | 'cannotActivateEffect' // 這隻怪獸不能把效果發動（災厄之星 提・豐：攻擊力 3000 以上）
   | 'oppEffectUnbanishable' // 不能用對方的效果除外
+  | 'noDeckToHand' // 不能用抽卡以外的方法從牌組把卡加入手牌（全域，player 為被限制方）
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
   | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象

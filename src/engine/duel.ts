@@ -240,6 +240,8 @@ export class Duel {
     return this.lingering.filter((l) => l.turn === this.turn || (l.until !== undefined && this.turn >= l.turn && this.turn <= l.until));
   }
 
+  /** 最近一次超量怪獸進行戰鬥的回合（天霆號 阿宙斯） */
+  xyzBattledTurn = -1;
   /** 最近一次有魔法卡的效果發動的回合 */
   spellActivatedTurn = -1;
   /** 「雙方不能從牌組把卡加入手牌」的回合（小丑與鎖鳥） */
@@ -611,6 +613,8 @@ export class Duel {
       this.resolvingLink?.card === source
     )
       return true;
+    // 禁忌的聖冠：不受自身以外的卡發動的效果影響
+    if (this.hasFlag(target, 'immuneOtherActivated') && this.resolvingLink?.card === source) return true;
     // 這個回合不受對方發動的效果影響（加速同調星塵龍）
     if (this.hasFlag(target, 'immuneOppActivated') && (source.onField ? source.controller : source.owner) !== target.controller && this.resolvingLink?.card === source)
       return true;
@@ -811,6 +815,11 @@ export class Duel {
     // 小丑與鎖鳥：這個回合雙方不能從牌組把卡加入手牌（抽卡除外）
     if (to === 'hand' && from === 'deck' && opts.reason !== 'draw' && this.deckToHandLockTurn === this.turn) {
       this.log(`這個回合不能從牌組把卡加入手牌`);
+      return false;
+    }
+    // 超雷龍-雷龍：對方不能用抽卡以外的方法從牌組把卡加入手牌
+    if (to === 'hand' && from === 'deck' && opts.reason !== 'draw' && this.playerHas(card.owner, 'noDeckToHand')) {
+      this.log(`不能從牌組把卡加入手牌`);
       return false;
     }
     const fromZone = card.zone;
@@ -1769,8 +1778,13 @@ export class Duel {
 
     // 「不能對應這個發動讓魔法・陷阱卡發動」（神炎皇 烏利亞）
     const noST = !!topLink && topLink.player !== p && !!topLink.ctx.data.noSTResponse;
+    // 禁忌的一滴：對方不能把和送去墓地的卡相同種類的卡的效果發動；禁忌的聖冠：不能對應讓怪獸的效果發動
+    const blockedKinds: string[] = topLink && topLink.player !== p ? (topLink.ctx.data.noResponseKinds ?? []) : [];
+    const noMon = !!topLink?.ctx.data.noMonsterResponse;
     for (const card of candidates) {
       if (noST && (isSpell(card.data) || isTrap(card.data))) continue;
+      if (noMon && isMonster(card.data)) continue;
+      if (blockedKinds.includes(isMonster(card.data) ? 'm' : isSpell(card.data) ? 's' : 't')) continue;
       const effects = this.effectsOf(card);
       if (!effects) continue;
       effects.forEach((effect, effectIndex) => {
@@ -1923,6 +1937,8 @@ export class Duel {
     // 三戰之才：這個回合的自己主要階段對方已把怪獸的效果發動
     if (isMonster(card.data) && !link.isCardActivation && p !== this.turnPlayer && (this.phase === 'main1' || this.phase === 'main2'))
       this.p(this.turnPlayer).turnFlags.oppMonEffInMain = true;
+    // 超雷龍-雷龍：雷族怪獸的效果在手牌發動的回合
+    if (isMonster(card.data) && !link.isCardActivation && origin === 'hand' && (card.data.race & 0x1000) !== 0) this.p(p).turnFlags.thunderHandEffect = true;
     // 霆王的閃光：對方把手牌・墓地的怪獸的效果發動的回合
     if (isMonster(card.data) && !link.isCardActivation && (link.activatedFrom === 'hand' || link.activatedFrom === 'grave')) this.p(p).turnFlags.activatedHandGraveMonster = true;
     this.raise({ type: 'activated', card, player: p, link });
@@ -2656,6 +2672,7 @@ export class Duel {
     }
     if (!placed.length) return;
     this.p(p).turnFlags.summoned = true;
+    this.p(p).turnFlags.pendulumSummoned = true;
     this.log(`${this.p(p).name} 靈擺召喚 ${placed.map((c) => `「${c.name}」`).join('、')}！`, p);
     await this.pause(500);
     if (await this.summonAttemptWindow(placed, p, 'pendulum')) {
@@ -3088,6 +3105,7 @@ export class Duel {
     }
 
     // 傷害步驟結束
+    if (isXyz(attacker.data) || (target && isXyz(target.data))) this.xyzBattledTurn = this.turn;
     this.raise({ type: 'damageStepEnd', card: attacker, attacker, target, player: p });
     await this.settle();
     for (const c of this.monsters()) c.mods = c.mods.filter((m) => m.until !== 'damageCalc');

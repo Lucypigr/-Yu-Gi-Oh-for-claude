@@ -2926,3 +2926,36 @@ describe('第三十彈：落胤・同調士', () => {
     expect(foe.controller).toBe(1);
   });
 });
+
+describe('第三十一彈：泛用卡', () => {
+  it('超雷龍-雷龍：對方不能用抽卡以外的方法從牌組把卡加入手牌', () => {
+    const { duel } = setup();
+    put(duel, 0, 15291624, 'mzone');
+    const c = put(duel, 1, FILLER, 'deck');
+    duel.addToHandFromDeck(c);
+    expect(c.location).toBe('deck');
+  });
+
+  it('禁忌的聖冠：效果無效・不會被破壞・不受其他卡發動的效果影響', async () => {
+    const { duel, a } = setup();
+    a.declineAll = true;
+    const foe = put(duel, 1, 89631139, 'mzone');
+    const act = duel.getActivatable(0).find((x) => x.card.id === 98829635) ?? null;
+    void act;
+    const crown = put(duel, 0, 98829635, 'hand');
+    const a2 = duel.getActivatable(0).find((x) => x.card === crown)!;
+    await duel.performMainAction(0, { type: 'activate', card: crown, effect: a2.effect, effectIndex: a2.effectIndex });
+    expect(duel.hasFlag(foe, 'negated')).toBe(true);
+    await duel.destroy([foe], 'effect', put(duel, 0, 12580477, 'hand'));
+    expect(foe.location).toBe('mzone');
+  });
+
+  it('天霆號 阿宙斯：超量怪獸進行過戰鬥的回合可以在超量怪獸上面重叠超量召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 32530043, 'mzone');
+    const z = put(duel, 0, 90448279, 'extra');
+    expect(duel.xyzMaterialSets(0, z).length).toBe(0);
+    duel.xyzBattledTurn = duel.turn;
+    expect(duel.xyzMaterialSets(0, z).length).toBe(1);
+  });
+});
