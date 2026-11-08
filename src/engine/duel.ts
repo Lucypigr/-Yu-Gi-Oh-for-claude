@@ -1842,6 +1842,8 @@ export class Duel {
     // 「這張卡不能發動」（淘氣仙星的燈光舞台等）
     if (this.hasFlag(card, 'cannotActivate')) return false;
     if (isMonster(d) && effect.kind !== 'activate' && this.has(card, 'cannotActivateEffect')) return false;
+    // 召喚獸 卡利古拉：雙方在 1 回合只能有 1 次把怪獸的效果發動
+    if (isMonster(d) && effect.kind !== 'activate' && this.p(p).turnFlags.monEffectActivated && this.playerHas(p, 'oneMonsterEffectPerTurn')) return false;
     // 手牌・墓地等場上以外的怪獸效果被無效（墓穴的指名者）
     if (isMonster(d) && !card.onField && this.isNegated(card)) return false;
     if (isSpell(d) && effect.kind === 'activate' && this.playerHas(p, 'cannotActivateSpells')) return false;
@@ -1904,6 +1906,8 @@ export class Duel {
     ctx.data.activatedFrom = origin;
     const ps = this.p(p);
     if (isCardActivation) ps.turnFlags.stActivated = true;
+    if (isMonster(card.data) && !isCardActivation) ps.turnFlags.monEffectActivated = true;
+    ps.turnFlags.anyEffectActivated = true;
     // 毀滅之黑魔術師：魔法卡的效果發動的回合
     if (isSpell(card.data)) this.spellActivatedTurn = this.turn;
     if (isCardActivation) {
@@ -2902,6 +2906,17 @@ export class Duel {
   // ---- 融合・儀式（由魔法卡的效果呼叫）----
 
   /** 判斷 cards 是否能分配給所有素材條件 */
+  /** 融合素材是否符合條件（沼地的魔道王・月光彩雛：這個回合可以當作其他卡的同名卡） */
+  fusionFits(cond: (d: CardData, c?: Card, duel?: Duel) => boolean, c: Card): boolean {
+    if (cond(c.data, c, this)) return true;
+    const alias = c.flags.fusionAsId as number | undefined;
+    if (alias && c.flags.fusionAsTurn === this.turn && c.location === 'mzone' && c.faceUp) {
+      const ad = { ...c.data, id: alias, name: getCard(alias).name, nameEn: getCard(alias).nameEn };
+      return cond(ad, undefined, this);
+    }
+    return false;
+  }
+
   matchMaterials(conds: FusionConds, cards: Card[]): boolean {
     if (conds.more ? cards.length < conds.length : conds.length !== cards.length) return false;
     if (cards.some((c) => !this.canBeMaterial(c))) return false;
@@ -2911,7 +2926,7 @@ export class Duel {
       // 指定的素材都分配好後，剩下的必須符合「…1 隻以上」的條件
       if (i === conds.length) return cards.every((c, j) => used[j] || (conds.more?.(c.data, c) ?? false));
       for (let j = 0; j < cards.length; j++) {
-        if (used[j] || !conds[i](cards[j].data, cards[j], this)) continue;
+        if (used[j] || !this.fusionFits(conds[i], cards[j])) continue;
         used[j] = true;
         if (rec(i + 1)) return true;
         used[j] = false;
@@ -2939,7 +2954,7 @@ export class Duel {
     const rec = (i: number): boolean => {
       if (i === conds.length) return !conds.validate || conds.validate(chosen);
       for (const c of pool) {
-        if (chosen.includes(c) || !conds[i](c.data, c, this)) continue;
+        if (chosen.includes(c) || !this.fusionFits(conds[i], c)) continue;
         chosen.push(c);
         if (rec(i + 1)) return true;
         chosen.pop();
@@ -2966,6 +2981,11 @@ export class Duel {
 
   canAttack(c: Card): boolean {
     if (c.location !== 'mzone' || !c.faceUp || c.position !== 'atk') return false;
+    // 神靈劍 艾華斯：這個回合，自己不用融合怪獸不能攻擊宣言
+    if (this.p(c.controller).turnFlags.onlyFusionAttack && !(c.data.type & 0x40)) return false;
+    // 召喚獸 卡利古拉：在同 1 次的戰斗階段中只能用 1 隻怪獸攻擊
+    const firstAttacker = this.p(c.controller).turnFlags.firstAttacker as number | undefined;
+    if (firstAttacker !== undefined && firstAttacker !== c.uid && this.playerHas(c.controller, 'oneAttackerPerBattle')) return false;
     if (c.attacks >= Math.max(this.attackAllowance(c), this.monsterAttackAllowance(c))) return false;
     if (this.has(c, 'cannotAttack')) return false;
     return true;
@@ -3042,6 +3062,7 @@ export class Duel {
     const p = attacker.controller;
     const opp = other(p);
     attacker.attacks++;
+    if (this.p(attacker.controller).turnFlags.firstAttacker === undefined) this.p(attacker.controller).turnFlags.firstAttacker = attacker.uid;
     if (target) attacker.attackedTargets.push(target);
     this.battle = {
       attacker,
