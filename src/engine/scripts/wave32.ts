@@ -370,7 +370,7 @@ def(35269904, {
     activate({
       once: 'name',
       categories: ['search'],
-      condition: (ctx) => !!ctx.duel.p(ctx.opp).turnFlags.activatedMonsterEffect && thrustPool(ctx).length > 0,
+      condition: (ctx) => !!ctx.duel.p(ctx.opp).turnFlags.monEffectActivated && thrustPool(ctx).length > 0,
       operation: async (ctx) => {
         const d = ctx.duel;
         const c = await d.selectOne({ player: ctx.player, title: '選擇通常魔法・通常陷阱卡', cards: thrustPool(ctx), hint: 'benefit', aiValue: (x) => cardValue(d, x, ctx.player) });

@@ -386,6 +386,8 @@ const THEME_NAMES: Record<string, string> = {
   toon2026: '完美世界 卡通',
   dmld: '黑魔術師・光與暗',
   blitzclique: '雷盟',
+  invoked: '召喚獸',
+  lunalight: '月光',
 };
 
 function themeDecks(): ThemeDeck[] {

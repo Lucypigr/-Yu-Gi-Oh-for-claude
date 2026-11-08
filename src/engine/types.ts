@@ -147,6 +147,8 @@ export type Query =
   | 'cannotActivateEffect' // 這隻怪獸不能把效果發動（災厄之星 提・豐：攻擊力 3000 以上）
   | 'oppEffectUnbanishable' // 不能用對方的效果除外
   | 'noDeckToHand' // 不能用抽卡以外的方法從牌組把卡加入手牌（全域，player 為被限制方）
+  | 'oneMonsterEffectPerTurn' // 1 回合只能有 1 次把怪獸的效果發動（全域）
+  | 'oneAttackerPerBattle' // 同 1 次的戰鬥階段中只能用 1 隻怪獸攻擊（全域）
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
   | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象

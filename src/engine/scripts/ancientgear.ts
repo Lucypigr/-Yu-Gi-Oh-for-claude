@@ -58,7 +58,7 @@ async function ssIgnoring(ctx: EffectContext, cands: Card[], title: string, posi
 /** 融合召喚（pool：可以作為素材的卡；banish：素材除外；validate：素材組合的額外條件） */
 export async function fusionSummon(
   ctx: EffectContext,
-  opts: { pool: Card[]; filter: (f: Card) => boolean; banish?: boolean; toDeck?: boolean; validate?: (mats: Card[]) => boolean },
+  opts: { pool: Card[]; filter: (f: Card) => boolean; banish?: boolean; toDeck?: boolean; validate?: (mats: Card[]) => boolean; banishIf?: (c: Card) => boolean },
 ): Promise<Card | null> {
   const d = ctx.duel;
   const cands = fusionTargets(d, ctx.player, opts);
@@ -70,7 +70,7 @@ export async function fusionSummon(
   let mats = await d.select({
     player: ctx.player,
     title: `選擇「${f.name}」的融合素材`,
-    cards: opts.pool.filter((c) => conds.some((cond) => cond(c.data, c, d)) || !!conds.more?.(c.data, c)),
+    cards: opts.pool.filter((c) => conds.some((cond) => d.fusionFits(cond, c)) || !!conds.more?.(c.data, c)),
     min: conds.length,
     max: conds.more ? opts.pool.length : conds.length,
     hint: 'cost',
@@ -85,7 +85,10 @@ export async function fusionSummon(
   d.moveFusionMaterials(mats, () => {
     if (opts.toDeck) d.returnToDeck(mats, false, 'material', ctx.card);
     else if (opts.banish) d.banish(mats, 'material', ctx.card);
-    else d.sendToGrave(mats, 'material', ctx.card);
+    else if (opts.banishIf) {
+      d.banish(mats.filter(opts.banishIf), 'material', ctx.card);
+      d.sendToGrave(mats.filter((m) => !opts.banishIf!(m)), 'material', ctx.card);
+    } else d.sendToGrave(mats, 'material', ctx.card);
   });
   for (const m of mats) m.fusionMaterial = true;
   if (fromDeck || opts.toDeck) d.shuffleDeck(ctx.player);

@@ -2997,3 +2997,50 @@ describe('第三十二～三十三彈：閃刀姬・絢嵐・雷盟', () => {
     expect(duel.linkMaterialSets(0, cam).length).toBe(0);
   });
 });
+
+describe('第三十四～三十五彈：召喚獸・月光', () => {
+  async function activateCard(duel: Duel, p: PlayerId, card: Card) {
+    const act = duel.getActivatable(p).find((a) => a.card === card);
+    expect(act).toBeTruthy();
+    await duel.performMainAction(p, { type: 'activate', card, effect: act!.effect, effectIndex: act!.effectIndex });
+  }
+
+  it('召喚魔術：融合召喚「召喚獸」時可以把對方墓地的怪獸除外作為素材', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    put(duel, 0, 86120751, 'hand');
+    const foe = put(duel, 1, 70095154, 'grave'); // 光屬性
+    const mech = put(duel, 0, 75286621, 'extra');
+    await activateCard(duel, 0, put(duel, 0, 74063034, 'hand'));
+    expect(mech.location).toBe('mzone');
+    expect(foe.location).toBe('banished');
+  });
+
+  it('暴走召喚師 阿萊斯特：卡名當作「召喚師 阿萊斯特」', () => {
+    expect(isNamed(getCard(97973962), 86120751)).toBe(true);
+  });
+
+  it('召喚獸 卡利古拉：雙方 1 回合只能把怪獸的效果發動 1 次', () => {
+    const { duel } = setup();
+    put(duel, 0, 13529466, 'mzone');
+    expect(duel.playerHas(1, 'oneMonsterEffectPerTurn')).toBe(true);
+  });
+
+  it('月光黑羊：從手牌丟棄，從牌組把「融合」加入手牌', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const poly = put(duel, 0, 24094653, 'deck');
+    await activateCard(duel, 0, put(duel, 0, 11317977, 'hand'));
+    expect(poly.location).toBe('hand');
+  });
+
+  it('月光彩雛：這個回合可以當作送去墓地的「月光」怪獸的同名卡成為融合素材', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const chick = put(duel, 0, 35618217, 'mzone');
+    put(duel, 0, 51777272, 'extra');
+    const act = duel.getActivatable(0).find((a) => a.card === chick)!;
+    await duel.performMainAction(0, { type: 'activate', card: chick, effect: act.effect, effectIndex: act.effectIndex });
+    expect(duel.fusionFits((d) => d.id === 51777272, chick)).toBe(true);
+  });
+});
