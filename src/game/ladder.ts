@@ -388,6 +388,8 @@ const THEME_NAMES: Record<string, string> = {
   blitzclique: '雷盟',
   invoked: '召喚獸',
   lunalight: '月光',
+  yummy: '味美喵',
+  angelechy: '具象天使',
 };
 
 function themeDecks(): ThemeDeck[] {

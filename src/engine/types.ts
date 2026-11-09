@@ -37,6 +37,7 @@ export type Reason =
 
 // ---- 事件 ----
 export type EventType =
+  | 'controlChanged' // 控制權變更
   | 'summoned' // 召喚・反轉召喚・特殊召喚成功
   | 'summonAttempt' // 召喚之際（神之宣告用）
   | 'flipped' // 變成表側（反轉效果）
@@ -149,6 +150,7 @@ export type Query =
   | 'noDeckToHand' // 不能用抽卡以外的方法從牌組把卡加入手牌（全域，player 為被限制方）
   | 'oneMonsterEffectPerTurn' // 1 回合只能有 1 次把怪獸的效果發動（全域）
   | 'oneAttackerPerBattle' // 同 1 次的戰鬥階段中只能用 1 隻怪獸攻擊（全域）
+  | 'maxFiveMonsterEffects' // 1 回合最多只能發動 5 次怪獸的效果（全域，player 為被限制方）
   | 'oneSpellTrapPerTurn' // 1 回合只能發動 1 次魔法・陷阱卡（全域，player 為被限制方）
   | 'untargetable' // 不能成為效果的對象
   | 'untargetableByMonsters' // 雙方不能作為怪獸的效果的對象
@@ -253,6 +255,8 @@ export interface CardScript {
     tuners?: number;
     /** 可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用 */
     centerAsTuner?: boolean;
+    /** 同步召喚的場合，可以把自己場上 1 隻連結 1 怪獸當作 1 星調整使用 */
+    link1AsTuner?: boolean;
     /** 自訂素材條件（取代調整／調整以外的分配；「調整＋調整 1 隻以上」等） */
     custom?: (set: Card[], duel: Duel) => boolean;
   };
@@ -329,6 +333,10 @@ export interface CardScript {
   ssOncePerTurn?: boolean;
   /** 這張卡在怪獸區域存在時的召喚限制，回傳 false 表示 p 不能召喚 card */
   summonRestriction?: (duel: Duel, self: Card, p: PlayerId, card: Card, kind: 'normal' | 'flip' | 'special') => boolean;
+  /** 自己場上有怪獸存在的場合，這張卡不能召喚・特殊召喚（衝浪檢察官） */
+  onlyWhenFieldEmpty?: boolean;
+  /** 只要這張卡在怪獸區域存在，雙方 1 回合可以發動的怪獸的效果次數最多到場上的怪獸的種類數量（衝浪檢察官） */
+  monsterEffectCapByKinds?: boolean;
   /** 上級召喚以外不能解放（等級偷竊蟲） */
   onlyTributeForSummon?: boolean;
   /** 「這張卡不能特殊召喚」（無視召喚條件時除外） */
