@@ -38,6 +38,7 @@ import './wave31';
 import './wave32';
 import './invoked';
 import './lunalight';
+import './yummy';
 import { def, extend, getScript, hasScript } from './registry';
 import { ritualSpell } from './spells';
 

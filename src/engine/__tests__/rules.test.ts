@@ -3044,3 +3044,39 @@ describe('第三十四～三十五彈：召喚獸・月光', () => {
     expect(duel.fusionFits((d) => d.id === 51777272, chick)).toBe(true);
   });
 });
+
+describe('第三十六～三十七彈：味美喵・具象天使', () => {
+  it('味美喵獎品：可以把連結 1 怪獸當作 1 星調整同步召喚', () => {
+    const { duel } = setup();
+    put(duel, 0, 30581601, 'mzone'); // 連結 1
+    put(duel, 0, 10966439, 'mzone'); // 1 星
+    const way = put(duel, 0, 31603289, 'extra');
+    expect(duel.synchroMaterialSets(0, way).length).toBe(1);
+  });
+
+  it('奶油蛋糕杯貓☆味美喵：連結 1 怪獸在場時可以從手牌特殊召喚', () => {
+    const { duel } = setup();
+    const c = put(duel, 0, 31425736, 'hand');
+    expect(duel.getMainActions(0).some((x) => x.type === 'spSummon' && x.card === c)).toBe(false);
+    put(duel, 0, 30581601, 'mzone');
+    expect(duel.getMainActions(0).some((x) => x.type === 'spSummon' && x.card === c)).toBe(true);
+  });
+
+  it('衝浪檢察官：自己場上有怪獸存在時不能召喚', () => {
+    const { duel } = setup();
+    const ib = put(duel, 0, 15397015, 'hand');
+    expect(duel.canNormalSummon(0, ib)).toBe(true);
+    put(duel, 0, FILLER, 'mzone');
+    expect(duel.canNormalSummon(0, ib)).toBe(false);
+  });
+
+  it('牙城之具象天使：當作永續魔法卡放置時，把四軍之具象天使當作永續魔法卡放置', async () => {
+    const { duel, b } = setup();
+    b.declineAll = true;
+    const bastion = put(duel, 0, 28904860, 'extra');
+    const sh = put(duel, 0, 42410161, 'extra');
+    duel.placeAsSpell(bastion, 0);
+    await duel.settle();
+    expect(sh.location).toBe('szone');
+  });
+});

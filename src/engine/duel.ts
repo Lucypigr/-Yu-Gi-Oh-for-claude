@@ -1394,6 +1394,7 @@ export class Duel {
     card.attacks = 0;
     this.log(`${this.p(p).name} 得到「${card.name}」的控制權`, p);
     this.update();
+    this.raise({ type: 'controlChanged', card, player: p });
     return true;
   }
 
@@ -1842,6 +1843,13 @@ export class Duel {
     // 「這張卡不能發動」（淘氣仙星的燈光舞台等）
     if (this.hasFlag(card, 'cannotActivate')) return false;
     if (isMonster(d) && effect.kind !== 'activate' && this.has(card, 'cannotActivateEffect')) return false;
+    // 衝浪檢察官：雙方各自在 1 回合可以發動的怪獸的效果次數最多到場上的怪獸的種類數量
+    if (isMonster(d) && effect.kind !== 'activate' && this.monsters().some((m) => m.faceUp && getScript(m.id).monsterEffectCapByKinds && !this.isNegated(m))) {
+      const kinds = [0x80, 0x40, 0x2000, 0x800000, 0x1000000, 0x4000000].filter((b) => this.faceUpMonsters().some((m) => m.data.type & b)).length;
+      if (((this.p(p).turnFlags.monEffectCount as number) ?? 0) >= kinds) return false;
+    }
+    // 四軍之具象天使：對方在 1 回合最多只能發動 5 次怪獸的效果
+    if (isMonster(d) && effect.kind !== 'activate' && ((this.p(p).turnFlags.monEffectCount as number) ?? 0) >= 5 && this.playerHas(p, 'maxFiveMonsterEffects')) return false;
     // 召喚獸 卡利古拉：雙方在 1 回合只能有 1 次把怪獸的效果發動
     if (isMonster(d) && effect.kind !== 'activate' && this.p(p).turnFlags.monEffectActivated && this.playerHas(p, 'oneMonsterEffectPerTurn')) return false;
     // 手牌・墓地等場上以外的怪獸效果被無效（墓穴的指名者）
@@ -1906,7 +1914,10 @@ export class Duel {
     ctx.data.activatedFrom = origin;
     const ps = this.p(p);
     if (isCardActivation) ps.turnFlags.stActivated = true;
-    if (isMonster(card.data) && !isCardActivation) ps.turnFlags.monEffectActivated = true;
+    if (isMonster(card.data) && !isCardActivation) {
+      ps.turnFlags.monEffectActivated = true;
+      ps.turnFlags.monEffectCount = ((ps.turnFlags.monEffectCount as number) ?? 0) + 1;
+    }
     ps.turnFlags.anyEffectActivated = true;
     // 毀滅之黑魔術師：魔法卡的效果發動的回合
     if (isSpell(card.data)) this.spellActivatedTurn = this.turn;
@@ -2077,6 +2088,8 @@ export class Duel {
       const r = getScript(m.id).summonRestriction;
       if (r && m.faceUp && !this.isNegated(m) && !r(this, m, p, card, kind)) return false;
     }
+    // 衝浪檢察官：自己場上有怪獸存在的場合，這張卡不能召喚・特殊召喚
+    if (getScript(card.id).onlyWhenFieldEmpty && this.monsters(p).some((c) => c !== card)) return false;
     // 「○○在自己場上只能有 1 隻表側表示存在」
     if (getScript(card.id).uniqueOnField && this.faceUpMonsters(p).some((c) => c.id === card.id && c !== card)) return false;
     // 神影依・米德拉什：那個期間雙方 1 回合只能有 1 次把怪獸特殊召喚
@@ -2449,6 +2462,7 @@ export class Duel {
 
   /** 作為同步素材時可以當作的等級 */
   private synchroLevels(m: Card, synchro: Card): number[] {
+    if (isLink(m.data)) return [1];
     const alt = getScript(m.id).synchroLevel;
     if (alt && !this.isNegated(m)) return alt(this, m, synchro);
     return [this.getLevel(m)];
@@ -2457,7 +2471,9 @@ export class Duel {
   /** 列出所有合法的同步素材組合（include：必須包含的怪獸） */
   synchroMaterialSets(p: PlayerId, synchro: Card, include?: Card): Card[][] {
     const script = getScript(synchro.id);
-    const field = this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data) && this.canBeMaterial(c));
+    // 味美喵獎品：可以把自己場上 1 隻連結 1 怪獸當作 1 星調整使用
+    const link1 = script.synchro?.link1AsTuner ? this.faceUpMonsters(p).filter((c) => isLink(c.data) && c.data.level === 1 && this.canBeMaterial(c)) : [];
+    const field = [...this.faceUpMonsters(p).filter((c) => !isXyz(c.data) && !isLink(c.data) && this.canBeMaterial(c)), ...link1];
     const handTunerSrc = (c: Card) => !!getScript(c.id).handTunerMaterial && !this.isNegated(c);
     // 殺手級調整曲：場上的這張卡為素材的場合，手牌 1 隻調整也能作為同步素材
     const hand = field.some(handTunerSrc) ? this.p(p).hand.filter((c) => isMonster(c.data) && isTuner(c.data) && c.data.level > 0) : [];
@@ -2476,7 +2492,8 @@ export class Duel {
         if (!script.synchro.custom(set, this)) continue;
       } else {
       // 調整剛好是指定的數量，其餘是調整以外的怪獸
-      let tuners = set.filter((c) => isTuner(c.data) && !this.isNegated(c));
+      if (set.filter((c) => isLink(c.data)).length > 1) continue;
+      let tuners = set.filter((c) => (isTuner(c.data) && !this.isNegated(c)) || isLink(c.data));
       // 調狱神 朱諾拉：可以把自己的中央的主要怪獸區域 1 隻怪獸當作調整使用
       if (tuners.length === tunerCount - 1 && script.synchro?.centerAsTuner) {
         const center = set.find((c) => c.controller === p && c.zone === 2 && !tuners.includes(c));
